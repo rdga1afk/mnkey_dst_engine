@@ -18,7 +18,8 @@
 //
 // MdEntity(uint32_t) reconstructs from just the low 32 bits (generation
 // defaults to 0) — a "dumb", world-independent bit-reconstruction. flecs
-// entity_t packs a 32-bit index in the low bits and a 32-bit generation in
+// entity_t packs a 32-bit index in the low bits and a 16-bit generation
+// (ECS_GENERATION_MASK = 0xFFFFull << 32, flecs.h) plus 4 ID-flag bits in
 // the high bits; if the original entity died and its index got recycled by
 // a newer entity, this constructor does NOT recover that — it's the raw,
 // no-world-access fallback. MdRegistry::FromIndex(uint32_t) is the
