@@ -22,6 +22,17 @@ public:
 
     void SetFrameParams(const RenderFrameParams& params) override;
 
+    // Callback-based інверсія контролю (Етап 2a, §5's архітектурне
+    // рішення): реальна логіка живе в game/ (NpcRender::DrawShadowMaps
+    // звертається до приватних game/-членів), engine/ не може викликати
+    // її напряму. game/-сторона реєструє СВОЮ функцію ОДИН раз (типово
+    // при NpcRender::Init() чи еквіваленті); RenderShadowPass() нижче
+    // просто викликає зареєстрований callback з поточним frame_params_.
+    void SetShadowPassCallback(BackendStageFn fn, void* user) {
+        shadow_pass_fn_ = fn;
+        shadow_pass_user_ = user;
+    }
+
     void UploadTransforms() override;
     void RunGpuCulling() override;
     void RunGpuSkinning() override;
@@ -37,8 +48,14 @@ private:
     // internal state -- вказівники/handle на існуючі системи, БЕЗ
     // дублювання даних (GBuffer&, ShadowSystem&, тощо через посилання/
     // singleton доступ). Заповнюється Етапом 2, коли реальні call site
-    // переносяться сюди -- Етап 0/1 не потребує жодного поля тут ще.
+    // переносяться сюди.
     RenderFrameParams frame_params_;
+
+    // Callback-слоти (Етап 2, по одному на під-стадію -- додаються тут
+    // ЛИШЕ коли конкретна під-стадія реально переноситься, не всі 10
+    // наперед). 2a:
+    BackendStageFn shadow_pass_fn_   = nullptr;
+    void*          shadow_pass_user_ = nullptr;
 };
 
 }  // namespace md::render_backend

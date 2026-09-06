@@ -40,7 +40,15 @@ void SdlGpuBackend::RunGpuSkinning() {
 }
 
 void SdlGpuBackend::RenderShadowPass() {
-    MD_LOG(MD_LOG_WARNING, "[SdlGpuBackend] stub: %s", __func__);
+    // RENDER-BACKEND-STAGE-2a: реальна логіка (ShadowSystem::Update +
+    // NpcRender::DrawShadowMaps) живе в game/, зареєстрована через
+    // SetShadowPassCallback() -- див. render_backend_types.h's
+    // BackendStageFn doc-коментар для повного обґрунтування.
+    if (shadow_pass_fn_) {
+        shadow_pass_fn_(shadow_pass_user_, frame_params_);
+    } else {
+        MD_LOG(MD_LOG_WARNING, "[SdlGpuBackend] RenderShadowPass: no callback registered");
+    }
 }
 
 void SdlGpuBackend::RenderGBufferPass() {
