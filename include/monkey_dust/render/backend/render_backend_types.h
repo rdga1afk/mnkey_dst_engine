@@ -1,6 +1,7 @@
 #pragma once
 #include <monkey_dust/render/md_camera.h>
 #include <monkey_dust/render/gpu_hal.h>
+#include <monkey_dust/ecs/md_entity.h>
 
 // RENDER-BACKEND-STAGE-0 (docs/RENDER_BACKEND_ABSTRACTION.md, §3.2).
 // POD-типи, спільні для всіх backend-реалізацій (SdlGpuBackend зараз,
@@ -36,6 +37,31 @@ struct RenderFrameParams {
     int                        viewport_h   = 0;
     md::GpuCommandBufferHandle cmd          = nullptr;
     int                        active_count = 0;  // FrameCtx::ac (active NPC count)
+
+    // Added Etap 2b (2026-09-06): NpcRender::DrawScene's real signature
+    // (npc_render_deferred.cpp) needs more than the fields above --
+    // player_entity/selected/cam_az are plain inputs, but cam_x/cam_z are
+    // OUTPUT refs (DrawScene mutates them, e.g. camera-follow smoothing)
+    // that the caller reads back AFTER RenderGBufferPass() returns. A
+    // BackendStageFn callback only ever sees `const RenderFrameParams&`
+    // (§2.2), so mutating the `cam_x`/`cam_z` value fields above wouldn't
+    // be visible to the caller -- these pointers alias the caller's OWN
+    // locals directly (NpcRender::RenderFrame()'s cam_x/cam_z params),
+    // same object, not a copy.
+    MdEntity player_entity;
+    MdEntity selected;
+    float    cam_az    = 0.f;
+    float*   cam_x_io  = nullptr;
+    float*   cam_z_io  = nullptr;
+
+    // Opaque alias of the caller's own NpcRender::FrameCtx& (game/-private
+    // type, engine/ can't name it -- same split-readiness reasoning as the
+    // cmd/active_count comment above, but FrameCtx has more fields
+    // DrawScene needs than just those two, e.g. p_count/sc_tex/sc_acquired
+    // for the in-DrawScene screenshot/particle paths). ONLY the game/-side
+    // callback that registered itself knows the real type and casts back
+    // to NpcRender::FrameCtx* -- engine/ never dereferences this.
+    void* frame_ctx = nullptr;
 };
 
 // Backend capability flags -- дозволяє викликачу (майбутній Етап 3+)

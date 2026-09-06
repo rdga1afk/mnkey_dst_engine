@@ -33,6 +33,14 @@ public:
         shadow_pass_user_ = user;
     }
 
+    // Etap 2b: NpcRender::DrawScene (also draws terrain/props/particles --
+    // §3.2's own doc comment on RenderGBufferPass explains this is one call
+    // site covering both 2b and 2f, not two independent ones).
+    void SetGBufferPassCallback(BackendStageFn fn, void* user) {
+        gbuffer_pass_fn_ = fn;
+        gbuffer_pass_user_ = user;
+    }
+
     void UploadTransforms() override;
     void RunGpuCulling() override;
     void RunGpuSkinning() override;
@@ -56,6 +64,9 @@ private:
     // наперед). 2a:
     BackendStageFn shadow_pass_fn_   = nullptr;
     void*          shadow_pass_user_ = nullptr;
+    // 2b:
+    BackendStageFn gbuffer_pass_fn_   = nullptr;
+    void*          gbuffer_pass_user_ = nullptr;
 };
 
 }  // namespace md::render_backend

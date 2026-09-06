@@ -52,7 +52,16 @@ void SdlGpuBackend::RenderShadowPass() {
 }
 
 void SdlGpuBackend::RenderGBufferPass() {
-    MD_LOG(MD_LOG_WARNING, "[SdlGpuBackend] stub: %s", __func__);
+    // RENDER-BACKEND-STAGE-2b/2f (docs/RENDER_BACKEND_ABSTRACTION.md §5):
+    // NpcRender::DrawScene, same callback-based IoC as RenderShadowPass --
+    // see render_backend_types.h's RenderFrameParams doc comment for why
+    // this stage needed more fields (player_entity/selected/cam_az/
+    // cam_x_io/cam_z_io/frame_ctx) than the shadow pass did.
+    if (gbuffer_pass_fn_) {
+        gbuffer_pass_fn_(gbuffer_pass_user_, frame_params_);
+    } else {
+        MD_LOG(MD_LOG_WARNING, "[SdlGpuBackend] RenderGBufferPass: no callback registered");
+    }
 }
 
 void SdlGpuBackend::RenderDeferredLighting() {
