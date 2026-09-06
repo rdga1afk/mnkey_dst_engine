@@ -65,15 +65,29 @@ void SdlGpuBackend::RenderGBufferPass() {
 }
 
 void SdlGpuBackend::RenderDeferredLighting() {
-    MD_LOG(MD_LOG_WARNING, "[SdlGpuBackend] stub: %s", __func__);
+    // RENDER-BACKEND-STAGE-2c/2d: covers ambient + motion-prep + SSAO +
+    // bloom + motion-blur-apply ALL AT ONCE -- see SetDeferredPassCallback's
+    // doc comment (sdl_gpu_backend.h) for why this doesn't split across
+    // RenderDeferredLighting()/RunSsaoPass()/RunPostProcessChain() the way
+    // their names suggest: DrawDeferredPasses is one function with shared
+    // state (bloom_active/mb_active, AcquireSwapchainCached's "once per
+    // command buffer" rule) that a 3-way split would either duplicate or
+    // multiply-execute.
+    if (deferred_pass_fn_) {
+        deferred_pass_fn_(deferred_pass_user_, frame_params_);
+    } else {
+        MD_LOG(MD_LOG_WARNING, "[SdlGpuBackend] RenderDeferredLighting: no callback registered");
+    }
 }
 
 void SdlGpuBackend::RunSsaoPass() {
-    MD_LOG(MD_LOG_WARNING, "[SdlGpuBackend] stub: %s", __func__);
+    // Deliberate no-op for this backend -- folded into RenderDeferredLighting()
+    // (same DrawDeferredPasses call), see that method's doc comment.
 }
 
 void SdlGpuBackend::RunPostProcessChain() {
-    MD_LOG(MD_LOG_WARNING, "[SdlGpuBackend] stub: %s", __func__);
+    // Deliberate no-op for this backend -- folded into RenderDeferredLighting()
+    // (same DrawDeferredPasses call), see that method's doc comment.
 }
 
 void SdlGpuBackend::RenderHud() {

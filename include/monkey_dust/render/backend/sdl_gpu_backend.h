@@ -41,6 +41,28 @@ public:
         gbuffer_pass_user_ = user;
     }
 
+    // Etap 2c/2d: NpcRender::DrawDeferredPasses -- ambient + motion-prep +
+    // SSAO (5 passes) + bloom + motion-blur-apply are ONE function with
+    // shared internal state (bloom_active/mb_active flags, and
+    // AcquireSwapchainCached's own "only once per command buffer" rule --
+    // DeferredLightingSystem/SSAOSystem/BloomSystem/MotionBlurSystem all
+    // read the SAME cached swapchain handle inside that one function).
+    // Splitting this into 3 independent IRenderBackend calls the way
+    // RenderDeferredLighting()/RunSsaoPass()/RunPostProcessChain() are
+    // named would mean 3 separate invocations of AcquireSwapchainCached
+    // and, worse, re-running ambient/SSAO/bloom passes multiple times per
+    // frame -- a real regression, not just a style mismatch. Folded into
+    // ONE callback here, wired to RenderDeferredLighting() only;
+    // RunSsaoPass()/RunPostProcessChain() are deliberate no-ops for this
+    // backend (see their own bodies). A real 3-way split would require
+    // restructuring DrawDeferredPasses itself (out of scope for "adapter,
+    // not rewrite", §2.4) -- revisit only if a future backend genuinely
+    // needs the finer granularity.
+    void SetDeferredPassCallback(BackendStageFn fn, void* user) {
+        deferred_pass_fn_ = fn;
+        deferred_pass_user_ = user;
+    }
+
     void UploadTransforms() override;
     void RunGpuCulling() override;
     void RunGpuSkinning() override;
@@ -67,6 +89,9 @@ private:
     // 2b:
     BackendStageFn gbuffer_pass_fn_   = nullptr;
     void*          gbuffer_pass_user_ = nullptr;
+    // 2c/2d:
+    BackendStageFn deferred_pass_fn_   = nullptr;
+    void*          deferred_pass_user_ = nullptr;
 };
 
 }  // namespace md::render_backend
