@@ -1,0 +1,70 @@
+#include <monkey_dust/render/backend/sdl_gpu_backend.h>
+#include <monkey_dust/platform/md_log.h>
+
+// RENDER-BACKEND-STAGE-1 (docs/RENDER_BACKEND_ABSTRACTION.md, §4).
+// Порожня оболонка -- усі методи логують і повертають без реальної
+// логіки. Ще НЕ підключено до game_render_frame.cpp (жоден з цих методів
+// не викликається з game/ на цьому етапі) -- реальні call site
+// переносяться сюди по одному в Етапі 2 (§5).
+namespace md::render_backend {
+
+bool SdlGpuBackend::Init() {
+    MD_LOG(MD_LOG_WARNING, "[SdlGpuBackend] stub: %s", __func__);
+    return false;
+}
+
+void SdlGpuBackend::Shutdown() {
+    MD_LOG(MD_LOG_WARNING, "[SdlGpuBackend] stub: %s", __func__);
+}
+
+BackendCaps SdlGpuBackend::GetCaps() const {
+    MD_LOG(MD_LOG_WARNING, "[SdlGpuBackend] stub: %s", __func__);
+    return {};
+}
+
+void SdlGpuBackend::SetFrameParams(const RenderFrameParams& params) {
+    MD_LOG(MD_LOG_WARNING, "[SdlGpuBackend] stub: %s", __func__);
+    frame_params_ = params;
+}
+
+void SdlGpuBackend::UploadTransforms() {
+    MD_LOG(MD_LOG_WARNING, "[SdlGpuBackend] stub: %s", __func__);
+}
+
+void SdlGpuBackend::RunGpuCulling() {
+    MD_LOG(MD_LOG_WARNING, "[SdlGpuBackend] stub: %s", __func__);
+}
+
+void SdlGpuBackend::RunGpuSkinning() {
+    MD_LOG(MD_LOG_WARNING, "[SdlGpuBackend] stub: %s", __func__);
+}
+
+void SdlGpuBackend::RenderShadowPass() {
+    MD_LOG(MD_LOG_WARNING, "[SdlGpuBackend] stub: %s", __func__);
+}
+
+void SdlGpuBackend::RenderGBufferPass() {
+    MD_LOG(MD_LOG_WARNING, "[SdlGpuBackend] stub: %s", __func__);
+}
+
+void SdlGpuBackend::RenderDeferredLighting() {
+    MD_LOG(MD_LOG_WARNING, "[SdlGpuBackend] stub: %s", __func__);
+}
+
+void SdlGpuBackend::RunSsaoPass() {
+    MD_LOG(MD_LOG_WARNING, "[SdlGpuBackend] stub: %s", __func__);
+}
+
+void SdlGpuBackend::RunPostProcessChain() {
+    MD_LOG(MD_LOG_WARNING, "[SdlGpuBackend] stub: %s", __func__);
+}
+
+void SdlGpuBackend::RenderHud() {
+    MD_LOG(MD_LOG_WARNING, "[SdlGpuBackend] stub: %s", __func__);
+}
+
+void SdlGpuBackend::RenderEditorOverlay() {
+    MD_LOG(MD_LOG_WARNING, "[SdlGpuBackend] stub: %s", __func__);
+}
+
+}  // namespace md::render_backend
