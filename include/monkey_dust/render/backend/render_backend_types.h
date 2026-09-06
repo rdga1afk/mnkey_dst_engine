@@ -62,6 +62,15 @@ struct RenderFrameParams {
     // callback that registered itself knows the real type and casts back
     // to NpcRender::FrameCtx* -- engine/ never dereferences this.
     void* frame_ctx = nullptr;
+
+    // Added Etap 2e (2026-09-06): NpcRender::UploadAndSkin's real signature
+    // needs the logic-tick accumulator (10 TPS logic / 60 FPS render --
+    // game/src/CLAUDE.md's own doc -- used for animation interpolation
+    // between ticks). cam_x/cam_z here (unlike DrawScene's cam_x_io/
+    // cam_z_io above) are plain VALUE inputs -- UploadAndSkin takes them
+    // by value, doesn't mutate them, so the existing cam_x/cam_z fields
+    // already cover it.
+    float logic_accum = 0.f;
 };
 
 // Backend capability flags -- дозволяє викликачу (майбутній Етап 3+)

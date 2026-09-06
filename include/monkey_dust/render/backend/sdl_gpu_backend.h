@@ -63,6 +63,23 @@ public:
         deferred_pass_user_ = user;
     }
 
+    // Etap 2e: NpcRender::UploadAndSkin -- TransformSoA upload AND GPU
+    // skinning are the SAME function (npc_render_frame_prep.cpp), same
+    // "doesn't split cleanly" situation as 2c/2d. Folded into ONE callback
+    // wired to UploadTransforms() only; RunGpuSkinning() is a deliberate
+    // no-op for this backend (see its own body).
+    void SetUploadSkinCallback(BackendStageFn fn, void* user) {
+        upload_skin_fn_ = fn;
+        upload_skin_user_ = user;
+    }
+
+    // Etap 2e: NpcRender::CullAndPrepass -- GPU compute cull + Early-Z
+    // depth prepass, a clean 1:1 mapping (unlike UploadAndSkin above).
+    void SetCullCallback(BackendStageFn fn, void* user) {
+        cull_fn_ = fn;
+        cull_user_ = user;
+    }
+
     void UploadTransforms() override;
     void RunGpuCulling() override;
     void RunGpuSkinning() override;
@@ -92,6 +109,11 @@ private:
     // 2c/2d:
     BackendStageFn deferred_pass_fn_   = nullptr;
     void*          deferred_pass_user_ = nullptr;
+    // 2e:
+    BackendStageFn upload_skin_fn_   = nullptr;
+    void*          upload_skin_user_ = nullptr;
+    BackendStageFn cull_fn_          = nullptr;
+    void*          cull_user_        = nullptr;
 };
 
 }  // namespace md::render_backend

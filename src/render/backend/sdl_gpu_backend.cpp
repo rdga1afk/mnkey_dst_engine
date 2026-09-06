@@ -28,15 +28,28 @@ void SdlGpuBackend::SetFrameParams(const RenderFrameParams& params) {
 }
 
 void SdlGpuBackend::UploadTransforms() {
-    MD_LOG(MD_LOG_WARNING, "[SdlGpuBackend] stub: %s", __func__);
+    // RENDER-BACKEND-STAGE-2e: NpcRender::UploadAndSkin -- TransformSoA
+    // upload AND GPU skinning are the SAME function (see
+    // SetUploadSkinCallback's doc comment, sdl_gpu_backend.h).
+    if (upload_skin_fn_) {
+        upload_skin_fn_(upload_skin_user_, frame_params_);
+    } else {
+        MD_LOG(MD_LOG_WARNING, "[SdlGpuBackend] UploadTransforms: no callback registered");
+    }
 }
 
 void SdlGpuBackend::RunGpuCulling() {
-    MD_LOG(MD_LOG_WARNING, "[SdlGpuBackend] stub: %s", __func__);
+    // RENDER-BACKEND-STAGE-2e: NpcRender::CullAndPrepass.
+    if (cull_fn_) {
+        cull_fn_(cull_user_, frame_params_);
+    } else {
+        MD_LOG(MD_LOG_WARNING, "[SdlGpuBackend] RunGpuCulling: no callback registered");
+    }
 }
 
 void SdlGpuBackend::RunGpuSkinning() {
-    MD_LOG(MD_LOG_WARNING, "[SdlGpuBackend] stub: %s", __func__);
+    // Deliberate no-op for this backend -- folded into UploadTransforms()
+    // (same UploadAndSkin call), see SetUploadSkinCallback's doc comment.
 }
 
 void SdlGpuBackend::RenderShadowPass() {
