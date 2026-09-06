@@ -9,8 +9,16 @@
 namespace md::render_backend {
 
 bool SdlGpuBackend::Init() {
-    MD_LOG(MD_LOG_WARNING, "[SdlGpuBackend] stub: %s", __func__);
-    return false;
+    // RENDER-BACKEND-STAGE-3: no longer a stub -- by the time any caller
+    // constructs a SdlGpuBackend, every subsystem it delegates to
+    // (GBuffer, ShadowSystem, DeferredLightingSystem, SSAOSystem,
+    // BloomSystem, MotionBlurSystem, TerrainQuadtreeRenderer, etc.) is
+    // already independently initialized by its own owner (NpcRender::Init()/
+    // WorldEditor3D_SDLGPU::Init()/CharPreviewSDLGPU::Init()/MapViewPanel::
+    // Init(), per each caller's own call site) -- this class only routes
+    // calls to them (§2.1, "adapter, не rewrite"), it doesn't own or
+    // (re)create any GPU resource itself. Nothing left to do here.
+    return true;
 }
 
 void SdlGpuBackend::Shutdown() {
