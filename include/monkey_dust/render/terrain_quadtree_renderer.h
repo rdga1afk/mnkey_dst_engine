@@ -104,7 +104,24 @@ public:
     // match the UploadNodeData call this frame).
     void DrawBatched(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, int count);
 
-    static constexpr int kMaxBatchedNodes = 8192; // half of kMaxNodesPublic -- generous vs typical per-frame visible counts
+    // task БОРГ-VISUAL-3 follow-up (2026-09-06): was 8192 (half of
+    // TerrainQuadtree::kMaxNodesPublic's OLD 16384 value) -- fine for
+    // gameplay's real node counts, but the editor's 64x64 aerial World3D
+    // viewport (now correctly emitting up to the true theoretical zone
+    // count after the max_render_distance/kMaxNodesPublic fixes above)
+    // measured 71296 visible nodes at a normal 8000m view. Node counts
+    // above kMaxBatchedNodes fall back to per-node DrawNode calls (see
+    // every DrawBatched call site's own fallback loop) -- 63104 of those
+    // individual, non-batched, non-instanced draw calls in a single frame
+    // measured live as the direct cause of a 6 FPS regression (confirmed
+    // via a temporary qt_count diagnostic, NOT assumed to be texture
+    // resolution as first guessed). Matched to TerrainQuadtree::
+    // kMaxNodesPublic directly -- the exact theoretical maximum -- so no
+    // camera view can ever exceed batched capacity and fall back to the
+    // per-node path at all. Cheap: node_data_tex_ scales to ~8.4MB
+    // (256 x ~2049 x R32G32B32A32_FLOAT) and the UploadNodeData staging
+    // array to ~8.4MB, both static/one-time allocations, not per-frame.
+    static constexpr int kMaxBatchedNodes = TerrainQuadtree::kMaxNodesPublic;
     static constexpr int kNodeDataTexWidth = 256;
 
     // TEMP DEBUG TOOL (2026-09-04, CLAUDE_CONSTITUTION.md sec 7.7): real

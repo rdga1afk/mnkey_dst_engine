@@ -47,6 +47,43 @@ struct BiomeDef {
     // layer's vertical mapping coordinate. Defaults to 0.0 (no-op) for any
     // biome_table.txt predating this field.
     float distort_amplitude = 0.0f, distort_wavelength = 0.0f;
+    // Real per-biome slope-layer UV tiling + blend band (Kenshi FCS
+    // "tiling X/Y" for the slope texture + "slope min/max/fade" weights.x
+    // band, confirmed against terrainfp4.hlsl's computeBiome(): weights.x
+    // = smoothstep(slopeMin-slopeBlend, slopeMin, slope) *
+    //   smoothstep(slopeMax+slopeBlend, slopeMax, slope), slope = 1-N.y,
+    // then `albedo = lerp(albedo, cSlope, weights.x)` inserted between the
+    // grass and dirt lerps. slope_max=0.0 default (not 1.0) is a
+    // deliberate disabled-sentinel: real biome rows always have
+    // slope_max>0, so TS_ComputeGroundAlbedo can skip the slope layer
+    // entirely for any biome_table.txt predating this field instead of
+    // computing smoothstep() with degenerate matching edges.
+    float tile_slope_x = 1.0f, tile_slope_y = 1.0f;
+    float slope_min = 0.0f, slope_max = 0.0f, slope_fade = 0.0f;
+    // Real per-biome CLIFF blend band (biome_table.txt's slope_min2/max2/
+    // fade2 = terrainfp4.hlsl's weights.y band, same smoothstep-product
+    // shape as slope_min/max/fade above but gating the cliff layer
+    // instead). task #13 follow-up (2026-09-06): ported per owner's
+    // explicit choice to use the real dual-sided band as-is, accepting a
+    // known risk -- TS_ComputeGroundAlbedo's OWN commit history already
+    // diagnosed and fixed a vertical-stripe flicker from this exact
+    // shape (steepness=1-N.y mathematically tops out at 1.0, and 69/74
+    // real biome rows have cliff_max==1.0, so ordinary per-pixel N.y
+    // noise sits right on the upper edge). cliff_max=0.0 default (not
+    // 1.0) is the same disabled-sentinel pattern as slope_max -- an
+    // older biome_table.txt (or any zeroed/default BiomeDef) falls back
+    // to TS_ComputeGroundAlbedo's original single-sided TS_CLIFF_MIN/
+    // TS_CLIFF_BLEND constant instead of a degenerate smoothstep.
+    float cliff_min = 0.0f, cliff_max = 0.0f, cliff_fade = 0.0f;
+    // Row index into biome_table.txt's own biome list (BiomeRegistry's
+    // load-order, set once in LoadFromFile — NOT re-derived from slug/legend
+    // at lookup time). Purely an identity tag: lets per-zone consumers
+    // (terrain_shading_common.glsl's cross-zone blend) cheaply test "do
+    // these two zones share the same biome" via one int compare instead of
+    // comparing every individual field (tiling/slope-band/texture indices).
+    // -1 default (no BiomeDef assigned) never equals a real zone's id, so a
+    // stray zeroed BiomeDef never falsely matches biome 0.
+    int biome_id = -1;
 };
 
 class BiomeRegistry {

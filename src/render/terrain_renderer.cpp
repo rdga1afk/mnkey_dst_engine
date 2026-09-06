@@ -52,22 +52,33 @@ bool TerrainRenderer::Init() {
     }
 
     // Per-zone (64x64=4096) ground-layer lookup texture -- see
-    // UploadZoneGroundLayers. 19 uint32 per zone: [0..5] base,slope,cliff,
-    // grass,dirt,road GroundTexLayer indices; [6..7] real per-biome cliff UV
-    // tiling scale (FCS "tiling X/Y 2", confirmed against terrainfp4.hlsl),
-    // bit-cast float (uintBitsToFloat in the shader); [8] real per-biome
-    // brightness_fix (FCS "brightness fix", terrainfp4.hlsl:212), also
-    // bit-cast float; [9..16] task #12 (2026-09-03) real per-layer UV
-    // tiling for base/grass/dirt/road (bit-cast float pairs, matches
-    // BiomeDef::tile_base_x etc) -- was previously one shared
-    // DETAIL_TILING=90 constant for every layer in every biome, ignoring
-    // biome_table.txt's own real per-layer values; [17..18] real per-biome
-    // "wavy cliff lines" distortion amplitude/wavelength (2026-09-04,
-    // Ghidra-verified against kenshi_x64.exe's ZoneMap::getTerrainMaterial_DX11
-    // and terrain.hlsl's main_vs), also bit-cast float. R32G32B32A32_UINT,
-    // 320x64 (5 texels/zone x 4 channels = 20 slots, 19 used) -- a texture,
-    // not an SSBO, as of 2026-08-09 (see ZoneGroundLayersTexture's header
-    // doc comment for why). Allocated empty here; populated once by the
+    // UploadZoneGroundLayers. 27 uint32 used of 28 per zone: [0..5]
+    // base,slope,cliff,grass,dirt,road GroundTexLayer indices; [6..7] real
+    // per-biome cliff UV tiling scale (FCS "tiling X/Y 2", confirmed
+    // against terrainfp4.hlsl), bit-cast float (uintBitsToFloat in the
+    // shader); [8] real per-biome brightness_fix (FCS "brightness fix",
+    // terrainfp4.hlsl:212), also bit-cast float; [9..16] task #12
+    // (2026-09-03) real per-layer UV tiling for base/grass/dirt/road
+    // (bit-cast float pairs, matches BiomeDef::tile_base_x etc) -- was
+    // previously one shared DETAIL_TILING=90 constant for every layer in
+    // every biome, ignoring biome_table.txt's own real per-layer values;
+    // [17..18] real per-biome "wavy cliff lines" distortion amplitude/
+    // wavelength (2026-09-04, Ghidra-verified against kenshi_x64.exe's
+    // ZoneMap::getTerrainMaterial_DX11 and terrain.hlsl's main_vs), also
+    // bit-cast float; [19..20] task #13 (2026-09-05) real per-biome
+    // slope-layer UV tiling (BiomeDef::tile_slope_x/y), bit-cast float;
+    // [21..23] real per-biome slope-layer blend band (BiomeDef::
+    // slope_min/max/fade, terrainfp4.hlsl's weights.x), bit-cast float;
+    // [24..26] task #13 follow-up (2026-09-06) real per-biome CLIFF blend
+    // band (BiomeDef::cliff_min/max/fade, terrainfp4.hlsl's weights.y),
+    // bit-cast float; [27] BiomeDef::biome_id (task БОРГ-VISUAL-3,
+    // 2026-09-06) -- plain int, NOT bit-cast float, the zone's biome
+    // identity for the shader's cross-zone blend to compare cheaply
+    // ("do these two corner zones share a biome") instead of comparing
+    // every individual field. R32G32B32A32_UINT, 448x64 (7
+    // texels/zone x 4 channels = 28 slots, all used) -- a texture, not an
+    // SSBO, as of 2026-08-09 (see ZoneGroundLayersTexture's header doc
+    // comment for why). Allocated empty here; populated once by the
     // caller (World3D editor's synthesis-mesh init, and SceneRender's
     // game-side equivalent).
     {
@@ -75,7 +86,7 @@ bool TerrainRenderer::Init() {
         SDL_GPUTextureCreateInfo ti{};
         ti.type                 = SDL_GPU_TEXTURETYPE_2D;
         ti.format               = SDL_GPU_TEXTUREFORMAT_R32G32B32A32_UINT;
-        ti.width                = 64 * 5;
+        ti.width                = 64 * 7;
         ti.height                = 64;
         ti.layer_count_or_depth = 1;
         ti.num_levels           = 1;
@@ -379,27 +390,27 @@ void TerrainRenderer::GetSharedGroundSamplers(SDL_GPUTextureSamplerBinding out[5
 
 void TerrainRenderer::UploadZoneGroundLayers(const uint32_t* data, int count_uints) {
 #ifdef MD_SDL_GPU
-    if (count_uints != 64 * 64 * 19) {
+    if (count_uints != 64 * 64 * 28) {
         fprintf(stderr, "[TerrainRenderer] UploadZoneGroundLayers: expected %d uints, got %d — skipped\n",
-                64 * 64 * 19, count_uints);
+                64 * 64 * 28, count_uints);
         return;
     }
     if (!zone_layers_tex_) return;
     md::GpuDeviceHandle dev = md::GpuDevice::Get().SDLDevice();
     if (!dev) return;
 
-    // Repack the caller's flat zone_idx*19+slot layout into the texture's
-    // 5-texels-per-zone x 4-channels layout (20 slots available, 19 used --
-    // see ZoneGroundLayersTexture's header doc comment).
-    const int W = 64 * 5, H = 64;
+    // Repack the caller's flat zone_idx*28+slot layout into the texture's
+    // 7-texels-per-zone x 4-channels layout (28 slots, 27 used -- see
+    // ZoneGroundLayersTexture's header doc comment).
+    const int W = 64 * 7, H = 64;
     std::vector<uint32_t> packed((size_t)W * H * 4, 0u);
     for (int zy = 0; zy < 64; ++zy) {
         for (int zx = 0; zx < 64; ++zx) {
             int zone_idx = zy * 64 + zx;
-            for (int slot = 0; slot < 19; ++slot) {
+            for (int slot = 0; slot < 28; ++slot) {
                 int t = slot / 4, c = slot % 4;
-                size_t texel_idx = (size_t)zy * W + (size_t)(zx * 5 + t);
-                packed[texel_idx * 4 + (size_t)c] = data[(size_t)zone_idx * 19 + (size_t)slot];
+                size_t texel_idx = (size_t)zy * W + (size_t)(zx * 7 + t);
+                packed[texel_idx * 4 + (size_t)c] = data[(size_t)zone_idx * 28 + (size_t)slot];
             }
         }
     }

@@ -41,10 +41,47 @@ public:
     // plane) + camera position. Returns count written to out[] (capped at
     // max_out). Deterministic function of cam_pos/frustum -- safe to call
     // every frame with no state carried between calls.
+    //
+    // max_render_distance: full 3D distance (includes altitude, NOT just
+    // horizontal) from cam_pos beyond which a zone is culled entirely --
+    // see terrain_quadtree.cpp's kFlatMaxRenderDistance doc comment for
+    // why the game passes its fog-tied 3000m default. Callers whose camera
+    // isn't ground-level gameplay (the editor's 64x64 aerial World3D
+    // viewport flies at 8000m+ altitude by design) must pass a value that
+    // comfortably covers camera-altitude + world-diagonal, or every zone
+    // gets culled and nothing renders -- confirmed live 2026-09-06 (task
+    // БОРГ-VISUAL-3 investigation): the editor's 3D World tab rendered
+    // pure sky, root-caused to this exact cutoff never having been raised
+    // for the aerial-view caller when the flat-LOD system replaced the
+    // old adaptive quadtree.
     int SelectVisible(const float cam_pos[3], const float frustum_planes[16],
-                       VisibleNode* out, int max_out) const;
+                       VisibleNode* out, int max_out, float max_render_distance) const;
 
-    static constexpr int kMaxNodesPublic = 16384;
+    // task БОРГ-VISUAL-3 follow-up (2026-09-06): was 16384 (256 zones worth
+    // of tiles, at 4^kFlatLodDepth=64 tiles/zone) -- far below the 4096
+    // real zones in the world, so any camera view (the editor's 64x64
+    // aerial World3D viewport especially) wide enough to have more than
+    // 256 zones in frustum silently truncated SelectVisible's output
+    // mid-grid-row, which reads as a hard diagonal seam across the visible
+    // terrain (world-space row/column cutoff, projected obliquely) and as
+    // "can't see the whole map" even at high altitude. Raised to the exact
+    // theoretical maximum (64*64 zones * 64 tiles/zone) -- this class of
+    // truncation is now structurally impossible regardless of camera
+    // altitude/FOV, not just less likely. Cheap: VisibleNode is 16 bytes,
+    // so even this worst case is 4MB per static array (game/src has 3,
+    // the editor 1 -- see each SelectVisible call site's own comment for
+    // why these are static, not stack, arrays).
+    static constexpr int kMaxNodesPublic = 64 * 64 * 64;
+
+    // Default max_render_distance for ground-level gameplay callers (game/
+    // src's 3 SelectVisible call sites). Must be >= RenderQualityConfig::
+    // terrain_cr_m (render_quality.h, default 3000m, 5000m on the highest
+    // tier) or terrain visibly pops out of existence before fog fully
+    // hides it (fog reaches opacity at fog_far == terrain_cr_m). NOT safe
+    // for a high-altitude/aerial camera (see SelectVisible's own doc
+    // comment) -- callers like the editor's 64x64 World3D viewport must
+    // pass their own, larger value instead of this one.
+    static constexpr float kGameplayMaxRenderDistance = 3000.f;
 
 private:
     float world_origin_x_ = 0.f, world_origin_z_ = 0.f;

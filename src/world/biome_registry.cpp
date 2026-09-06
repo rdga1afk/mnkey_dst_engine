@@ -80,15 +80,17 @@ bool BiomeRegistry::LoadFromFile(const char* path) {
                 e.legend_rgb[0] = (uint8_t)lr;
                 e.legend_rgb[1] = (uint8_t)lg;
                 e.legend_rgb[2] = (uint8_t)lb;
+                d.biome_id = biome_count_;
                 // Trailing per-layer tiling + slope-band fields (see this
                 // file's format comment): tile_base_x/y tile_slope_x/y
                 // tile_cliff_x/y tile_dirt_x/y tile_grass_x/y tile_road_x/y.
-                // task #12 (2026-09-03): base/dirt/grass/road tiling now
-                // also kept (was previously discarded except cliff, fields
-                // 5,6) -- slope tiling (fields 3,4) still unused, no slope
-                // layer in the live formula yet. Missing (older
-                // biome_table.txt) -> BiomeDef's in-class defaults (1.0,
-                // 1.0) stand, matching "no scale change".
+                // task #12 (2026-09-03): base/dirt/grass/road tiling kept
+                // (was previously discarded except cliff, fields 5,6).
+                // task #13 (2026-09-05): slope tiling (fields 3,4) now also
+                // kept -- the slope layer is wired into
+                // TS_ComputeGroundAlbedo (shaders/terrain_shading_common.glsl).
+                // Missing (older biome_table.txt) -> BiomeDef's in-class
+                // defaults (1.0, 1.0) stand, matching "no scale change".
                 float tiling[12];
                 int consumed2 = 0;
                 int got = sscanf(p + 6 + consumed, "%f %f %f %f %f %f %f %f %f %f %f %f%n",
@@ -98,6 +100,8 @@ bool BiomeRegistry::LoadFromFile(const char* path) {
                 if (got == 12) {
                     d.tile_base_x  = tiling[0];
                     d.tile_base_y  = tiling[1];
+                    d.tile_slope_x = tiling[2];
+                    d.tile_slope_y = tiling[3];
                     d.cliff_tiling_x = tiling[4];
                     d.cliff_tiling_y = tiling[5];
                     d.tile_dirt_x  = tiling[6];
@@ -106,11 +110,21 @@ bool BiomeRegistry::LoadFromFile(const char* path) {
                     d.tile_grass_y = tiling[9];
                     d.tile_road_x  = tiling[10];
                     d.tile_road_y  = tiling[11];
-                    // Trailing slope-band block (6 floats, unused live —
-                    // see comment above) then brightness_fix (1 float,
-                    // 19th trailing field overall). Missing (older
-                    // biome_table.txt) -> BiomeDef's in-class default
-                    // (1.0, no-op) stands.
+                    // Slope-band block (6 floats): slope_min1/max1/fade1 =
+                    // the SLOPE layer's weights.x band; slope_min2/max2/
+                    // fade2 = the CLIFF layer's weights.y band (real
+                    // terrainfp4.hlsl: weights = smoothstep(slopeMin-
+                    // slopeBlend, slopeMin, slope) * smoothstep(slopeMax+
+                    // slopeBlend, slopeMax, slope), slope=1-N.y). Both
+                    // halves wired into TS_ComputeGroundAlbedo (task #13,
+                    // 2026-09-05/06) -- slope_min/max/fade for the SLOPE
+                    // layer, cliff_min/max/fade for the CLIFF layer
+                    // (replacing its own prior single-sided TS_CLIFF_MIN/
+                    // TS_CLIFF_BLEND constant; see BiomeDef's field
+                    // comment for the known upper-edge risk this carries).
+                    // Then brightness_fix (1 float, 19th trailing field
+                    // overall). Missing (older biome_table.txt) -> BiomeDef's
+                    // in-class default (1.0, no-op) stands.
                     float slope_band[6];
                     int consumed3 = 0;
                     int got2 = sscanf(p + 6 + consumed + consumed2,
@@ -119,6 +133,12 @@ bool BiomeRegistry::LoadFromFile(const char* path) {
                         &slope_band[3], &slope_band[4], &slope_band[5],
                         &consumed3);
                     if (got2 == 6) {
+                        d.slope_min  = slope_band[0];
+                        d.slope_max  = slope_band[1];
+                        d.slope_fade = slope_band[2];
+                        d.cliff_min  = slope_band[3];
+                        d.cliff_max  = slope_band[4];
+                        d.cliff_fade = slope_band[5];
                         float bf = 1.0f;
                         int consumed4 = 0;
                         if (sscanf(p + 6 + consumed + consumed2 + consumed3, "%f%n",

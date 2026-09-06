@@ -24,14 +24,6 @@ bool QuadtreeAabbInFrustum(float ox, float oz, float size, float ymin, float yma
 // depth=2) before landing on depth=3 (matches the old adaptive system's own
 // native leaf resolution, applied uniformly instead of only near-camera).
 constexpr int   kFlatLodDepth          = 3;    // 4^depth patches/zone, texelSize = chunk_size/16/2^depth
-// Must be >= RenderQualityConfig::terrain_cr_m (render_quality.h, default
-// 3000m, 5000m on the highest tier) or terrain visibly pops out of
-// existence BEFORE fog fully hides it (fog reaches opacity at
-// fog_far == terrain_cr_m). Hardcoded to the common-tier default rather
-// than plumbed through live config -- SelectVisible has no
-// RenderQualityConfig access today; a per-tier-accurate cutoff is a
-// separate, small follow-up if ever needed.
-constexpr float kFlatMaxRenderDistance = 3000.f;
 
 void EmitFlatZone(float zone_ox, float zone_oz, float chunk_size, int depth,
                    TerrainQuadtree::VisibleNode* out, int max_out, int& count) {
@@ -59,7 +51,7 @@ void TerrainQuadtree::Init(float world_origin_x, float world_origin_z, float wor
 }
 
 int TerrainQuadtree::SelectVisible(const float cam_pos[3], const float frustum_planes[16],
-                                    VisibleNode* out, int max_out) const {
+                                    VisibleNode* out, int max_out, float max_render_distance) const {
     int count = 0;
     int num_zones = (int)(world_extent_ / chunk_size_ + 0.5f);
     constexpr float kFallbackYMin = -500.f, kFallbackYMax = 4000.f;
@@ -73,7 +65,7 @@ int TerrainQuadtree::SelectVisible(const float cam_pos[3], const float frustum_p
             float cy = height_sampler_ ? height_sampler_(cx, cz) : cam_pos[1];
             float dx = cam_pos[0] - cx, dy = cam_pos[1] - cy, dz = cam_pos[2] - cz;
             float dist = std::sqrt(dx * dx + dy * dy + dz * dz);
-            if (dist > kFlatMaxRenderDistance + chunk_size_) continue;
+            if (dist > max_render_distance + chunk_size_) continue;
             EmitFlatZone(ox, oz, chunk_size_, kFlatLodDepth, out, max_out, count);
         }
     }

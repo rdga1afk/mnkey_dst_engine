@@ -98,8 +98,8 @@ public:
     void GetSharedGroundSamplers(SDL_GPUTextureSamplerBinding out[5]) const;
     // Per-zone (64x64=4096) ground-layer lookup — same data
     // UploadZoneGroundLayers populates, exposed for the same reuse reason.
-    // A texture (R32G32B32A32_UINT, 320x64 -- 5 texels per zone, 4 uint32
-    // channels each = 20 slots/zone, 17 used), NOT a storage buffer as of
+    // A texture (R32G32B32A32_UINT, 448x64 -- 7 texels per zone, 4 uint32
+    // channels each = 28 slots/zone, all used), NOT a storage buffer as of
     // 2026-08-09 (user directive to shrink Filament-blocking compute/SSBO
     // surface -- see docs/analysis/FILAMENT_MIGRATION_ANALYSIS.md). A plain
     // sampler is the one thing every rendering API (including Filament
@@ -107,18 +107,25 @@ public:
     md::GpuTextureHandle ZoneGroundLayersTexture() const { return zone_layers_tex_; }
     SDL_GPUSampler* ZoneGroundLayersSampler() const { return zone_layers_sampler_; }
 
-    // Upload the per-zone (64x64=4096) ground-layer lookup table: 17 uint32
-    // per zone -- [0..5] base,slope,cliff,grass,dirt,road GroundTexLayer
-    // indices, [6..7] real per-biome cliff UV tiling scale (bit-cast float,
-    // BiomeDef::cliff_tiling_x/y), [8] cross-zone blend weight (bit-cast
-    // float), [9..16] task #12 real per-layer UV tiling for base/grass/
-    // dirt/road (bit-cast float pairs, BiomeDef::tile_base_x etc) -- flat
-    // layout index = zone_idx*17 + slot, zone_idx = zy*64+zx (matches the
+    // Upload the per-zone (64x64=4096) ground-layer lookup table: 27 of 28
+    // uint32 per zone used -- [0..5] base,slope,cliff,grass,dirt,road
+    // GroundTexLayer indices, [6..7] real per-biome cliff UV tiling scale
+    // (bit-cast float, BiomeDef::cliff_tiling_x/y), [8] brightness_fix
+    // (bit-cast float), [9..16] task #12 real per-layer UV tiling for
+    // base/grass/dirt/road (bit-cast float pairs, BiomeDef::tile_base_x
+    // etc), [17..18] "wavy cliff lines" distortion amplitude/wavelength
+    // (bit-cast float), [19..20] task #13 real per-biome slope-layer UV
+    // tiling (bit-cast float, BiomeDef::tile_slope_x/y), [21..23] task #13
+    // slope-layer blend band (bit-cast float, BiomeDef::slope_min/max/
+    // fade), [24..26] task #13 follow-up CLIFF blend band (bit-cast float,
+    // BiomeDef::cliff_min/max/fade), [27] task БОРГ-VISUAL-3 (2026-09-06)
+    // BiomeDef::biome_id, plain int (NOT bit-cast float) -- flat layout
+    // index = zone_idx*28 + slot, zone_idx = zy*64+zx (matches the
     // EDITOR_TNKN=64 bitmask convention used elsewhere). Built once by the
     // caller (World3D editor's synthesis-mesh init, and SceneRender's
     // game-side equivalent) via TerrainGen_ResolveBiome() per zone.
-    // count_uints must be exactly 64*64*17 = 69632. Repacks the flat
-    // zone_idx*17+slot layout into the texture's 5-texels/zone layout
+    // count_uints must be exactly 64*64*28 = 114688. Repacks the flat
+    // zone_idx*28+slot layout into the texture's 7-texels/zone layout
     // internally -- callers keep building the same flat array.
     void UploadZoneGroundLayers(const uint32_t* data, int count_uints);
 
