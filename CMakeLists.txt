@@ -256,7 +256,20 @@ if(NOT TARGET SDL3::SDL3 AND NOT TARGET SDL3::SDL3-static)
     find_package(SDL3 REQUIRED CONFIG)
 endif()
 
-# SDL3 + SDL_GPU is the only rendering backend.
+# RENDER-BACKEND-STAGE-4 (docs/RENDER_BACKEND_ABSTRACTION.md, §7.1): render
+# backend selection. Only SDLGPU is real and wired into game_init.cpp's
+# runtime backend creation -- the other 5 compile an empty stub class
+# (engine/include/monkey_dust/render/backend/stubs/, validated for real by
+# render_backend_stub_compile_check.cpp) implementing IRenderBackend, but
+# are not otherwise used (§9: real embedding is a separate future phase).
+set(MD_RENDER_BACKEND "SDLGPU" CACHE STRING
+    "Render backend: SDLGPU, GODOT, FILAMENT, BGFX, DILIGENT, OGRENEXT")
+set_property(CACHE MD_RENDER_BACKEND PROPERTY STRINGS
+    SDLGPU GODOT FILAMENT BGFX DILIGENT OGRENEXT)
+target_compile_definitions(monkey_dust_engine PUBLIC MD_RENDER_BACKEND_${MD_RENDER_BACKEND})
+
+# SDL3 + SDL_GPU is the only REAL rendering backend (see MD_RENDER_BACKEND
+# above for the other 5's compile-only stub scaffolding).
 # GLM provides math types; MD_LOG_NO_RAYLIB replaces TraceLog with fprintf.
 target_compile_definitions(monkey_dust_engine PUBLIC USE_SDL3 USE_GLM MD_LOG_NO_RAYLIB MD_SDL_GPU)
 if(MD_STATIC_DEPS)
