@@ -212,7 +212,16 @@ inline MdEntity MdFirst(gaia::ecs::Query& q) {
 template<typename Query, typename Func>
 void MdEach(Query& q, Func&& func) {
     ecs_world_t* stage = md_registry_detail::t_stage_override;
-    auto wrapped = [&func](flecs::entity fe, auto&... args) {
+    // auto&&, not auto& (found 2026-09-07, see lua_scenario_api_misc.cpp's
+    // fix note): a genuinely empty/zero-size tag component (MdManagedTag)
+    // has no backing storage for flecs to hand out a real reference to --
+    // its each_delegate dispatches such fields by VALUE (each_field), not
+    // by reference (each_ref_field), regardless of how the query itself
+    // declares the term (T vs T&). auto& can never bind that value-typed
+    // arg; auto&& binds both a real component's lvalue-ref (deduces T&,
+    // identical behavior to before) and a zero-size tag's by-value arg
+    // (deduces T&&, still usable as an lvalue by name inside the body).
+    auto wrapped = [&func](flecs::entity fe, auto&&... args) {
         if constexpr (std::is_invocable_v<Func, MdEntity, decltype(args)&...>) {
             func(MdEntity(fe.id()), args...);
         } else {
@@ -287,16 +296,29 @@ public:
     // either (this file's class comment above, "do not themselves
     // invalidate anything"); MdRegistry::Patch<T>() is the call site that
     // explicitly opts into notification via modified<T>().
+    // Second optimization pass, per the same §3 p.4 requirement (tried
+    // BEFORE settling, not guessed): caching the component entity in a
+    // per-T function-local static (safe -- w_ always refers to the same
+    // Registry::Get() singleton World regardless of which GaiaEntityHandle
+    // instance triggers first-touch init) shaves the redundant add<T>()
+    // component-cache lookup on every call. Measured improvement was
+    // modest, not transformative (~25ns present roughly unchanged, ~23ns
+    // absent down to ~21ns) -- add<T>() itself was already cheap; the
+    // remaining ~20-25ns is mut_raw()'s own internal resolve
+    // (id_owner_inter + component_item), which appears to be gaia's real,
+    // architectural per-call floor for this operation. Final ratio vs
+    // flecs: ~2.2x present, ~1.8x absent -- both still over GATE 1's 1.5x
+    // budget after two independent, measured optimization attempts.
     template<typename T>
     T* try_get_mut() {
-        auto compEntity = w_.template add<T>().entity;
+        static const gaia::ecs::Entity compEntity = w_.template add<T>().entity;
         auto view = w_.mut_raw(e_, compEntity);
         return view.valid() ? reinterpret_cast<T*>(view.data) : nullptr;
     }
 
     template<typename T>
     const T* try_get(gaia::ecs::Entity target) const {
-        auto relEntity = w_.template add<T>().entity;
+        static const gaia::ecs::Entity relEntity = w_.template add<T>().entity;
         auto pairEnt = (gaia::ecs::Entity)gaia::ecs::Pair(relEntity, target);
         return w_.has(e_, pairEnt) ? &w_.template get<T>(e_, pairEnt) : nullptr;
     }
@@ -310,7 +332,7 @@ public:
     // unlike the non-pair set() above which genuinely needs one.
     template<typename T>
     void set(gaia::ecs::Entity target, T value) {
-        auto relEntity = w_.template add<T>().entity;
+        static const gaia::ecs::Entity relEntity = w_.template add<T>().entity;
         auto pairEnt = (gaia::ecs::Entity)gaia::ecs::Pair(relEntity, target);
         w_.template add<T>(e_, pairEnt, std::move(value));
     }
@@ -328,7 +350,7 @@ public:
     // as the 0-arg remove()/set() family, has-guard is the fix here too.
     template<typename T>
     void remove(gaia::ecs::Entity target) {
-        auto relEntity = w_.template add<T>().entity;
+        static const gaia::ecs::Entity relEntity = w_.template add<T>().entity;
         auto pairEnt = (gaia::ecs::Entity)gaia::ecs::Pair(relEntity, target);
         if (w_.has(e_, pairEnt))
             w_.del(e_, pairEnt);
