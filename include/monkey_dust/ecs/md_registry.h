@@ -267,9 +267,31 @@ public:
     template<typename T>
     T& get_mut() { return w_.template mut<T>(e_); }
 
+    // GATE 1 microbenchmark result (/tmp/gaia_probe/bench/, 500 entities,
+    // real project headers, -O3 -DNDEBUG matched on both sides -- an
+    // earlier run without -O3 on flecs.c gave a false "gaia is faster"
+    // result, caught before being trusted): the naive has<T>()+mut<T>()
+    // composition (two independent resolves) measured ~42ns present /
+    // ~82ns absent vs flecs's native ~13ns / ~12ns -- 3-7x slower, well
+    // outside GATE 1's 1.5x budget. mut_raw(entity, component)
+    // (world.h:5842) does the SAME resolve gaia's own has()+mut() would
+    // do internally, but ONCE instead of twice -- exactly the
+    // "reuse EntityContainer/chunk-lookup" direction
+    // prompt_/PROMPT_GAIA_MIGRATION.md §3 p.4 asks to investigate before
+    // accepting the naive version. Cut it to ~25ns present / ~23ns absent
+    // (~2x flecs, not 3-7x) -- still over budget but the honest number,
+    // not a guess. mut_raw is also a SILENT write (doc comment: "call
+    // World::modify_raw(...) after writing through data directly") --
+    // this matches, not weakens, the existing contract: flecs's own
+    // try_get_mut()/get_mut() do not auto-trigger change notification
+    // either (this file's class comment above, "do not themselves
+    // invalidate anything"); MdRegistry::Patch<T>() is the call site that
+    // explicitly opts into notification via modified<T>().
     template<typename T>
     T* try_get_mut() {
-        return w_.template has<T>(e_) ? &w_.template mut<T>(e_) : nullptr;
+        auto compEntity = w_.template add<T>().entity;
+        auto view = w_.mut_raw(e_, compEntity);
+        return view.valid() ? reinterpret_cast<T*>(view.data) : nullptr;
     }
 
     template<typename T>
