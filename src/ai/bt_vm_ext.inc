@@ -1,39 +1,33 @@
         // ── Batch 7: SuspiciousItemReaction / AmbushType / NoiseType ─────────
         case BTNodeType::SIReactionCheck: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             result = (as->si_reaction == static_cast<SuspiciousItemReaction>(nd.data & 0xFFu))
                      ? BTStatus::Success : BTStatus::Failure;
             pc = nd.parent; continue;
         }
         case BTNodeType::SetSIReaction: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             as->si_reaction = static_cast<SuspiciousItemReaction>(nd.data & 0xFFu);
             result = BTStatus::Success; pc = nd.parent; continue;
         }
         case BTNodeType::AmbushTypeCheck: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             result = (as->ambush_type == static_cast<AmbushType>(nd.data & 0xFFu))
                      ? BTStatus::Success : BTStatus::Failure;
             pc = nd.parent; continue;
         }
         case BTNodeType::SetAmbushType: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             as->ambush_type = static_cast<AmbushType>(nd.data & 0xFFu);
             result = BTStatus::Success; pc = nd.parent; continue;
         }
         case BTNodeType::NoiseTypeCheck: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             result = (as->last_noise_type == static_cast<NoiseType>(nd.data & 0xFFu))
                      ? BTStatus::Success : BTStatus::Failure;
             pc = nd.parent; continue;
         }
         case BTNodeType::SetNoiseType: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             as->last_noise_type = static_cast<NoiseType>(nd.data & 0xFFu);
             result = BTStatus::Success; pc = nd.parent; continue;
@@ -59,7 +53,6 @@
         case BTNodeType::ActionForceMoveToSI: {
             NpcMemoryComponent* nm = MdRegistry::Get().Handle(e).try_get_mut<NpcMemoryComponent>();
             if (!nm || nm->event_count == 0) { result = BTStatus::Failure; pc = nd.parent; continue; }
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) { as->frame_flags |= (1ull << ff::COULD_DO_SUSPECT_TARGET_RESPONSE_MOVETO); }
             result = BTStatus::Success; pc = nd.parent; continue;
         }
@@ -104,7 +97,6 @@
         }
 
         case BTNodeType::ActionMoveThroughTarget: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) {
                 as->frame_flags  |= (1ull << ff::SHOULD_MOVE_THROUGH_TARGET);
                 as->target_speed  = static_cast<LocomotionTargetSpeed>(nd.data & 0x3u);
@@ -123,7 +115,6 @@
         case BTNodeType::ConditionAngleToTarget: {
             const WorldTransform* wt = MdRegistry::Get().Handle(e).try_get_mut<WorldTransform>();
             const SenseComponent* sc = MdRegistry::Get().Handle(e).try_get_mut<SenseComponent>();
-            const AgentState*     as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!wt || !sc) { result = BTStatus::Failure; pc = nd.parent; continue; }
             // NPC forward from rot_y (right-hand Y-up: fwd = (sin, 0, cos)).
             // Use exact sinf/cosf + sqrtf: this condition evaluates once per entity
@@ -141,14 +132,12 @@
         }
 
         case BTNodeType::ConditionShouldSuspend: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             result = as->lcflags.test(lcf::IS_SUSPENDED) ? BTStatus::Success : BTStatus::Failure;
             pc = nd.parent; continue;
         }
 
         case BTNodeType::ActionSuspendSelf: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->lcflags.set(lcf::IS_SUSPENDED);
             result = BTStatus::Success; pc = nd.parent; continue;
         }
@@ -232,7 +221,6 @@
         // ConditionIsEnemyOfTarget — AllianceMatrix::IsEnemy(self.alliance_group, target.alliance_group)
         case BTNodeType::ConditionIsEnemyOfTarget: {
             AgentBlackboard*   ab = MdRegistry::Get().Handle(e).try_get_mut<AgentBlackboard>();
-            const AgentState*  as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!ab || !as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             const BlackboardEntry* en = bb_find(*ab, TARGET_ENTITY_BB_KEY);
             if (!en) { result = BTStatus::Failure; pc = nd.parent; continue; }
@@ -255,7 +243,6 @@
         // ── Batch 17 ─────────────────────────────────────────────────────────
         // ConditionIsCharacterClass — Success if as->character_class == (CharacterClass)data
         case BTNodeType::ConditionIsCharacterClass: {
-            const AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             result = (as->character_class == static_cast<CharacterClass>(nd.data))
                      ? BTStatus::Success : BTStatus::Failure;
@@ -263,7 +250,6 @@
         }
         // ConditionIsInCover — Success if lcf::IS_IN_COVER set
         case BTNodeType::ConditionIsInCover: {
-            const AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             result = as->lcflags.test(lcf::IS_IN_COVER)
                      ? BTStatus::Success : BTStatus::Failure;
@@ -271,7 +257,6 @@
         }
         // ConditionShouldUseCover — Success if aggro_level >= Warning (3)
         case BTNodeType::ConditionShouldUseCover: {
-            const AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             result = (static_cast<uint8_t>(as->aggro_level) >=
                       static_cast<uint8_t>(NpcAggroLevel::Warning))
@@ -280,13 +265,11 @@
         }
         // ActionMoveToCover — set ff::SHOULD_MOVE_TO_COVER; always Success
         case BTNodeType::ActionMoveToCover: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->frame_flags |= (1ull << ff::SHOULD_MOVE_TO_COVER);
             result = BTStatus::Success; pc = nd.parent; continue;
         }
         // ActionIdleInCover — mark as in cover + set combat state; always Running
         case BTNodeType::ActionIdleInCover: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) {
                 as->lcflags.set(lcf::IS_IN_COVER);
                 as->combat_state = NpcCombatState::EnteredCover;
@@ -297,7 +280,6 @@
         // ── Batch 18 ─────────────────────────────────────────────────────────
         // BehaviourMoodSetCheck — Success if as->behaviour_mood_set == (BehaviourMoodSet)data
         case BTNodeType::BehaviourMoodSetCheck: {
-            const AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             result = (as->behaviour_mood_set == static_cast<BehaviourMoodSet>(nd.data))
                      ? BTStatus::Success : BTStatus::Failure;
@@ -305,13 +287,11 @@
         }
         // SetBehaviourMoodSet — write as->behaviour_mood_set; always Success
         case BTNodeType::SetBehaviourMoodSet: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->behaviour_mood_set = static_cast<BehaviourMoodSet>(nd.data);
             result = BTStatus::Success; pc = nd.parent; continue;
         }
         // ViewconeTypeCheck — Success if as->viewcone_type == (ViewconeType)data
         case BTNodeType::ViewconeTypeCheck: {
-            const AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             result = (as->viewcone_type == static_cast<ViewconeType>(nd.data))
                      ? BTStatus::Success : BTStatus::Failure;
@@ -319,13 +299,11 @@
         }
         // SetViewconeType — write as->viewcone_type; always Success
         case BTNodeType::SetViewconeType: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->viewcone_type = static_cast<ViewconeType>(nd.data);
             result = BTStatus::Success; pc = nd.parent; continue;
         }
         // SensoryTypeCheck — Success if as->last_sensory_type == (SensoryType)data
         case BTNodeType::SensoryTypeCheck: {
-            const AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             result = (as->last_sensory_type == static_cast<SensoryType>(nd.data))
                      ? BTStatus::Success : BTStatus::Failure;
@@ -333,7 +311,6 @@
         }
         // SetSensoryType — write as->last_sensory_type; always Success
         case BTNodeType::SetSensoryType: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->last_sensory_type = static_cast<SensoryType>(nd.data);
             result = BTStatus::Success; pc = nd.parent; continue;
         }
@@ -385,7 +362,6 @@
             result = BTStatus::Success; pc = nd.parent; continue;
         }
         case BTNodeType::ActionRangedShoot: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->frame_flags |= (1ull << ff::SHOULD_RANGED_SHOOT);
             result = BTStatus::Success; pc = nd.parent; continue;
         }
@@ -397,7 +373,6 @@
             pc = nd.parent; continue;
         }
         case BTNodeType::ConditionBehaviourMoodSetAbove: {
-            const AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             result = (static_cast<uint8_t>(as->behaviour_mood_set) >
                       static_cast<uint8_t>(nd.data))
@@ -414,7 +389,6 @@
             result = BTStatus::Failure; pc = nd.parent; continue;
 
         case BTNodeType::DecoratorTimer: {
-            AgentState* as  = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             uint8_t  tid    = static_cast<uint8_t>(nd.data >> 24);
             uint32_t dur_ms = nd.data & 0x00FFFFFFu;
             if (result == BTStatus::Running) {
@@ -466,7 +440,6 @@
         // ── Batch 21 ─────────────────────────────────────────────────────────
 
         case BTNodeType::ActionMoveToTarget: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) {
                 as->frame_flags |= (1ull << ff::SHOULD_MOVE_TO_TARGET);
                 as->target_speed = static_cast<LocomotionTargetSpeed>(nd.data & 0x03u);
@@ -475,7 +448,6 @@
         }
 
         case BTNodeType::ActionMakeAggressive: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) {
                 as->aggro_level = NpcAggroLevel::NoLimit;
                 as->frame_flags |= (1ull << ff::SHOULD_MOVE_TO_TARGET);
@@ -484,7 +456,6 @@
         }
 
         case BTNodeType::ConditionAllowedToAttackTarget: {
-            const AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             bool aggro_ok = (static_cast<uint8_t>(as->aggro_level) >=
                              static_cast<uint8_t>(NpcAggroLevel::Warning));
@@ -508,7 +479,6 @@
         }
 
         case BTNodeType::ActionDead: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) {
                 as->lcflags.set(lcf::IS_DEAD);
                 as->frame_flags |= (1ull << ff::SHOULD_PLAY_DEATH);
@@ -517,13 +487,11 @@
         }
 
         case BTNodeType::ActionMeleeAttack: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->frame_flags |= (1ull << ff::SHOULD_MELEE_ATTACK);
             result = BTStatus::Success; pc = nd.parent; continue;
         }
 
         case BTNodeType::ConditionIsCurrentCoverValid: {
-            const AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             result = as->lcflags.test(lcf::IS_IN_COVER) ? BTStatus::Success : BTStatus::Failure;
             pc = nd.parent; continue;
@@ -594,7 +562,6 @@
         }
 
         case BTNodeType::ConditionHasSearchedMostRecentSensedPosition: {
-            const AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             result = as->lcflags.test(lcf::HAS_SEARCHED_RECENT_SENSED_POS) ? BTStatus::Success : BTStatus::Failure;
             pc = nd.parent; continue;
@@ -604,7 +571,6 @@
 
         case BTNodeType::ActionIdleTimeFacingTarget: {
             if (st.timer == 0u) st.timer = nowMs + nd.data;
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (static_cast<int32_t>(nowMs - st.timer) >= 0) {
                 st.timer = 0u;
                 result = BTStatus::Success;
@@ -617,7 +583,6 @@
 
         case BTNodeType::ActionIdleTimeFacingTargetMostRecentSensedPosition: {
             if (st.timer == 0u) st.timer = nowMs + nd.data;
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (static_cast<int32_t>(nowMs - st.timer) >= 0) {
                 st.timer = 0u;
                 result = BTStatus::Success;
@@ -630,7 +595,6 @@
 
         case BTNodeType::ActionIdleTimeFacingSuspiciousItem: {
             if (st.timer == 0u) st.timer = nowMs + nd.data;
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (static_cast<int32_t>(nowMs - st.timer) >= 0) {
                 st.timer = 0u;
                 result = BTStatus::Success;
@@ -642,13 +606,11 @@
         }
 
         case BTNodeType::ActionRangedAim: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->frame_flags |= (1ull << ff::SHOULD_RANGED_AIM);
             result = BTStatus::Running; goto exit_loop;
         }
 
         case BTNodeType::ActionSuspiciousItemReaction: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) {
                 as->si_reaction = static_cast<SuspiciousItemReaction>(static_cast<uint8_t>(nd.data));
                 as->frame_flags |= (1ull << ff::SI_REACTION_SET);
@@ -657,7 +619,6 @@
         }
 
         case BTNodeType::ActionSuspectTargetResponse: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->frame_flags |= (1ull << ff::SHOULD_DO_SUSPECT_TARGET_RESPONSE);
             result = BTStatus::Success; pc = nd.parent; continue;
         }
@@ -665,13 +626,11 @@
         // ── Batch 24 ─────────────────────────────────────────────────────────
 
         case BTNodeType::ActionRequestCover: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->frame_flags |= (1ull << ff::REQUESTING_COVER);
             result = BTStatus::Running; goto exit_loop;
         }
 
         case BTNodeType::ConditionHasValidCoverToChangeTo: {
-            const AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             result = (!as->lcflags.test(lcf::IS_IN_COVER)) ? BTStatus::Success : BTStatus::Failure;
             pc = nd.parent; continue;
@@ -695,14 +654,12 @@
         // ── Batch 26 ─────────────────────────────────────────────────────────
 
         case BTNodeType::ConditionLastTimeSearchedWithinTime: {
-            const AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as || as->last_searched_ms == 0u) { result = BTStatus::Failure; pc = nd.parent; continue; }
             result = (nowMs - as->last_searched_ms <= nd.data) ? BTStatus::Success : BTStatus::Failure;
             pc = nd.parent; continue;
         }
 
         case BTNodeType::ConditionAllowedToSearch: {
-            const AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             result = (as->awareness >= AwarenessState::Suspicious &&
                       !as->lcflags.test(lcf::IS_DEAD)) ? BTStatus::Success : BTStatus::Failure;
@@ -710,7 +667,6 @@
         }
 
         case BTNodeType::ConditionHasDoneSuspectResponseMoveTo: {
-            const AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             result = as->lcflags.test(lcf::IS_DONE_SUSPECT_RESPONSE_MOVETO)
                      ? BTStatus::Success : BTStatus::Failure;
@@ -718,21 +674,18 @@
         }
 
         case BTNodeType::ConditionHasDoneSuspectResponseWithinTime: {
-            const AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as || as->event_ts[3] == 0u) { result = BTStatus::Failure; pc = nd.parent; continue; }
             result = (nowMs - as->event_ts[3] <= nd.data) ? BTStatus::Success : BTStatus::Failure;
             pc = nd.parent; continue;
         }
 
         case BTNodeType::ConditionHasKilltrap: {
-            const AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             result = as->lcflags.test(lcf::HAS_KILLTRAP) ? BTStatus::Success : BTStatus::Failure;
             pc = nd.parent; continue;
         }
 
         case BTNodeType::ConditionHasMeleeAttackAvailableOrIsAttacking: {
-            const AgentState* as   = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             const WeaponComponent* wc = MdRegistry::Get().Handle(e).try_get_mut<WeaponComponent>();
             bool melee_ready   = (wc && wc->melee_available);
             bool is_attacking  = (as && (as->frame_flags & (1ull << ff::SHOULD_MELEE_ATTACK)));
@@ -746,14 +699,12 @@
         }
 
         case BTNodeType::ConditionIsRequestingCover: {
-            const AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             result = (as->frame_flags & (1ull << ff::REQUESTING_COVER)) ? BTStatus::Success : BTStatus::Failure;
             pc = nd.parent; continue;
         }
 
         case BTNodeType::ConditionAllowedToPursueTarget: {
-            const AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             result = (static_cast<uint8_t>(as->aggro_level) >=
                       static_cast<uint8_t>(NpcAggroLevel::Warning))
@@ -764,31 +715,26 @@
         // ── Batch 27 ─────────────────────────────────────────────────────────
 
         case BTNodeType::ActionBreakout: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->frame_flags |= (1ull << ff::SHOULD_BREAKOUT);
             result = BTStatus::Running; goto exit_loop;
         }
 
         case BTNodeType::ActionMoveToMostRecentSensedPosition: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->frame_flags |= (1ull << ff::SHOULD_MOVE_TO_LAST_KNOWN);
             result = BTStatus::Running; goto exit_loop;
         }
 
         case BTNodeType::ActionMoveToNearestStandingPointToTarget: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->frame_flags |= (1ull << ff::SHOULD_MOVE_NEAR_TARGET);
             result = BTStatus::Running; goto exit_loop;
         }
 
         case BTNodeType::ActionMoveToAttackTarget: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->frame_flags |= (1ull << ff::SHOULD_ATTACK_MOVE);
             result = BTStatus::Running; goto exit_loop;
         }
 
         case BTNodeType::ActionChangeCover: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->frame_flags |= (1ull << ff::SHOULD_CHANGE_COVER);
             result = BTStatus::Running; goto exit_loop;
         }
@@ -807,7 +753,6 @@
         }
 
         case BTNodeType::ConditionIsCoverExposed: {
-            const AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             const SenseComponent* sc = MdRegistry::Get().Handle(e).try_get_mut<SenseComponent>();
             if (!as || !sc) { result = BTStatus::Failure; pc = nd.parent; continue; }
             bool in_cover = as->lcflags.test(lcf::IS_IN_COVER);
@@ -827,31 +772,26 @@
         }
 
         case BTNodeType::ActionUpdateLastKnownPosition: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->frame_flags |= (1ull << ff::SHOULD_UPDATE_LAST_KNOWN);
             result = BTStatus::Running; goto exit_loop;
         }
 
         case BTNodeType::ActionRequestInvestigate: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->frame_flags |= (1ull << ff::SHOULD_INVESTIGATE);
             result = BTStatus::Running; goto exit_loop;
         }
 
         case BTNodeType::ActionMarkTargetLost: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->frame_flags |= (1ull << ff::SHOULD_MARK_TARGET_LOST);
             result = BTStatus::Running; goto exit_loop;
         }
 
         case BTNodeType::ActionForceRetreat: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->frame_flags |= (1ull << ff::SHOULD_FORCE_RETREAT);
             result = BTStatus::Running; goto exit_loop;
         }
 
         case BTNodeType::ActionHoldPosition: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->frame_flags |= (1ull << ff::SHOULD_HOLD_POSITION);
             result = BTStatus::Running; goto exit_loop;
         }
@@ -874,7 +814,6 @@
         }
 
         case BTNodeType::ConditionIsHostileToPlayer: {
-            const AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             bool enemy = AllianceMatrix::Get().IsEnemy(
                 static_cast<AllianceGroup>(as->alliance_group),
@@ -884,31 +823,26 @@
         }
 
         case BTNodeType::ActionPerformAmbush: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->frame_flags |= (1ull << ff::SHOULD_PERFORM_AMBUSH);
             result = BTStatus::Running; goto exit_loop;
         }
 
         case BTNodeType::ActionStartSearch: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->frame_flags |= (1ull << ff::SHOULD_START_SEARCH);
             result = BTStatus::Running; goto exit_loop;
         }
 
         case BTNodeType::ActionCallForHelp: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->frame_flags |= (1ull << ff::SHOULD_CALL_FOR_HELP);
             result = BTStatus::Running; goto exit_loop;
         }
 
         case BTNodeType::ActionTauntTarget: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->frame_flags |= (1ull << ff::SHOULD_TAUNT_TARGET);
             result = BTStatus::Running; goto exit_loop;
         }
 
         case BTNodeType::ActionSurrenderSelf: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->frame_flags |= (1ull << ff::SHOULD_SURRENDER);
             result = BTStatus::Running; goto exit_loop;
         }
@@ -932,7 +866,6 @@
         }
 
         case BTNodeType::ConditionMotivationTicksAbove: {
-            const AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             result = (as->motivation_ticks > static_cast<uint8_t>(nd.data))
                      ? BTStatus::Success : BTStatus::Failure;
@@ -947,31 +880,26 @@
         }
 
         case BTNodeType::ActionPursueTarget: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->frame_flags |= (1ull << ff::SHOULD_PURSUE_TARGET);
             result = BTStatus::Running; goto exit_loop;
         }
 
         case BTNodeType::ActionCircleTarget: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->frame_flags |= (1ull << ff::SHOULD_CIRCLE_TARGET);
             result = BTStatus::Running; goto exit_loop;
         }
 
         case BTNodeType::ActionBackOff: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->frame_flags |= (1ull << ff::SHOULD_BACK_OFF);
             result = BTStatus::Running; goto exit_loop;
         }
 
         case BTNodeType::ActionCrouchMove: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->frame_flags |= (1ull << ff::SHOULD_CROUCH_MOVE);
             result = BTStatus::Running; goto exit_loop;
         }
 
         case BTNodeType::ActionVault: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->frame_flags |= (1ull << ff::SHOULD_VAULT);
             result = BTStatus::Running; goto exit_loop;
         }
@@ -1010,12 +938,10 @@
 
         // ── Batch 35: remaining LOW-priority nodes ────────────────────────────
         case BTNodeType::ActionApplyPrimaryDamageControlResponse: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->frame_flags |= (1ull << ff::SHOULD_APPLY_DAMAGE_CONTROL);
             result = BTStatus::Running; goto exit_loop;
         }
         case BTNodeType::ActionBrokenCover: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) {
                 as->lcflags.clear(lcf::IS_IN_COVER);
                 as->frame_flags |= (1ull << ff::SHOULD_BREAKOUT);
@@ -1023,7 +949,6 @@
             result = BTStatus::Success; pc = nd.parent; continue;
         }
         case BTNodeType::ActionMoveToObjective: {
-            AgentState*      as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             const AgentBlackboard* ab = MdRegistry::Get().Handle(e).try_get_mut<AgentBlackboard>();
             if (as) as->frame_flags |= (1ull << ff::SHOULD_MOVE_TO_OBJECTIVE);
             if (ab) {
@@ -1037,7 +962,6 @@
             result = BTStatus::Running; goto exit_loop;
         }
         case BTNodeType::ActionSetLogicCharacterFlags: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) {
                 uint8_t bit = static_cast<uint8_t>((nd.data >> 8) & 0x3Fu);
                 as->lcflags.assign(bit, (nd.data & 0x1u) != 0u);
@@ -1046,7 +970,6 @@
         }
 
         case BTNodeType::ConditionAllowedToDoSuspiciousWarning: {
-            const AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             result = (as->aggro_level >= NpcAggroLevel::Warning &&
                       as->awareness  >= AwarenessState::Suspicious &&
@@ -1055,7 +978,6 @@
             pc = nd.parent; continue;
         }
         case BTNodeType::ConditionCanTakeStep: {
-            const AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as || as->lcflags.test(lcf::IS_DEAD)) { result = BTStatus::Failure; pc = nd.parent; continue; }
             const AgentBlackboard* ab = MdRegistry::Get().Handle(e).try_get_mut<AgentBlackboard>();
             const BlackboardEntry* en = ab ? bb_find(*ab, TARGET_ENTITY_BB_KEY) : nullptr;
@@ -1089,13 +1011,11 @@
             pc = nd.parent; continue;
         }
         case BTNodeType::ConditionIsCorpseTrap: {
-            const AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             result = (as && as->lcflags.test(lcf::IS_CORPSE_TRAP))
                      ? BTStatus::Success : BTStatus::Failure;
             pc = nd.parent; continue;
         }
         case BTNodeType::ConditionIsGaugeAmountBelow: {
-            const AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             auto  gt  = static_cast<GaugeType>((nd.data >> 24) & 0xFFu);
             float thr = static_cast<float>(nd.data & 0x00FFFFFFu) / 1000.f;
@@ -1110,7 +1030,6 @@
             pc = nd.parent; continue;
         }
         case BTNodeType::ConditionRequiresPrimaryDamageControlResponse: {
-            const AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             result = (as->hp_pct <= static_cast<uint8_t>(nd.data))
                      ? BTStatus::Success : BTStatus::Failure;
@@ -1164,12 +1083,10 @@
 
         // ── Batch 34: RE MEDIUM-priority nodes ───────────────────────────────
         case BTNodeType::ActionForceSearch: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->frame_flags |= (1ull << ff::SHOULD_FORCE_SEARCH);
             result = BTStatus::Running; goto exit_loop;
         }
         case BTNodeType::ActionResetSearchJobs: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) {
                 as->lcflags.clear(lcf::HAS_SEARCHED_RECENT_SENSED_POS);
                 as->last_searched_ms = 0u;
@@ -1177,12 +1094,10 @@
             result = BTStatus::Success; pc = nd.parent; continue;
         }
         case BTNodeType::ActionSetFrameFlag: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as && nd.data < 64u) as->frame_flags |= (1ull << static_cast<uint8_t>(nd.data));
             result = BTStatus::Success; pc = nd.parent; continue;
         }
         case BTNodeType::ActionSetGaugeAmount: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) {
                 auto   gt  = static_cast<GaugeType>((nd.data >> 16) & 0xFFu);
                 float  val = static_cast<float>(nd.data & 0xFFFFu) / 1000.f;
@@ -1210,7 +1125,6 @@
             pc = nd.parent; continue;
         }
         case BTNodeType::ConditionIsCoverTooClose: {
-            const AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as || !as->lcflags.test(lcf::IS_IN_COVER)) { result = BTStatus::Failure; pc = nd.parent; continue; }
             const WorldTransform* self_wt = MdRegistry::Get().Handle(e).try_get_mut<WorldTransform>();
             const AgentBlackboard* ab = MdRegistry::Get().Handle(e).try_get_mut<AgentBlackboard>();
@@ -1227,7 +1141,6 @@
             pc = nd.parent; continue;
         }
         case BTNodeType::ConditionIsInCombatArea: {
-            const AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             result = (as && as->awareness >= AwarenessState::Aware)
                      ? BTStatus::Success : BTStatus::Failure;
             pc = nd.parent; continue;
@@ -1253,7 +1166,6 @@
             pc = nd.parent; continue;
         }
         case BTNodeType::ConditionNeedsToGetOutOfTheWay: {
-            const AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             result = (as && (as->frame_flags & (1ull << ff::SHOULD_GET_OUT_OF_WAY)))
                      ? BTStatus::Success : BTStatus::Failure;
             pc = nd.parent; continue;
@@ -1376,22 +1288,18 @@
 
         // ── Batch 33: RE HIGH-priority combat nodes ───────────────────────────
         case BTNodeType::ActionAbortMeleeAttack: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->frame_flags |= (1ull << ff::SHOULD_ABORT_MELEE);
             result = BTStatus::Running; goto exit_loop;
         }
         case BTNodeType::ActionGetOutOfTheWay: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->frame_flags |= (1ull << ff::SHOULD_GET_OUT_OF_WAY);
             result = BTStatus::Running; goto exit_loop;
         }
         case BTNodeType::ActionHitTargetAndRun: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->lcflags.set(lcf::SHOULD_HIT_AND_RUN);
             result = BTStatus::Running; goto exit_loop;
         }
         case BTNodeType::ActionMoveInDirection: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) {
                 as->move_direction = static_cast<uint8_t>(nd.data & 0x3u);
                 as->frame_flags |= (1ull << ff::SHOULD_MOVE_IN_DIRECTION);
@@ -1399,17 +1307,14 @@
             result = BTStatus::Running; goto exit_loop;
         }
         case BTNodeType::ActionSuspend: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->lcflags.set(lcf::IS_SUSPENDED);
             result = BTStatus::Success; pc = nd.parent; continue;
         }
         case BTNodeType::ActionTakeStep: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->frame_flags |= (1ull << ff::SHOULD_TAKE_STEP);
             result = BTStatus::Running; goto exit_loop;
         }
         case BTNodeType::ActionThreatAware: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) {
                 as->frame_flags |= (1ull << ff::SHOULD_THREAT_AWARE);
                 as->lcflags.set(lcf::DOING_THREAT_ANIM);
@@ -1417,7 +1322,6 @@
             result = BTStatus::Running; goto exit_loop;
         }
         case BTNodeType::ActionThreatEscalation: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) {
                 as->frame_flags |= (1ull << ff::SHOULD_THREAT_ESCALATE);
                 if (as->aggro_level < NpcAggroLevel::NoLimit)
@@ -1442,14 +1346,12 @@
             pc = nd.parent; continue;
         }
         case BTNodeType::ConditionCheckHealthState: {
-            const AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             result = (as->hp_pct <= static_cast<uint8_t>(nd.data))
                      ? BTStatus::Success : BTStatus::Failure;
             pc = nd.parent; continue;
         }
         case BTNodeType::ConditionHasGroupAwarenessState: {
-            const AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             result = (as->awareness >= static_cast<AwarenessState>(nd.data))
                      ? BTStatus::Success : BTStatus::Failure;
@@ -1457,7 +1359,6 @@
         }
         case BTNodeType::ConditionHasMeleeBlockAvailable: {
             const WeaponComponent* wc = MdRegistry::Get().Handle(e).try_get_mut<WeaponComponent>();
-            const AgentState*      as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!wc || !as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             result = (wc->melee_available && as->combat_state == NpcCombatState::Blocking)
                      ? BTStatus::Success : BTStatus::Failure;
@@ -1477,7 +1378,6 @@
             pc = nd.parent; continue;
         }
         case BTNodeType::ConditionLastTimeTargetShotAtMe: {
-            const AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as || as->last_shot_at_ms == 0u) { result = BTStatus::Failure; pc = nd.parent; continue; }
             result = ((nowMs - as->last_shot_at_ms) <= nd.data)
                      ? BTStatus::Success : BTStatus::Failure;
@@ -1507,8 +1407,7 @@
             MdEntity tgt = MdRegistry::Get().FromIndex(en->val.e);
             if (!MdRegistry::Get().Valid(tgt)) { result = BTStatus::Failure; pc = nd.parent; continue; }
             // IS_TARGETED is set on self by CombatSystem when tgt->Combat.target == e
-            const AgentState* self_as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
-            result = (self_as && self_as->lcflags.test(lcf::IS_TARGETED))
+            result = (as && as->lcflags.test(lcf::IS_TARGETED))
                      ? BTStatus::Success : BTStatus::Failure;
             pc = nd.parent; continue;
         }

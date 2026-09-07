@@ -2,6 +2,8 @@
 #include <monkey_dust/ecs/md_entity.h>
 #include <monkey_dust/ai/bt_types.h>
 
+struct AgentState;
+
 // Defined in behavior_tree.cpp; declared here (not just relied on via Unity
 // Build TU-merging, which bt_factories.cpp's "addXxx()" factory methods
 // used to depend on implicitly — broke when adding engine/src/ai/
@@ -367,7 +369,19 @@ public:
 
     bool isValid() const { return m_root != INVALID && m_nodeCount > 0; }
 
-    BTStatus tick(md::EngineContext& ctx, MdEntity e, uint32_t nowMs);
+    // as: caller's already-resolved AgentState* for entity e (nullable --
+    // AgentState is only present on save-loaded entities, never guaranteed).
+    // Threaded through from the caller instead of re-fetched per-node:
+    // AgentState was the single largest facade-accessor contributor inside
+    // this VM (145 of 436 audited sites across bt_vm_core/ai/ext.inc, ~55%
+    // of the BT VM's own traffic) -- the caller (AISystem::Update) already
+    // holds this exact pointer before calling tick() at all. Verified
+    // ABI-safe: BTActionFunc (the one signature that crosses the
+    // hot-reload .so boundary) is untouched -- it's a separate dispatch
+    // path (nd.action(ctx, e) at BTNodeType::Action) that this fix does not
+    // touch. tick() itself has exactly one live caller (ai_system.h),
+    // itself never hot-reloaded.
+    BTStatus tick(md::EngineContext& ctx, MdEntity e, AgentState* as, uint32_t nowMs);
     void     reset();
 
 private:

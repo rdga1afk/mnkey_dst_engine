@@ -37,7 +37,7 @@ static constexpr uint32_t DONE_SYSTEMATIC_SEARCH_BB_KEY   = md::fnv1a("done_syst
 static constexpr uint32_t HAS_OBJECTIVE_BB_KEY            = md::fnv1a("has_objective");
 
 // ── Stackless VM tick ─────────────────────────────────────────────────────────
-BTStatus BehaviorTree::tick(md::EngineContext& ctx, MdEntity e, uint32_t nowMs) {
+BTStatus BehaviorTree::tick(md::EngineContext& ctx, MdEntity e, AgentState* as, uint32_t nowMs) {
     if (!isValid()) return BTStatus::Failure;
 
     uint16_t pc     = m_root;

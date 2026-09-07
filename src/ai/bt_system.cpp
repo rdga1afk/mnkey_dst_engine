@@ -139,7 +139,7 @@ void BTSystem::Tick(md::EngineContext& ctx, flecs::world& reg, uint32_t nowMs) {
         if (!AIBudget::Get().TryConsume(cost)) return;  // budget exhausted: skip BT
         as.npc_tick_cost += static_cast<uint16_t>(cost * 100.f);  // VBfA: accumulate work
 
-        btc.tree->tick(ctx, MdEntity(e.id()), nowMs);
+        btc.tree->tick(ctx, MdEntity(e.id()), &as, nowMs);
     });
 }
 

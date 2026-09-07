@@ -1,6 +1,5 @@
         // MD_deepseek: AggroLevelCheck / SetAggroLevel
         case BTNodeType::AggroLevelCheck: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             result = (as->aggro_level == static_cast<NpcAggroLevel>(nd.data))
                      ? BTStatus::Success : BTStatus::Failure;
@@ -8,7 +7,6 @@
         }
 
         case BTNodeType::SetAggroLevel: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->aggro_level = static_cast<NpcAggroLevel>(nd.data);
             result = BTStatus::Success;
             pc = nd.parent; continue;
@@ -16,7 +14,6 @@
 
         // MD_deepseek: NpcCombatStateCheck / SetNpcCombatState
         case BTNodeType::NpcCombatStateCheck: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             result = (as->combat_state == static_cast<NpcCombatState>(nd.data))
                      ? BTStatus::Success : BTStatus::Failure;
@@ -24,7 +21,6 @@
         }
 
         case BTNodeType::SetNpcCombatState: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->combat_state = static_cast<NpcCombatState>(nd.data);
             result = BTStatus::Success;
             pc = nd.parent; continue;
@@ -35,7 +31,6 @@
         // Z1: DecoratorMood — run child only when as->mood matches
         case BTNodeType::DecoratorMood: {
             if (result == BTStatus::Running) {
-                AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
                 if (!as || as->mood != static_cast<NpcMood>(nd.data)) {
                     result = BTStatus::Failure; pc = nd.parent; continue;
                 }
@@ -51,7 +46,6 @@
         // Z2: DecoratorAwareness — run child only when as->awareness matches
         case BTNodeType::DecoratorAwareness: {
             if (result == BTStatus::Running) {
-                AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
                 if (!as || as->awareness != static_cast<AwarenessState>(nd.data)) {
                     result = BTStatus::Failure; pc = nd.parent; continue;
                 }
@@ -67,7 +61,6 @@
         // Z3: DecoratorTimerAuto — start timer on every entry, propagate child result
         case BTNodeType::DecoratorTimerAuto: {
             if (result == BTStatus::Running) {
-                AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
                 if (as) {
                     uint8_t  tid    = static_cast<uint8_t>(nd.data >> 24);
                     uint32_t dur_ms = nd.data & 0x00FFFFFFu;
@@ -91,7 +84,6 @@
 
         // Z4: ActionTimerRandom — start timer with LCG-random duration [min_ms, max_ms]
         case BTNodeType::ActionTimerRandom: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) {
                 uint8_t  tid   = static_cast<uint8_t>(nd.data >> 24);
                 uint32_t max_u = (nd.data >> 12) & 0xFFFu;   // 12 bits, unit=100ms
@@ -155,7 +147,6 @@
 
         // Z8: ActionExpireTimer — immediately mark timer slot as expired
         case BTNodeType::ActionExpireTimer: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) {
                 uint8_t tid = static_cast<uint8_t>(nd.data & 0x1Fu);
                 if (tid < MAX_AGENT_TIMERS)
@@ -184,7 +175,6 @@
 
         // Z10: SetLocomotionState — write as->locomotion_state
         case BTNodeType::SetLocomotionState: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (as) as->locomotion_state = static_cast<LocomotionState>(nd.data);
             result = BTStatus::Success;
             pc = nd.parent; continue;
@@ -328,7 +318,6 @@
         // G10: DecoratorAggressionEscalation — pass through if aggro_level != None
         case BTNodeType::DecoratorAggressionEscalation: {
             if (result == BTStatus::Running) {
-                AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
                 if (!as || as->aggro_level == NpcAggroLevel::None) {
                     result = BTStatus::Failure; pc = nd.parent; continue;
                 }
@@ -343,7 +332,6 @@
         // ── Batch 2: MD BEHAVIOR XML patterns ────────────────────────────────
 
         case BTNodeType::ConditionIsDead: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             result = as->lcflags.test(lcf::IS_DEAD) ? BTStatus::Success : BTStatus::Failure;
             pc = nd.parent; continue;
@@ -353,7 +341,6 @@
             uint8_t char_type = static_cast<uint8_t>(nd.data & 0x3u);
             bool owner_ok = true, target_ok = true;
             if (char_type == 0 || char_type == 2) {
-                AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
                 owner_ok = as && as->lcflags.test(lcf::IS_IN_VENT);
             }
             if (char_type == 1 || char_type == 2) {
@@ -369,7 +356,6 @@
         }
 
         case BTNodeType::ConditionCanBreakout: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             bool ok = as->lcflags.test(lcf::SHOULD_BREAKOUT) &&
                      !as->lcflags.test(lcf::DONE_BREAKOUT);
@@ -378,7 +364,6 @@
         }
 
         case BTNodeType::ConditionIsBackstage: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             result = as->lcflags.test(lcf::CLOSE_TO_BACKSTAGE) ? BTStatus::Success : BTStatus::Failure;
             pc = nd.parent; continue;
@@ -442,7 +427,6 @@
         // ── Batch 4: EventOrder ───────────────────────────────────────────────
 
         case BTNodeType::ConditionEventAOccuredAfterB: {
-            AgentState* as = MdRegistry::Get().Handle(e).try_get_mut<AgentState>();
             if (!as) { result = BTStatus::Failure; pc = nd.parent; continue; }
             uint8_t ea = static_cast<uint8_t>((nd.data >> 8) & 0x3u);
             uint8_t eb = static_cast<uint8_t>(nd.data & 0x3u);
