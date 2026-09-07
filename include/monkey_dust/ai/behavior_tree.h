@@ -372,15 +372,24 @@ public:
     // as: caller's already-resolved AgentState* for entity e (nullable --
     // AgentState is only present on save-loaded entities, never guaranteed).
     // Threaded through from the caller instead of re-fetched per-node:
-    // AgentState was the single largest facade-accessor contributor inside
-    // this VM (145 of 436 audited sites across bt_vm_core/ai/ext.inc, ~55%
-    // of the BT VM's own traffic) -- the caller (AISystem::Update) already
-    // holds this exact pointer before calling tick() at all. Verified
-    // ABI-safe: BTActionFunc (the one signature that crosses the
-    // hot-reload .so boundary) is untouched -- it's a separate dispatch
-    // path (nd.action(ctx, e) at BTNodeType::Action) that this fix does not
-    // touch. tick() itself has exactly one live caller (ai_system.h),
-    // itself never hot-reloaded.
+    // AgentState was the single largest facade-accessor contributor by
+    // STATIC SITE COUNT inside this VM (145 of 436 audited sites across
+    // bt_vm_core/ai/ext.inc -- a count of distinct call sites in source,
+    // NOT a measured share of runtime traffic) -- the caller
+    // (AISystem::Update) already holds this exact pointer before calling
+    // tick() at all. CORRECTION (2026-09-07, real measurement): a
+    // real-population GATE 1 re-check found this fix's actual runtime
+    // contribution was concentrated in a one-time SPAWN BURST (10446 of
+    // the traffic in the first 50 ticks after a 512-NPC spawn), not
+    // ongoing steady-state cost -- steady-state BT-path traffic measured
+    // ~0 once trees settled, with the ~2910 calls/tick steady-state total
+    // coming from elsewhere in the facade. Do not cite a "55%" or similar
+    // steady-state-share figure for this fix; it does not hold up against
+    // a real profile. Verified ABI-safe: BTActionFunc (the one signature
+    // that crosses the hot-reload .so boundary) is untouched -- it's a
+    // separate dispatch path (nd.action(ctx, e) at BTNodeType::Action)
+    // that this fix does not touch. tick() itself has exactly one live
+    // caller (ai_system.h), itself never hot-reloaded.
     BTStatus tick(md::EngineContext& ctx, MdEntity e, AgentState* as, uint32_t nowMs);
     void     reset();
 
