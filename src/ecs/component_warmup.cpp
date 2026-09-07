@@ -151,6 +151,80 @@ void WarmUpEngineComponents() {
 
     fprintf(stdout, "[ComponentWarmup] all engine ECS component types registered\n");
 
+    // gaia-ecs migration (prompt_/PROMPT_GAIA_MIGRATION.md §3 p.5):
+    // sizeof(T) < 8191 is gaia's real, code-enforced component-size limit
+    // (docs/GAIA_MIGRATION_ANALYSIS.md §0 -- id.h:46,48, NOT the README's
+    // stale "4095 bytes"). A standing check, not a one-off script, so a
+    // future component that grows past the limit fails the build under
+    // MD_ECS_GAIA=ON immediately rather than asserting at runtime deep
+    // inside gaia's own component-cache code. Largest known today:
+    // BTComponent=4648, FlowGraph=4384 -- both comfortably under.
+#if defined(MD_ECS_GAIA)
+    static_assert(sizeof(AgentBlackboard) < 8191);
+    static_assert(sizeof(AgentState) < 8191);
+    static_assert(sizeof(AIAgent) < 8191);
+    static_assert(sizeof(AIAgentTickState) < 8191);
+    static_assert(sizeof(AIScript) < 8191);
+    static_assert(sizeof(AnimatorComponent) < 8191);
+    static_assert(sizeof(BehaviorTreeComponent) < 8191);
+    static_assert(sizeof(BleedComponent) < 8191);
+    static_assert(sizeof(BodyBaseline) < 8191);
+    static_assert(sizeof(BountyComponent) < 8191);
+    static_assert(sizeof(BTComponent) < 8191);
+    static_assert(sizeof(Building) < 8191);
+    static_assert(sizeof(CharBodyState) < 8191);
+    static_assert(sizeof(ChildrenRef) < 8191);
+    static_assert(sizeof(CollapseState) < 8191);
+    static_assert(sizeof(CombatModifiers) < 8191);
+    static_assert(sizeof(DetachedLimb) < 8191);
+    static_assert(sizeof(DirectorHintComponent) < 8191);
+    static_assert(sizeof(EquipmentComponent) < 8191);
+    static_assert(sizeof(Faction) < 8191);
+    static_assert(sizeof(FlareActorComponent) < 8191);
+    static_assert(sizeof(FlareSpriteAnim) < 8191);
+    static_assert(sizeof(FlowGraph) < 8191);
+    static_assert(sizeof(Health) < 8191);
+    static_assert(sizeof(ImpactEvent) < 8191);
+    static_assert(sizeof(InjuryState) < 8191);
+    static_assert(sizeof(InteriorPortal) < 8191);
+    static_assert(sizeof(Inventory) < 8191);
+    static_assert(sizeof(LockComponent) < 8191);
+    static_assert(sizeof(LuaScriptComponent) < 8191);
+    static_assert(sizeof(MdManagedTag) < 8191);
+    static_assert(sizeof(NavAgent) < 8191);
+    static_assert(sizeof(NoiseEmitter) < 8191);
+    static_assert(sizeof(NpcDevelopmentComponent) < 8191);
+    static_assert(sizeof(NpcMemoryComponent) < 8191);
+    static_assert(sizeof(NpcNeeds) < 8191);
+    static_assert(sizeof(NpcRelationshipComponent) < 8191);
+    static_assert(sizeof(ParentRef) < 8191);
+    static_assert(sizeof(PatrolRoute) < 8191);
+    static_assert(sizeof(PhysicsAgent) < 8191);
+    static_assert(sizeof(PlayerController) < 8191);
+    static_assert(sizeof(PrisonerComponent) < 8191);
+    static_assert(sizeof(ProjectileComponent) < 8191);
+    static_assert(sizeof(RagdollComponent) < 8191);
+    static_assert(sizeof(Renderable) < 8191);
+    static_assert(sizeof(SenseComponent) < 8191);
+    static_assert(sizeof(SenseModifiers) < 8191);
+    static_assert(sizeof(ShopInventory) < 8191);
+    static_assert(sizeof(SkillXpAccum) < 8191);
+    static_assert(sizeof(SmellEmitter) < 8191);
+    static_assert(sizeof(SquadController) < 8191);
+    static_assert(sizeof(SquadMemberComponent) < 8191);
+    static_assert(sizeof(StatSheet) < 8191);
+    static_assert(sizeof(StealthComponent) < 8191);
+    static_assert(sizeof(SuspiciousItemGroupComponent) < 8191);
+    static_assert(sizeof(WeaponComponent) < 8191);
+    static_assert(sizeof(WorldTransform) < 8191);
+    // Not included here: Combat, LimbHealth -- registered via the
+    // component_master_list.h X-macro above (MD_COMPONENT) rather than a
+    // w.component<T>() call visible in this file's own grep-verified list
+    // (docs/GAIA_SEAM_AUDIT.md §1), and this TU does not visibly include
+    // a dedicated header defining them -- add once confirmed which header
+    // actually declares them, rather than guess an include path here.
+#endif
+
     VerifyReflectedComponentsAreWarmedUp();
 }
 

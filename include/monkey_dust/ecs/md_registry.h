@@ -2,10 +2,15 @@
 #include <monkey_dust/ecs/md_entity.h>
 #include <monkey_dust/ecs/registry.h>
 #include <monkey_dust/platform/md_log.h>
+#if defined(MD_ECS_GAIA)
+#include <gaia.h>
+#else
 #include <flecs.h>
+#endif
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 // Task #7/#8 concurrency project — real flecs-native multi-threading.
 //
@@ -30,6 +35,34 @@
 // active, the overwhelming majority of the game's execution) is
 // byte-for-byte the same code path as before this feature existed — zero
 // risk to anything outside the one JobGraph wave that sets it.
+#if defined(MD_ECS_GAIA)
+// Phase 1 stub: gaia has no stage/readonly-world concept analogous to
+// flecs's world.get_stage(i) — the REAL replacement is the external
+// scheduler adapter (w.set_sched(...) over the existing JobSystem),
+// wired up in Phase 4 (prompt_/PROMPT_GAIA_MIGRATION.md §6). Until then
+// this stores the override but MdEach/StagedHandle below do not act on
+// it — every gaia-backend call runs against the raw world unconditionally,
+// which is correct for Phase 1-3 (no code runs inside a JobGraph-staged
+// batch on the gaia path yet, since JobGraph itself isn't ported until
+// Phase 4). Flagged loudly, not silently: do NOT enable MD_ECS_GAIA
+// together with any JobGraph-staged concurrent tick before Phase 4 lands.
+namespace md_registry_detail {
+    inline thread_local gaia::ecs::World* t_stage_override = nullptr;
+}
+
+class MdRegistryStageScope {
+public:
+    explicit MdRegistryStageScope(gaia::ecs::World& stage) noexcept
+        : prev_(md_registry_detail::t_stage_override) {
+        md_registry_detail::t_stage_override = &stage;
+    }
+    ~MdRegistryStageScope() { md_registry_detail::t_stage_override = prev_; }
+    MdRegistryStageScope(const MdRegistryStageScope&) = delete;
+    MdRegistryStageScope& operator=(const MdRegistryStageScope&) = delete;
+private:
+    gaia::ecs::World* prev_;
+};
+#else
 namespace md_registry_detail {
     inline thread_local ecs_world_t* t_stage_override = nullptr;
 }
@@ -50,6 +83,7 @@ public:
 private:
     ecs_world_t* prev_;
 };
+#endif
 
 // MdManagedTag — task #8 B3.4. Every entity created via MdRegistry::Create()
 // gets this tag, so MdRegistry::Each()/Clear()/Count() can scope "every
@@ -91,6 +125,90 @@ struct MdManagedTag {};
 // just (T&...), so the wrapping lambda below only needs to convert that
 // flecs::entity into MdEntity when the caller's Func wants an MdEntity
 // first (checked the same way MdView did).
+#if defined(MD_ECS_GAIA)
+// gaia's query.each() ALWAYS delivers a chunk-level ecs::Iter&, never
+// per-component args the way flecs's each() does (checked every each()
+// example in gaia's README — Iter& or bare Entity, no exceptions found).
+// This adapter bridges that real API-shape difference: it inspects
+// Func's own parameter types via function_traits (extracted from
+// operator(), same technique any generic-lambda-argument-deduction needs)
+// and, per row in the chunk, calls func with the right combination of
+// it.view<T>()/it.view_mut<T>() slices — verified against exactly this
+// shape in /tmp/gaia_probe/pk_mdeach.cpp (both the (T1&,T2&...) and
+// (MdEntity,T1&,T2&...) forms, including a real view_mut aliasing/mutation
+// round-trip across two separate MdEach passes). Stage-routing is a
+// documented Phase-1 no-op — see md_registry_detail::t_stage_override's
+// comment above; real behavior lands with the Phase 4 scheduler adapter.
+namespace md_registry_detail {
+    template<typename T> struct function_traits : function_traits<decltype(&T::operator())> {};
+    template<typename C, typename R, typename... Args>
+    struct function_traits<R(C::*)(Args...) const> { using args_tuple = std::tuple<Args...>; };
+    template<typename C, typename R, typename... Args>
+    struct function_traits<R(C::*)(Args...)> { using args_tuple = std::tuple<Args...>; };
+
+    template<typename Arg>
+    decltype(auto) mdeach_view_for(gaia::ecs::Iter& it) {
+        using Raw = std::remove_cv_t<std::remove_reference_t<Arg>>;
+        if constexpr (std::is_const_v<std::remove_reference_t<Arg>>)
+            return it.template view<Raw>();
+        else
+            return it.template view_mut<Raw>();
+    }
+
+    template<typename Func, typename ArgsTuple, size_t... I>
+    void mdeach_dispatch_row(Func& func, gaia::ecs::Iter& it, uint32_t row,
+                              std::index_sequence<I...>) {
+        func(mdeach_view_for<std::tuple_element_t<I, ArgsTuple>>(it)[row]...);
+    }
+
+    template<typename Func, typename ArgsTuple, size_t... I>
+    void mdeach_dispatch_row_with_entity(Func& func, gaia::ecs::Iter& it, uint32_t row,
+                                          gaia::ecs::Entity e, std::index_sequence<I...>) {
+        func(MdEntity(e), mdeach_view_for<std::tuple_element_t<I + 1, ArgsTuple>>(it)[row]...);
+    }
+}
+
+template<typename Query, typename Func>
+void MdEach(Query& q, Func&& func) {
+    using Traits = md_registry_detail::function_traits<std::decay_t<Func>>;
+    using ArgsTuple = typename Traits::args_tuple;
+    constexpr size_t N = std::tuple_size_v<ArgsTuple>;
+    constexpr bool wantsEntity = N > 0 &&
+        std::is_same_v<std::tuple_element_t<0, ArgsTuple>, MdEntity>;
+
+    q.each([&](gaia::ecs::Iter& it) {
+        auto entView = it.template view<gaia::ecs::Entity>();
+        if constexpr (wantsEntity) {
+            for (uint32_t row = 0; row < it.size(); ++row)
+                md_registry_detail::mdeach_dispatch_row_with_entity<Func, ArgsTuple>(
+                    func, it, row, entView[row], std::make_index_sequence<N - 1>{});
+        } else {
+            for (uint32_t row = 0; row < it.size(); ++row)
+                md_registry_detail::mdeach_dispatch_row<Func, ArgsTuple>(
+                    func, it, row, std::make_index_sequence<N>{});
+        }
+    });
+}
+
+// gaia's Query is a single non-templated type (using Query =
+// detail::QueryImpl) -- unlike flecs::query<Components...>, it carries no
+// compile-time component list, so MdFirst cannot be templated on
+// Components... here. No query-level early-exit primitive was found
+// (verified: no find()-equivalent in gaia's public Query API) -- this
+// scans the full query and keeps the first match, which is correct but
+// not a true early-exit like flecs::query::find(). Acceptable for Phase 1
+// (MdFirst is a rare call, not the ~91-site MdEach hot path); revisit if
+// profiling later shows otherwise.
+inline MdEntity MdFirst(gaia::ecs::Query& q) {
+    gaia::ecs::Entity found = gaia::ecs::EntityBad;
+    q.each([&](gaia::ecs::Iter& it) {
+        if (found != gaia::ecs::EntityBad || it.size() == 0)
+            return;
+        found = it.template view<gaia::ecs::Entity>()[0];
+    });
+    return (found != gaia::ecs::EntityBad) ? MdEntity(found) : MdEntity::Null();
+}
+#else
 template<typename Query, typename Func>
 void MdEach(Query& q, Func&& func) {
     ecs_world_t* stage = md_registry_detail::t_stage_override;
@@ -118,6 +236,106 @@ MdEntity MdFirst(flecs::query<Components...>& q) {
     flecs::entity found = q.find([](Components&...) { return true; });
     return found ? MdEntity(found.id()) : MdEntity::Null();
 }
+#endif
+
+#if defined(MD_ECS_GAIA)
+// GaiaEntityHandle — Phase 1 replacement for MdRegistry::Handle()'s return
+// type. flecs::entity is a real library type carrying (world, id) that
+// exposes get_mut<T>/has<T>/etc AS ITS OWN methods; gaia has no equivalent
+// object — its API shape is World::method<T>(entity), not
+// entity.method<T>(). This proxy reproduces exactly the 10 methods
+// actually used at the ~870 Handle(e).X<T>() call sites
+// (docs/GAIA_SEAM_AUDIT.md §1.1), each mapped and verified against the
+// v1.0.0 tag source directly, not by symmetry with flecs:
+//   try_get_mut<T>() -- world.h has NO nullable component accessor
+//     (mut()/get()/sset() all say "Undefined behavior otherwise" on
+//     absence, world.h:5745/5782/6062) -- composed has<T>()+mut<T>() is
+//     the only replacement, TWO lookups instead of one. This is the
+//     hottest facade path (436 sites, 198 in bt_vm_ext.inc alone) --
+//     GATE 1's mandatory microbenchmark (prompt_/PROMPT_GAIA_MIGRATION.md
+//     §3 p.4) targets exactly this method.
+//   try_get<T>(target) -- pair form of the same gap (npc_relationship.h,
+//     2 sites). Same has()+get() composition, via a pair-encoded Entity.
+//   modified<T>() -- gaia's real equivalent is modify<T, true>(entity)
+//     (world.h:5591, doc comment: "Triggers set side effects if true" /
+//     "set hooks and OnSet observers") -- NOT a no-op, verified name and
+//     semantics from source, not assumed absent.
+class GaiaEntityHandle {
+public:
+    GaiaEntityHandle(gaia::ecs::World& w, gaia::ecs::Entity e) : w_(w), e_(e) {}
+
+    template<typename T>
+    T& get_mut() { return w_.template mut<T>(e_); }
+
+    template<typename T>
+    T* try_get_mut() {
+        return w_.template has<T>(e_) ? &w_.template mut<T>(e_) : nullptr;
+    }
+
+    template<typename T>
+    const T* try_get(gaia::ecs::Entity target) const {
+        auto relEntity = w_.template add<T>().entity;
+        auto pairEnt = (gaia::ecs::Entity)gaia::ecs::Pair(relEntity, target);
+        return w_.has(e_, pairEnt) ? &w_.template get<T>(e_, pairEnt) : nullptr;
+    }
+
+    template<typename T>
+    bool has() const { return w_.template has<T>(e_); }
+
+    // gaia's set<T>(entity) is a write-back proxy (README "Change
+    // detection"), not a 2-arg call -- Handle(e).set<T>() = value; keeps
+    // working unchanged at call sites via this same proxy-return pattern.
+    // FOUND BY RUNTIME TEST, NOT DOCS (/tmp/gaia_probe/test_md_registry_
+    // gaia_runtime.cpp): unlike flecs's set<T>(value), gaia's set<T>(entity)
+    // is NOT a safe upsert -- world.h:5707 says "It is expected the
+    // component is present on entity. Undefined behavior otherwise,"
+    // because the proxy copies the CURRENT value via an internal get<T>()
+    // to seed the write-back. Calling it on an entity that never had T
+    // aborts (GAIA_ASSERT owner != EntityBad inside get<T>()) instead of
+    // adding T the way flecs's set() would. has<T>()+add<T>() guard
+    // restores the upsert contract MdRegistry::Replace<T>()'s own comment
+    // already documents ("flecs's set() is a safe upsert either way").
+    // Same root-cause family as try_get_mut<T>/try_get(pair): gaia expects
+    // presence-checking at the call site, not baked into the convenience
+    // method.
+    template<typename T>
+    decltype(auto) set() {
+        if (!w_.template has<T>(e_))
+            w_.template add<T>(e_, T{});
+        return w_.template set<T>(e_);
+    }
+
+    // 2-arg convenience form matching flecs::entity::set<T>(value) exactly
+    // (found by real build failure, not by re-reading the call-site audit:
+    // offscreen_npc_db.cpp:217 calls Handle(e).set<T>(value) directly,
+    // not the 0-arg proxy form). Same has+add upsert guard as the 0-arg
+    // overload above -- same root-cause family, same fix.
+    template<typename T>
+    void set(T value) {
+        if (!w_.template has<T>(e_))
+            w_.template add<T>(e_, T{});
+        w_.template set<T>(e_) = std::move(value);
+    }
+
+    template<typename T, typename... Args>
+    void emplace(Args&&... args) {
+        w_.template add<T>(e_, T{std::forward<Args>(args)...});
+    }
+
+    template<typename T>
+    void remove() { w_.template del<T>(e_); }
+
+    template<typename T>
+    void modified() { w_.template modify<T, true>(e_); }
+
+    bool is_alive() const { return w_.valid(e_); }
+    void destruct() { w_.del(e_); }
+
+private:
+    gaia::ecs::World& w_;
+    gaia::ecs::Entity e_;
+};
+#endif
 
 // MdRegistry — task #8 (EnTT->flecs strangler-fig migration), part B3.4.
 //
@@ -146,6 +364,105 @@ MdEntity MdFirst(flecs::query<Components...>& q) {
 // get_mut<T>()/try_get_mut<T>() do not themselves invalidate anything (no
 // structural change) — freely chaining several in a row is safe. Found and
 // fixed 3 real production bugs of this exact shape (see CLAUDE_INVARIANTS.md).
+#if defined(MD_ECS_GAIA)
+class MdRegistry {
+public:
+    static MdRegistry& Get() {
+        static MdRegistry inst;
+        return inst;
+    }
+
+    MdEntity Create() {
+        auto e = Raw().add();
+        Raw().add<MdManagedTag>(e);
+        return MdEntity(e);
+    }
+    void Destroy(MdEntity e) { Handle(e).destruct(); }
+    bool Valid(MdEntity e) const {
+        return e != MdEntity::Null() && Raw().valid(e.Raw());
+    }
+
+    template<typename T>
+    void Remove(MdEntity e) { Handle(e).template remove<T>(); }
+
+    template<typename T, typename... Args>
+    T& Replace(MdEntity e, Args&&... args) {
+        auto h = Handle(e);
+        h.template set<T>() = T{std::forward<Args>(args)...};
+        return h.template get_mut<T>();
+    }
+
+    template<typename T, typename Fn>
+    void Patch(MdEntity e, Fn fn) {
+        auto h = Handle(e);
+        T& v = h.template get_mut<T>();
+        fn(v);
+        h.template modified<T>();
+    }
+
+    // See the flecs branch's Clear() comment for the full staging-hazard
+    // rationale -- same logic applies; gaia's structural ops during a
+    // scheduler-driven concurrent wave are the Phase 4 concern, not yet
+    // wired up on this backend (see md_registry_detail::t_stage_override's
+    // Phase-1-stub comment above).
+    void Clear() {
+        if (md_registry_detail::t_stage_override != nullptr) {
+            MD_LOG(MD_LOG_ERROR,
+                   "[MdRegistry] Clear() called while a JobGraph stage is "
+                   "active — gaia backend does not route Clear() through "
+                   "any stage yet (Phase 4). Move this call outside the "
+                   "JobGraph batch. Clear() was NOT executed.");
+            return;
+        }
+        // FOUND BY RUNTIME TEST: deleting entities while a query matching
+        // them is still iterating aborts under gaia (fetch(): "Assertion
+        // allowStaleExactPair || ... || allowStaleEntityRecord failed") --
+        // the exact "mutate world during each()" hazard CLAUDE_CONSTITUTION.md
+        // already names generically ("collect → apply патерн"), gaia just
+        // enforces it with a hard assert where flecs's own version relied
+        // on defer_begin/defer_end to make the in-place del() safe. Collect
+        // first, delete after iteration completes. Not hot-path (real
+        // callers are editor-only per the flecs branch's comment), so
+        // std::vector here does not violate the hot-path fixed-array rule.
+        // Phase 5 (prompt_/PROMPT_GAIA_MIGRATION.md §7 p.4) may replace
+        // this with ecs::CommandBufferST for a closer idiomatic match to
+        // flecs's defer_begin/defer_end -- functionally equivalent either
+        // way, this is the verified-correct baseline.
+        auto& w = Raw();
+        auto q = w.query().all<MdManagedTag>();
+        std::vector<gaia::ecs::Entity> toDelete;
+        MdEach(q, [&](MdEntity e) { toDelete.push_back(e.Raw()); });
+        for (gaia::ecs::Entity e : toDelete) w.del(e);
+    }
+
+    // gaia's World::try_get(EntityId) IS the generation-aware alive-lookup
+    // (verified probe P-F, docs/GAIA_MIGRATION_ANALYSIS.md UNKNOWN-1) --
+    // simpler than flecs's ecs_get_alive path: it already returns
+    // gaia::ecs::EntityBad on failure, no separate "dumb fallback" branch
+    // needed the way FromIndex's flecs implementation requires.
+    MdEntity FromIndex(uint32_t idx) const {
+        gaia::ecs::Entity alive = Raw().try_get((gaia::ecs::EntityId)idx);
+        return (alive != gaia::ecs::EntityBad) ? MdEntity(alive) : MdEntity(idx);
+    }
+
+    gaia::ecs::World& Raw() { return Registry::Get(); }
+    const gaia::ecs::World& Raw() const { return Registry::Get(); }
+
+    GaiaEntityHandle Handle(MdEntity e) const { return GaiaEntityHandle(const_cast<gaia::ecs::World&>(Raw()), e.Raw()); }
+
+    // Phase-1 stub, matches MdRegistryStageScope's comment above: no real
+    // stage/scheduler routing exists on the gaia backend yet (Phase 4),
+    // so this always returns the same handle as Handle(). Kept as a
+    // distinct call so Phase 4 has exactly one place to change.
+    GaiaEntityHandle StagedHandle(MdEntity e) const { return Handle(e); }
+
+    MdRegistry(const MdRegistry&) = delete;
+    MdRegistry& operator=(const MdRegistry&) = delete;
+
+private:
+    MdRegistry() = default;
+};
+#else
 class MdRegistry {
 public:
     static MdRegistry& Get() {
@@ -318,3 +635,4 @@ public:
 private:
     MdRegistry() = default;
 };
+#endif

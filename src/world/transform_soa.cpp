@@ -20,7 +20,11 @@
 #endif
 
 void TransformSoA::Init() {
-    memset(slot_to_entity, 0xFF, sizeof(slot_to_entity)); // all = MdEntity::Null() pattern
+    // 0xFF, not MdEntity::Null() (id_=0) -- safe under flecs only because
+    // flecs::entity_t never equals UINT64_MAX for a real entity, so this
+    // sentinel never collides with one (see md_entity.h's Null-convention
+    // comment for the full correction, 2026-09-07).
+    memset(slot_to_entity, 0xFF, sizeof(slot_to_entity));
     for (int i = 0; i < MAX_SLOTS; ++i) {
         px[i]      = DUMMY_POS;
         pz[i]      = DUMMY_POS;

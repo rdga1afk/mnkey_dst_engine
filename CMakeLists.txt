@@ -43,6 +43,20 @@ target_compile_definitions(flecs PUBLIC $<$<CONFIG:Debug>:FLECS_SANITIZE>)
 # so. See the audit report for the full writeup — the race itself is
 # confirmed benign (stats-only counter, never read by query-correctness
 # logic, no entity/component data corruption), just real UB.
+
+# gaia-ecs — strangler-fig migration target for the flecs ECS backend
+# (docs/GAIA_MIGRATION_ANALYSIS.md, docs/GAIA_SEAM_AUDIT.md,
+# prompt_/PROMPT_GAIA_MIGRATION.md). Header-only single-include vendor,
+# pinned to v1.0.0 (2843d22a) — see the header comment in
+# third_party/gaia-ecs/single_include/gaia.h for the exact commit and why
+# it must not be silently re-pinned against `main`.
+#
+# OFF by default: flecs remains the active, real ECS backend everywhere
+# until the migration's own gates (GATE 1-6) say otherwise. Both backends
+# must compile at all times during the migration — never remove the flecs
+# path to make gaia's path simpler.
+option(MD_ECS_GAIA "Use gaia-ecs instead of flecs as the ECS backend (migration in progress, default OFF)" OFF)
+
 if(NOT TARGET Recast)
     set(RECASTNAVIGATION_DEMO     OFF CACHE BOOL "" FORCE)
     set(RECASTNAVIGATION_TESTS    OFF CACHE BOOL "" FORCE)
@@ -216,6 +230,7 @@ target_include_directories(monkey_dust_engine
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src
     # Third-party (PUBLIC so consumers also see them)
     PUBLIC  ${MD_THIRD_PARTY}/flecs
+    PUBLIC  ${MD_THIRD_PARTY}/gaia-ecs/single_include
     PUBLIC  ${MD_THIRD_PARTY}/glm
     PRIVATE ${MD_THIRD_PARTY}/recastnavigation/Recast/Include
     PRIVATE ${MD_THIRD_PARTY}/recastnavigation/Detour/Include
@@ -267,6 +282,14 @@ set(MD_RENDER_BACKEND "SDLGPU" CACHE STRING
 set_property(CACHE MD_RENDER_BACKEND PROPERTY STRINGS
     SDLGPU GODOT FILAMENT BGFX DILIGENT OGRENEXT)
 target_compile_definitions(monkey_dust_engine PUBLIC MD_RENDER_BACKEND_${MD_RENDER_BACKEND})
+
+# MD_ECS_GAIA — see the option() comment near the flecs/gaia-ecs vendoring
+# block above. PUBLIC so every TU that includes md_registry.h/md_entity.h
+# (game/, tools/, not just engine/) sees the same backend selection —
+# mismatched TUs would silently disagree on the facade's underlying type.
+if(MD_ECS_GAIA)
+    target_compile_definitions(monkey_dust_engine PUBLIC MD_ECS_GAIA)
+endif()
 
 # SDL3 + SDL_GPU is the only REAL rendering backend (see MD_RENDER_BACKEND
 # above for the other 5's compile-only stub scaffolding).
