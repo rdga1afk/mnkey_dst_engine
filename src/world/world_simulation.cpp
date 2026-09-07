@@ -121,7 +121,11 @@ void WorldSimulation::Tick(float delta_s) noexcept {
     // ShopInventory::TickRestock(delta_s) returns true when shop restocks; we call once/s.
     {
         auto& reg = MdRegistry::Get();
+#if defined(MD_ECS_GAIA)
+        static auto q_p3_world_simulation_1 = reg.Raw().query().all<ShopInventory&>();
+#else
         static auto q_p3_world_simulation_1 = reg.Raw().query<ShopInventory>();
+#endif
         MdEach(q_p3_world_simulation_1, [](ShopInventory& shop) {
             shop.TickRestock(1.0f);  // 1s per WorldSimulation tick
         });

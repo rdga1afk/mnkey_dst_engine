@@ -166,7 +166,11 @@ void BuildSystem::Demolish(MdEntity e, Inventory& player_inv) {
 void BuildSystem::RebuildGridFromEntities() {
     for (int x=0; x<MAX_GRID; ++x) for (int z=0; z<MAX_GRID; ++z) grid_[x][z]=MdEntity::Null();
     auto& reg = MdRegistry::Get();
+#if defined(MD_ECS_GAIA)
+    static auto q_p3_build_system_1 = reg.Raw().query().all<Building>();
+#else
     static auto q_p3_build_system_1 = reg.Raw().query<Building>();
+#endif
     MdEach(q_p3_build_system_1, [&](MdEntity e, const Building& b) {
         for (int dx=0; dx<b.size_x; ++dx) for (int dz=0; dz<b.size_z; ++dz) {
             int gx=b.grid_x+dx, gz=b.grid_z+dz;
@@ -178,7 +182,11 @@ void BuildSystem::RebuildGridFromEntities() {
 
 void BuildSystem::Tick(float dt_s) {
     auto& reg = MdRegistry::Get();
+#if defined(MD_ECS_GAIA)
+    static auto q_p3_build_system_2 = reg.Raw().query().all<Building&>().all<Inventory&>();
+#else
     static auto q_p3_build_system_2 = reg.Raw().query<Building, Inventory>();
+#endif
     MdEach(q_p3_build_system_2, [&](MdEntity be, Building& b, Inventory& inv) {
         if (!b.active || !b.chain.valid) return;
         if (b.chain.storage_capacity > 0) {

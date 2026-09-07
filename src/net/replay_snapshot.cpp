@@ -42,7 +42,11 @@ void CaptureFromECS(ReplayBuffer& buf,
 
     auto& reg = MdRegistry::Get();
     uint16_t n = 0;
+#if defined(MD_ECS_GAIA)
+    static auto q_p3_replay_snapshot_1 = reg.Raw().query().all<WorldTransform>();
+#else
     static auto q_p3_replay_snapshot_1 = reg.Raw().query<WorldTransform>();
+#endif
     MdEach(q_p3_replay_snapshot_1, [&](MdEntity e, const WorldTransform& wt) {
         if (n >= (uint16_t)REPLAY_MAX_NPCS_PER_FRAME) return;
         ReplayNpcState& ns = frame.npcs[n];

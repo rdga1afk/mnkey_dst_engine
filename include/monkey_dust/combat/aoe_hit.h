@@ -28,7 +28,11 @@ inline AoeResult AoeHit(float ox, float oz, float radius) {
     AoeResult res{};
     auto& reg = MdRegistry::Get();
     float r2  = radius * radius;
+#if defined(MD_ECS_GAIA)
+    static auto q_p3_aoe_hit_1 = reg.Raw().query().all<WorldTransform>();
+#else
     static auto q_p3_aoe_hit_1 = reg.Raw().query<WorldTransform>();
+#endif
     MdEach(q_p3_aoe_hit_1, [&](MdEntity e, const WorldTransform& tr) {
         if (res.count >= AoeResult::MAX_HITS) return;
         float dx = tr.x - ox, dz = tr.z - oz;

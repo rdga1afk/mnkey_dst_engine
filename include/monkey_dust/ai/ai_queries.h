@@ -86,6 +86,35 @@ namespace ai_queries {
 // component signatures Gather() touches (LimbHealth/Health, BleedComponent,
 // InjuryState) are Gather()-only — no other concurrent-tree call site uses
 // their bare (non-combined) form, so those stay plain per-call-site statics.
+// gaia's Query is a single non-templated type (using Query =
+// detail::QueryImpl, docs/GAIA_SEAM_AUDIT.md) -- unlike flecs::query<T...>,
+// it carries no compile-time component list, so every one of these 18
+// signatures collapses to the SAME return type under MD_ECS_GAIA. Which
+// components are mutable vs read-only is baked into each function's gaia
+// query BUILD (via .all<T&>() vs .all<T>()) in ai_queries.cpp instead of
+// being visible in the return type here -- determined by auditing every
+// real MdEach consumer of each function across the codebase (not guessed),
+// see ai_queries.cpp's per-function comments for the consumer list.
+#if defined(MD_ECS_GAIA)
+gaia::ecs::Query& NpcNeedsOnly();
+gaia::ecs::Query& BleedLimbHealth();
+gaia::ecs::Query& InjuryLimbHealth();
+gaia::ecs::Query& AgentStateSchedule();
+gaia::ecs::Query& AIAgentBT();
+gaia::ecs::Query& SquadControllers();
+gaia::ecs::Query& AIAgentBTWorldTransform();
+gaia::ecs::Query& AgentStateWorldTransform();
+gaia::ecs::Query& AgentStateOnly();
+gaia::ecs::Query& SenseWorldTransformAgentState();
+gaia::ecs::Query& NoiseWorldTransform();
+gaia::ecs::Query& SenseWorldTransform();
+gaia::ecs::Query& SmellWorldTransform();
+gaia::ecs::Query& AgentFullCombat();
+gaia::ecs::Query& InventoryWorldTransform();
+gaia::ecs::Query& BuildingWorldTransform();
+gaia::ecs::Query& StatSheetWorldTransform();
+gaia::ecs::Query& ShopInventoryWorldTransform();
+#else
 flecs::query<NpcNeeds>& NpcNeedsOnly();
 
 flecs::query<BleedComponent, LimbHealth>& BleedLimbHealth();
@@ -105,6 +134,7 @@ flecs::query<Inventory, WorldTransform>& InventoryWorldTransform();
 flecs::query<Building, WorldTransform>& BuildingWorldTransform();
 flecs::query<StatSheet, WorldTransform>& StatSheetWorldTransform();
 flecs::query<ShopInventory, WorldTransform>& ShopInventoryWorldTransform();
+#endif
 
 // Forces construction of all 18 above, single-threaded — call once at
 // startup, before the first JobGraph wave that runs TickNeedsAndInjuries

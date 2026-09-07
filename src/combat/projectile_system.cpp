@@ -18,7 +18,11 @@ void ProjectileSystem::Tick(float dt) {
     std::array<MdEntity, MAX_DESTROY_PER_TICK> to_destroy{};
     int destroy_count = 0;
 
+#if defined(MD_ECS_GAIA)
+    static auto q_p3_projectile_system_1 = reg.Raw().query().all<ProjectileComponent&>().all<WorldTransform&>();
+#else
     static auto q_p3_projectile_system_1 = reg.Raw().query<ProjectileComponent, WorldTransform>();
+#endif
     MdEach(q_p3_projectile_system_1, 
         [&](MdEntity pe, ProjectileComponent& pc, WorldTransform& pt) {
             if (destroy_count >= MAX_DESTROY_PER_TICK) return;
@@ -42,7 +46,11 @@ void ProjectileSystem::Tick(float dt) {
             static MdEntity hit_ents[8];
             int hit_count = 0;
 
+#if defined(MD_ECS_GAIA)
+            static auto q_p3_projectile_system_2 = reg.Raw().query().all<WorldTransform>().all<Health>();
+#else
             static auto q_p3_projectile_system_2 = reg.Raw().query<WorldTransform, Health>();
+#endif
             MdEach(q_p3_projectile_system_2, 
                 [&](MdEntity te, const WorldTransform& tr, const Health&) {
                     if (hit || te == pe || te == pc.owner || hit_count >= 8) return;

@@ -47,7 +47,11 @@ void PowerSystem::DoMelee(MdEntity caster, float cx, float cz,
     static HitRecord hits[64];
     int hit_count = 0;
 
+#if defined(MD_ECS_GAIA)
+    static auto q_p3_power_system_1 = reg.Raw().query().all<WorldTransform>().all<Health>();
+#else
     static auto q_p3_power_system_1 = reg.Raw().query<WorldTransform, Health>();
+#endif
     MdEach(q_p3_power_system_1, 
         [&](MdEntity e, const WorldTransform& t, const Health&) {
             if (e == caster || hit_count >= 64) return;

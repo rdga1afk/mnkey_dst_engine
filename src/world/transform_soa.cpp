@@ -153,7 +153,11 @@ void TransformSoA::Free(MdEntity e) {
 }
 
 void TransformSoA::FlushAoStoSoA(MdRegistry& reg) {
+#if defined(MD_ECS_GAIA)
+    static auto q_p3_transform_soa_1 = reg.Raw().query().all<WorldTransform>();
+#else
     static auto q_p3_transform_soa_1 = reg.Raw().query<WorldTransform>();
+#endif
     MdEach(q_p3_transform_soa_1, [](const WorldTransform& tr) {
         if (MD_UNLIKELY(tr.slot == INVALID_SLOT ||
                         tr.slot >= (uint32_t)TransformSoA::Get().active_count))
