@@ -279,6 +279,39 @@ public:
         return w_.has(e_, pairEnt) ? &w_.template get<T>(e_, pairEnt) : nullptr;
     }
 
+    // Pair-payload set (relation type T, target entity, value) -- verified
+    // against v1.0.0 directly, not by symmetry with the 0-arg set() above:
+    // add<T>(entity, pairEnt, value) (world.h:3754) is a genuine safe
+    // upsert for pairs, confirmed by re-calling it on an ALREADY-existing
+    // pair in /tmp/gaia_probe/pc_upd_tag.cpp ("after repeat add: 99",
+    // overwrites correctly) -- no separate has+create branch needed here,
+    // unlike the non-pair set() above which genuinely needs one.
+    template<typename T>
+    void set(gaia::ecs::Entity target, T value) {
+        auto relEntity = w_.template add<T>().entity;
+        auto pairEnt = (gaia::ecs::Entity)gaia::ecs::Pair(relEntity, target);
+        w_.template add<T>(e_, pairEnt, std::move(value));
+    }
+
+    // Pair removal -- w.del(entity, pairEntity) verified in the same probe
+    // (pc_upd_tag.cpp: "has after del: 0"), but ONLY when the pair already
+    // exists. FOUND BY RUNTIME TEST
+    // (/tmp/gaia_probe/test_npc_relationship_gaia_runtime.cpp): calling
+    // del() on a pair that was never added asserts
+    // (m_world.valid(entity)) inside gaia's own EntityBuilder::del --
+    // NpcRelationshipComponent::ClearAll() calls remove<Fear>(other) for
+    // every tracked entity unconditionally, including ones that only ever
+    // had Trust set, never Fear. flecs's remove<T>(pair) is a safe no-op
+    // on absence; gaia's del() is not -- same presence-contract mismatch
+    // as the 0-arg remove()/set() family, has-guard is the fix here too.
+    template<typename T>
+    void remove(gaia::ecs::Entity target) {
+        auto relEntity = w_.template add<T>().entity;
+        auto pairEnt = (gaia::ecs::Entity)gaia::ecs::Pair(relEntity, target);
+        if (w_.has(e_, pairEnt))
+            w_.del(e_, pairEnt);
+    }
+
     template<typename T>
     bool has() const { return w_.template has<T>(e_); }
 
@@ -322,8 +355,17 @@ public:
         w_.template add<T>(e_, T{std::forward<Args>(args)...});
     }
 
+    // has-guard is required here too -- del<T>(entity) has the SAME
+    // "expected present, undefined behavior otherwise" contract as the
+    // set<T>() family above (world.h del<T>'s own doc comment says so
+    // explicitly), unlike flecs's remove<T>() which is a safe no-op on an
+    // absent component. FOUND BY RUNTIME TEST
+    // (/tmp/gaia_probe/test_npc_relationship_gaia_runtime.cpp,
+    // NpcRelationshipComponent::ClearAll calling remove<Fear> on an entity
+    // that only ever had Trust set) -- third instance of this exact
+    // presence-contract mismatch class this session (try_get_mut, set()).
     template<typename T>
-    void remove() { w_.template del<T>(e_); }
+    void remove() { if (w_.template has<T>(e_)) w_.template del<T>(e_); }
 
     template<typename T>
     void modified() { w_.template modify<T, true>(e_); }
