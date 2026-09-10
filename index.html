@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>monkey_dust Engine — C++17 Game Engine (SDL3 + SDL_GPU/Vulkan) · Developer Docs</title>
-<meta name="description" content="Developer documentation for monkey_dust: C++17 isometric RPG engine on SDL3 + SDL_GPU (Vulkan), the permanent render backend. flecs ECS, Jolt Physics, ozz-animation. AI behavior trees, terrain atlas, GPU-driven rendering.">
+<meta name="description" content="Developer documentation for monkey_dust: C++17 isometric RPG engine on SDL3 + SDL_GPU (Vulkan), the permanent render backend. gaia-ecs ECS (default; flecs supported), Jolt Physics, ozz-animation. AI behavior trees, terrain atlas, GPU-driven rendering.">
 <link rel="canonical" href="https://rdga1bot.github.io/monkey_dust_engine/">
 <meta property="og:title" content="monkey_dust Engine — Developer Docs">
-<meta property="og:description" content="C++17 isometric RPG engine: SDL_GPU/Vulkan (permanent backend), flecs ECS, Jolt Physics, ozz-animation.">
+<meta property="og:description" content="C++17 isometric RPG engine: SDL_GPU/Vulkan (permanent backend), gaia-ecs ECS (default; flecs supported), Jolt Physics, ozz-animation.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://rdga1bot.github.io/monkey_dust_engine/">
 <script type="application/ld+json">
@@ -248,7 +248,7 @@
 
     <div class="nav-section">Ядро</div>
     <a href="#gameloop"     class="nav-link"><span class="nav-icon">🔄</span> Game Loop</a>
-    <a href="#ecs"          class="nav-link"><span class="nav-icon">🧩</span> ECS (flecs)</a>
+    <a href="#ecs"          class="nav-link"><span class="nav-icon">🧩</span> ECS (gaia-ecs)</a>
     <a href="#nav"          class="nav-link"><span class="nav-icon">🧭</span> NavMesh</a>
 
     <div class="nav-section">Системи</div>
@@ -277,7 +277,7 @@
 <section class="doc-section" id="intro">
   <div class="breadcrumb"><span>Документація</span> <span class="sep">›</span> Огляд</div>
   <div class="hero">
-    <div class="version-badge">v26.6 · C++17 · SDL3 + SDL_GPU (Vulkan, постійний бекенд) · flecs · Jolt · Recast · 1750 тестів · 2026-08-28</div>
+    <div class="version-badge">v27.0 · C++17 · SDL3 + SDL_GPU (Vulkan, постійний бекенд) · gaia-ecs (default) / flecs · Jolt · Recast · 1629 тестів · 2026-09-10</div>
     <h1>monkey_dust</h1>
     <p style="font-size:17px;color:var(--text);margin-bottom:0;">
       Ізометричний RPG-sandbox з відкритим світом. C++17 без ігрового рушія — тільки бібліотеки. Рендер-пайплайн натхненний Flare Engine. Бекенд: SDL3 + SDL_GPU (Vulkan), OpenGL/Raylib повністю видалено (FIX-8), постійний рендер-шлях. AI архітектура натхненна механіками Alien: Isolation. Kenshi asset pipeline (KEN-1–8): cgltf GLB, ozz-animation, Jolt CharacterVirtual, DetourCrowd. Terrain atlas <code>world_hmap.r32</code> (67 MB, 4096 зон). Цільове залізо: Intel HD 520 (AVX2).
@@ -294,7 +294,7 @@
   <div class="card-grid">
     <div class="card"><div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div><div class="card-title">SDL_GPU (поточний бекенд)</div><div class="card-desc">Vulkan через SDL_GPU HAL. SPIR-V шейдери (#version 460). MD_OPENGL43_ENABLED видалено повністю (FIX-8: −1449 рядків). Постійний рендер-шлях.</div></div>
     <div class="card"><div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></div><div class="card-title">Isometric Flare</div><div class="card-desc">Flare-сумісні мапи: TileMapRenderer (3D ізометрія) + TileMap2DRenderer (2D SDL_GPU). Multi-atlas, billboard, FRINGE.</div></div>
-    <div class="card"><div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><line x1="12" y1="7" x2="12" y2="12"/><line x1="12" y1="12" x2="6" y2="17"/><line x1="12" y1="12" x2="18" y2="17"/></svg></div><div class="card-title">ECS (flecs)</div><div class="card-desc">500+ NPC, всі компоненти — чистий POD. Collect→apply патерн. Split-ready engine/include/monkey_dust/.</div></div>
+    <div class="card"><div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><line x1="12" y1="7" x2="12" y2="12"/><line x1="12" y1="12" x2="6" y2="17"/><line x1="12" y1="12" x2="18" y2="17"/></svg></div><div class="card-title">ECS (gaia-ecs, default)</div><div class="card-desc">500+ NPC, всі компоненти — чистий POD. Collect→apply патерн. flecs підтримується через -DMD_ECS_GAIA=OFF. Split-ready engine/include/monkey_dust/.</div></div>
     <div class="card"><div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="7" r="2"/><circle cx="19" cy="7" r="2"/><circle cx="5" cy="17" r="2"/><circle cx="19" cy="17" r="2"/><circle cx="12" cy="12" r="2"/><line x1="7" y1="7" x2="10" y2="12"/><line x1="17" y1="7" x2="14" y2="12"/><line x1="7" y1="17" x2="10" y2="12"/><line x1="17" y1="17" x2="14" y2="12"/></svg></div><div class="card-title">AI Systems</div><div class="card-desc">Stackless BT VM + BTSystem + BTJsonLoader + DirectorSystem + FlowGraph + SenseSystem. Extended AI patterns (C1–C20).</div></div>
     <div class="card"><div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="3"/><path d="M12 8v6"/><path d="M8 11h8"/><path d="M10 14l-2 7"/><path d="M14 14l2 7"/></svg></div><div class="card-title">Kenshi Character Editor</div><div class="card-desc">Posture · Shoulder set · Neck pos — повні 3D кватерніонні дельти з GLB-анімацій. 29 morph targets. Hair/skin/eye.</div></div>
     <div class="card"><div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div><div class="card-title">FCS Binary Parser</div><div class="card-desc">Kenshi gamedata.base + .mod: 137 фракцій, 348 міст, leveldata.level 20 world coords. python3 private/md_mod_import.py.</div></div>
@@ -1667,19 +1667,44 @@ while (running) {
 
 <!-- ═══ ECS ═══ -->
 <section class="doc-section" id="ecs">
-  <h2>🧩 ECS (flecs 4.1.6)</h2>
+  <h2>🧩 ECS (gaia-ecs, default; flecs 4.1.6 підтримується)</h2>
+
+  <div class="callout warn">
+    <div class="callout-title">flecs → gaia-ecs (2026-09-10, default backend switch)</div>
+    Другий strangler-fig перехід бекенду: після EnTT→flecs (2026-07-11,
+    нижче) і повної 6-фазної gaia-ecs міграції (GATE 1-6, гілка
+    <code>gaia/phase-0</code>, змержена в master), <code>gaia-ecs</code>
+    став ECS-бекендом за замовчуванням. Публічний фасад
+    <code>MdRegistry</code>/<code>MdEntity</code> лишається незмінним —
+    приклад нижче так само показує саме цей фасад, не raw API жодного з
+    бекендів. Перемикання: <code>-DMD_ECS_GAIA=OFF</code> будує з flecs
+    (обидва шляхи компілюються завжди, flecs залишається повністю
+    підтримуваним).
+    <br><br>
+    <b>Чому перемкнено</b>: logic tick <b>~2.4× швидше</b> і на порядок
+    стабільніше (медіана 0.7мс, stdev=0 проти 1.7мс з помітним розкидом
+    на flecs, n=3 обидва боки, 512 NPC), RSS практично ідентичний (~440MB
+    обидва). Ціна — компіляція ~4× повільніша (34 хв проти 8 хв повного
+    білду; <code>gaia.h</code> — 86 395-рядковий single-header без PCH
+    покриття). Під час міграції знайдено й виправлено 2 root-cause баги
+    в самій <code>gaia-ecs</code> (архетип-move пошкодження чанку,
+    use-after-free в <code>rem_from_entities</code>) — обидва підтверджені
+    й виправлені мейнтейнером upstream; третій знайдений клас багу
+    (конкурентна гонка в <code>.each()</code>) архітектурно нейтралізовано
+    в <code>JobGraph</code> (послідовний dispatch під gaia) незалежно від
+    статусу upstream-фіксу.
+  </div>
 
   <div class="callout warn">
     <div class="callout-title">EnTT → flecs (task #8, 2026-07-11)</div>
-    Бекенд повністю замінено з EnTT на flecs (archetype-based) за B1-B4
-    strangler-fig міграцією. Публічний фасад <code>MdRegistry</code>/<code>MdEntity</code>
-    лишається незмінним для всіх call sites — приклад нижче показує саме цей
-    фасад, не raw flecs API. <code>AllianceMatrix</code> і
-    <code>NpcRelationshipComponent</code> тепер використовують справжні flecs
-    relation pairs замість фіксованих масивів/матриць.
+    Бекенд спершу замінено з EnTT на flecs (archetype-based) за B1-B4
+    strangler-fig міграцією. <code>AllianceMatrix</code> і
+    <code>NpcRelationshipComponent</code> використовують справжні
+    relation pairs (flecs pairs / gaia аналог) замість фіксованих
+    масивів/матриць.
   </div>
 
-  <pre><code>// Registry singleton (flecs::world за фасадом MdRegistry):
+  <pre><code>// Registry singleton (World за фасадом MdRegistry, gaia-ecs чи flecs::world):
 auto& reg = MdRegistry::Get();
 
 // Спавн NPC:
@@ -1699,12 +1724,13 @@ for (int i = 0; i &lt; n; ++i) reg.Destroy(to_destroy[i]);</code></pre>
 
   <div class="callout warn">
     <div class="callout-title">КРИТИЧНО: посилання з Emplace() нестабільні через архетипні зміни</div>
-    flecs фізично переносить ВЕСЬ рядок сутності в нову архетипну таблицю
-    при КОЖНОМУ <code>Emplace&lt;U&gt;</code>/<code>Remove&lt;U&gt;</code>
-    виклику на тій самій сутності — це інвалідує ВСІ раніше отримані
-    <code>T&amp;</code> посилання для цієї сутності, навіть НЕпов'язаного типу
-    (на відміну від EnTT, де пули per-type і стабільні). Правило: спочатку
-    всі <code>Emplace&lt;&gt;</code> виклики, ПОТІМ <code>Get&lt;T&gt;()</code>
+    Обидва бекенди (flecs і gaia-ecs) архетипні: КОЖЕН
+    <code>Emplace&lt;U&gt;</code>/<code>Remove&lt;U&gt;</code> виклик на тій
+    самій сутності фізично переносить ВЕСЬ рядок сутності в нову архетипну
+    таблицю — це інвалідує ВСІ раніше отримані <code>T&amp;</code>
+    посилання для цієї сутності, навіть НЕпов'язаного типу (на відміну
+    від EnTT, де пули per-type і стабільні). Правило: спочатку всі
+    <code>Emplace&lt;&gt;</code> виклики, ПОТІМ <code>Get&lt;T&gt;()</code>
     для запису. Деталі: <code>CLAUDE_INVARIANTS.md</code>.
   </div>
 
@@ -2235,7 +2261,8 @@ MD_LOG_INFO("frame %llu dt=%.3f", g_logic_ctx.frame_index, g_logic_ctx.dt);</cod
   <table>
     <tr><th>Бібліотека</th><th>Ліцензія</th><th>Використання</th></tr>
     <tr><td>SDL3 + SDL_GPU</td><td>zlib</td><td>Вікно, рендер, input</td></tr>
-    <tr><td>flecs 4.1.6</td><td>MIT</td><td>ECS (archetype-based; relations)</td></tr>
+    <tr><td>gaia-ecs 1.0.0</td><td>MIT</td><td>ECS (archetype-based; relations) — default backend, vendored single-header</td></tr>
+    <tr><td>flecs 4.1.6</td><td>MIT</td><td>ECS (archetype-based; relations) — supported alt. backend, <code>-DMD_ECS_GAIA=OFF</code></td></tr>
     <tr><td>EnTT 3.16</td><td>MIT</td><td>Vendored, kept only for <code>entt::null</code> sentinel convention</td></tr>
     <tr><td>Recast/Detour</td><td>zlib</td><td>NavMesh</td></tr>
     <tr><td>Dear ImGui (+ extensions)</td><td>MIT</td><td>Editor UI, debug overlay — <code>tools/third_party/</code></td></tr>
