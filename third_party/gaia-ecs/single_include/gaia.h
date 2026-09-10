@@ -37699,7 +37699,35 @@ namespace gaia {
 						} else {
 							// No match with the old chunk. Construct the component
 							const auto& rec = dstRecs[j];
-							if (rec.pItem != nullptr && rec.pItem->func_ctor != nullptr) {
+							// monkey_dust local patch (task #52/upstream gaia-ecs
+							// issue #42, 2026-09-09): the sibling branch just above
+							// (oldId == newId) guards its ctor_move/ctor_copy call
+							// with component_uses_table_storage(rec.comp) -- this
+							// branch and the "Initialize the rest" loop below did
+							// not, and this turned out to be the actual, precise
+							// root cause of the whole chunk-corruption
+							// investigation this session: for a Sparse-storage
+							// component, Archetype::reg_components() deliberately
+							// leaves its m_shape.compOffs[] entry at {} (0) since
+							// it needs no table-storage column at all --
+							// comp_ptr_mut(j, dstRow) then resolves to &data(0),
+							// i.e. the START of the chunk's OWN
+							// header/records/entity-id area. Calling
+							// func_ctor(pDst, 1) there zero-initializes (for an
+							// aggregate with no user ctor) or otherwise writes
+							// sizeof(component) bytes starting at that address,
+							// clobbering m_records.pCompEntities[]/pRecords[] and
+							// (once the component is large enough) entity_view()
+							// itself with the component's own bytes -- confirmed
+							// precisely via a minimal standalone repro: a
+							// GAIA_STORAGE(Sparse) component <=320 bytes stays
+							// within the header/records region (silently wrong but
+							// not user-visible in that repro); >320 bytes (that
+							// chunk shape's exact firstByte_EntityData) starts
+							// overwriting real entity_view() data, which is what
+							// World::valid()'s entity_view()[row] comparison then
+							// correctly detects and asserts on in move_entity().
+							if (component_uses_table_storage(rec.comp) && rec.pItem != nullptr && rec.pItem->func_ctor != nullptr) {
 								auto* pDst = (void*)pDstChunk->comp_ptr_mut(j, dstRow);
 								rec.pItem->func_ctor(pDst, 1);
 							}
@@ -37711,7 +37739,8 @@ namespace gaia {
 					// Initialize the rest of the components if they are generic.
 					for (; j < pDstChunk->m_header.genEntities; ++j) {
 						const auto& rec = dstRecs[j];
-						if (rec.pItem != nullptr && rec.pItem->func_ctor != nullptr) {
+						// monkey_dust local patch: same missing guard as above.
+						if (component_uses_table_storage(rec.comp) && rec.pItem != nullptr && rec.pItem->func_ctor != nullptr) {
 							auto* pDst = (void*)pDstChunk->comp_ptr_mut(j, dstRow);
 							rec.pItem->func_ctor(pDst, 1);
 						}
@@ -37762,7 +37791,35 @@ namespace gaia {
 						} else {
 							// No match with the old chunk. Construct the component
 							const auto& rec = dstRecs[j];
-							if (rec.pItem != nullptr && rec.pItem->func_ctor != nullptr) {
+							// monkey_dust local patch (task #52/upstream gaia-ecs
+							// issue #42, 2026-09-09): the sibling branch just above
+							// (oldId == newId) guards its ctor_move/ctor_copy call
+							// with component_uses_table_storage(rec.comp) -- this
+							// branch and the "Initialize the rest" loop below did
+							// not, and this turned out to be the actual, precise
+							// root cause of the whole chunk-corruption
+							// investigation this session: for a Sparse-storage
+							// component, Archetype::reg_components() deliberately
+							// leaves its m_shape.compOffs[] entry at {} (0) since
+							// it needs no table-storage column at all --
+							// comp_ptr_mut(j, dstRow) then resolves to &data(0),
+							// i.e. the START of the chunk's OWN
+							// header/records/entity-id area. Calling
+							// func_ctor(pDst, 1) there zero-initializes (for an
+							// aggregate with no user ctor) or otherwise writes
+							// sizeof(component) bytes starting at that address,
+							// clobbering m_records.pCompEntities[]/pRecords[] and
+							// (once the component is large enough) entity_view()
+							// itself with the component's own bytes -- confirmed
+							// precisely via a minimal standalone repro: a
+							// GAIA_STORAGE(Sparse) component <=320 bytes stays
+							// within the header/records region (silently wrong but
+							// not user-visible in that repro); >320 bytes (that
+							// chunk shape's exact firstByte_EntityData) starts
+							// overwriting real entity_view() data, which is what
+							// World::valid()'s entity_view()[row] comparison then
+							// correctly detects and asserts on in move_entity().
+							if (component_uses_table_storage(rec.comp) && rec.pItem != nullptr && rec.pItem->func_ctor != nullptr) {
 								auto* pDst = (void*)pDstChunk->comp_ptr_mut(j, dstRow);
 								rec.pItem->func_ctor(pDst, 1);
 							}
@@ -37774,7 +37831,8 @@ namespace gaia {
 					// Initialize the rest of the components if they are generic.
 					for (; j < pDstChunk->m_header.genEntities; ++j) {
 						const auto& rec = dstRecs[j];
-						if (rec.pItem != nullptr && rec.pItem->func_ctor != nullptr) {
+						// monkey_dust local patch: same missing guard as above.
+						if (component_uses_table_storage(rec.comp) && rec.pItem != nullptr && rec.pItem->func_ctor != nullptr) {
 							auto* pDst = (void*)pDstChunk->comp_ptr_mut(j, dstRow);
 							rec.pItem->func_ctor(pDst, 1);
 						}
@@ -76344,12 +76402,29 @@ namespace gaia {
 					}
 				}
 
+				// [monkey_dust local patch, task #54] Snapshot the bucket's archetype
+				// pointers up front instead of holding `it` (and range-for'ing over
+				// it->second) across calc_dst_archetype() below. calc_dst_archetype()
+				// can call foc_archetype_del(), which creates and registers a brand-new
+				// destination archetype -- that registration can grow/rehash
+				// m_entityToArchetypeMap, invalidating `it` mid-loop. Confirmed via gdb
+				// on NpcRelationshipTest.MultipleEntities: it->second read back as a
+				// valid 14-entry bucket right after find(), but was already corrupted
+				// (m_items={pData=nullptr,cnt=0,cap=0} while stale m_size=14 survived)
+				// by the time this same loop finished -- i.e. corrupted by its own
+				// calc_dst_archetype() calls, not by any later reentrant caller.
+				// Snapshotting the archetype pointers once, before any call that can
+				// mutate the map, sidesteps the invalidation entirely.
+				cnt::darray<Archetype*> gaia_local_patch_archetypeSnapshot;
+				gaia_local_patch_archetypeSnapshot.reserve(it->second.size());
+				for (const auto& rec: it->second)
+					gaia_local_patch_archetypeSnapshot.push_back(rec.pArchetype);
+
 #if GAIA_OBSERVERS_ENABLED
 				cnt::set<EntityLookupKey> diffTermSet;
 				cnt::darray<Entity> diffTerms;
 				cnt::darray<Entity> diffTargets;
-				for (const auto& record: it->second) {
-					auto* pArchetype = record.pArchetype;
+				for (auto* pArchetype: gaia_local_patch_archetypeSnapshot) {
 					if (pArchetype->is_req_del())
 						continue;
 
@@ -76392,8 +76467,7 @@ namespace gaia {
 #endif
 
 				// Update archetypes of all affected entities
-				for (const auto& record: it->second) {
-					auto* pArchetype = record.pArchetype;
+				for (auto* pArchetype: gaia_local_patch_archetypeSnapshot) {
 					if (pArchetype->is_req_del())
 						continue;
 
@@ -76501,12 +76575,19 @@ namespace gaia {
 					}
 				}
 
+				// [monkey_dust local patch, task #54] Same it-invalidation hazard as the
+				// sibling rem_from_entities(Entity) overload above -- see its comment for
+				// the full gdb-confirmed root cause. Snapshot before any calc_dst_archetype().
+				cnt::darray<Archetype*> gaia_local_patch_archetypeSnapshot;
+				gaia_local_patch_archetypeSnapshot.reserve(it->second.size());
+				for (const auto& rec: it->second)
+					gaia_local_patch_archetypeSnapshot.push_back(rec.pArchetype);
+
 #if GAIA_OBSERVERS_ENABLED
 				cnt::set<EntityLookupKey> diffTermSet;
 				cnt::darray<Entity> diffTerms;
 				cnt::darray<Entity> diffTargets;
-				for (const auto& record: it->second) {
-					auto* pArchetype = record.pArchetype;
+				for (auto* pArchetype: gaia_local_patch_archetypeSnapshot) {
 					if (pArchetype->is_req_del())
 						continue;
 
@@ -76551,8 +76632,7 @@ namespace gaia {
 																		EntitySpan{diffTargets.data(), diffTargets.size()});
 #endif
 
-				for (const auto& record: it->second) {
-					auto* pArchetype = record.pArchetype;
+				for (auto* pArchetype: gaia_local_patch_archetypeSnapshot) {
 					if (pArchetype->is_req_del())
 						continue;
 

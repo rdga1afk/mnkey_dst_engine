@@ -310,7 +310,7 @@ void FlowGraph::RegisterAction(uint32_t node_id, FlowActionFunc func) {
 // Fire all outgoing connections from from_node_id that match from_port.
 
 void FlowGraph::propagate(uint32_t from_node_id, uint8_t from_port,
-                          double now_s, MdEntity /*ctx*/, flecs::world& /*reg*/) {
+                          double now_s, MdEntity /*ctx*/, MdWorldRef& /*reg*/) {
     for (int i = 0; i < conn_count; ++i) {
         if (conns[i].from_node == from_node_id && conns[i].from_port == from_port) {
             ring_push({ conns[i].to_node, static_cast<uint32_t>(i), now_s });
@@ -320,7 +320,7 @@ void FlowGraph::propagate(uint32_t from_node_id, uint8_t from_port,
 
 // ── Tick ──────────────────────────────────────────────────────────────────────
 
-void FlowGraph::Tick(double now_s, MdEntity ctx, flecs::world& reg) {
+void FlowGraph::Tick(double now_s, MdEntity ctx, MdWorldRef& reg) {
     // C20: decay durable triggers; release expired slots
     float dt = (now_s > 0.0) ? static_cast<float>(now_s) : 0.f;
     // use a small sentinel: on first call now_s may be near 0; rely on caller

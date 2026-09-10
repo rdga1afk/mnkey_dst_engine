@@ -6,6 +6,7 @@
 
 namespace md {
 
+#if !defined(MD_ECS_GAIA)
 namespace {
 // Wraps one batch's (fn, user) with the flecs stage it must run through —
 // JobSystem::Submit only carries a single void* payload, so the stage
@@ -29,6 +30,7 @@ void StagedThunk(void* p) {
     job->fn(job->user);
 }
 } // namespace
+#endif
 
 JobGraph& JobGraph::Get() {
     static JobGraph inst;
@@ -134,6 +136,44 @@ void JobGraph::Run() {
     // NumWorkers()==0 fallback shape used elsewhere (e.g. logic_tick.cpp's
     // TickNavigation) so test binaries without JobSystem::Init() still work.
     for (int w = 0; w <= max_wave; ++w) {
+#if defined(MD_ECS_GAIA)
+        // Concurrency audit (2026-09-08, task #47/#48): gaia's
+        // World::lock()/unlock() (m_structuralChangesLocked) is a plain
+        // non-atomic uint32_t, incremented/decremented with ZERO
+        // synchronization by EVERY .each() call (both the Iter&-callback
+        // form MdEach uses today and the typed form), regardless of which
+        // components a query touches. TSan-confirmed real data race + a
+        // real `Assertion (m_structuralChangesLocked > 0)` crash when two
+        // threads call .each() concurrently on the same World — even on
+        // fully disjoint, correctly pre-warmed, Table-only queries with
+        // zero Sparse components involved. Reproduced both in a
+        // standalone minimal probe and on the real engine build via
+        // test_job_graph_stress.cpp (80 TSan reports + a real abort).
+        // Contradicts gaia's own README, which claims parallel query/
+        // system execution within one World is safe — filed upstream as
+        // a bug, not patched locally (no fork of the vendored
+        // single-header). Every OTHER JobSystem::Submit call site in this
+        // codebase (gpu_hal_buffers_dds_array.cpp, logic_tick_needs_ai_
+        // nav.cpp's eval_nav_waypoint_job, npc_render_frame_prep.cpp's
+        // eval_t2) is deliberately gather-job-scatter with ZERO Registry
+        // access from the worker thread — this concurrent-dispatch branch
+        // was the ONLY exception to that discipline in the whole
+        // codebase, not a precedent for it. Also matches
+        // prompt_/PROMPT_GAIA_MIGRATION.md §6's own stated non-goal:
+        // "Не очікуй виграшу в конкурентності... Мета фази — паритет, не
+        // прискорення" — there is no speedup being given up here.
+        //
+        // gaia therefore ALWAYS runs every wave sequentially, regardless
+        // of wave_count — this is not a temporary flag pending an
+        // upstream fix, it brings the gaia path in line with the
+        // gather-job-scatter discipline every other worker-thread caller
+        // in this codebase already follows. Wave computation above stays
+        // shared with the flecs backend (still useful for the
+        // read-after-write registration-order check); only EXECUTION
+        // differs.
+        for (int i = 0; i < count_; ++i)
+            if (wave[i] == w) entries_[i].fn(entries_[i].user);
+#else
         int wave_count = 0;
         for (int i = 0; i < count_; ++i) if (wave[i] == w) ++wave_count;
 
@@ -178,6 +218,7 @@ void JobGraph::Run() {
             for (int i = 0; i < count_; ++i)
                 if (wave[i] == w) entries_[i].fn(entries_[i].user);
         }
+#endif
     }
 
     count_ = 0;

@@ -81,9 +81,21 @@ static_assert(sizeof(VisualSenseEffects) == 16, "VisualSenseEffects must be 16 b
 // sense_cooldown_frames: per-NPC throttle set by SenseSystem when global budget
 // is exceeded. While > 0, sense queries are skipped and decremented each tick.
 // 0 = no throttle (normal operation). Max ~30 = 3s at 10 TPS.
-// alignas(16): activation[10] array starts at offset 4 — load 4 activations via _mm_load_ps.
-// Layout: 4(header) + 40(activation[10]) + 16(thresholds+pos) + 40(last_ms[10]) = 100 → pad → 112.
-struct alignas(16) SenseComponent {
+// alignas(16) REMOVED (2026-09-08): was intended for activation[]'s
+// _mm_load_ps, but no such SIMD access exists anywhere in the codebase
+// today (grepped engine/ + game/ for _mm_load_ps/_mm_store_ps -- only
+// particle_soa.cpp/transform_soa.cpp use them, both on separate SoA
+// arrays, not this struct) -- the alignment was aspirational and unused.
+// Confirmed via a minimal standalone gaia-ecs repro (see
+// docs/GAIA_ALIGNAS_BUG.md) that gaia::ecs::World::add<T>(entity, value)
+// segfaults (null m_pChunk deref inside ComponentSetter::sset,
+// gaia.h:46061) for any alignas(16)+ component type added as a NON-FIRST
+// component on an entity -- every real NPC's SenseComponent is always
+// added after other components, so this was a hard blocker under
+// MD_ECS_GAIA. If _mm_load_ps(activation) is ever actually implemented,
+// use _mm_loadu_ps (unaligned, same result) instead of re-adding alignas.
+// Layout: 4(header) + 40(activation[10]) + 16(thresholds+pos) + 40(last_ms[10]) = 100, no longer padded to 112.
+struct SenseComponent {
     uint8_t  cone_set_idx;                  // index into SenseRegistry::sets[]
     uint8_t  sense_cooldown_frames;         // CATHODE: per-NPC sense budget throttle
     uint8_t  _pad[2];
@@ -93,6 +105,5 @@ struct alignas(16) SenseComponent {
     float    last_known_x;
     float    last_known_z;
     uint32_t last_activated_ms[MAX_SENSES]; // timestamp when activation[i] last crossed threshold_hi
-    // Implicit 12-byte trailing pad from alignas(16): 100 raw bytes → 112 total.
 };
-static_assert(sizeof(SenseComponent) == 112, "SenseComponent must be 112 bytes (B-4: COUNT 9→10, alignas(16) pads 100→112)");
+static_assert(sizeof(SenseComponent) == 100, "SenseComponent must be 100 bytes (no longer alignas(16)-padded)");

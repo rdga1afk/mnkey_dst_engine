@@ -111,9 +111,19 @@ struct JobSystem {
     bool ForceSerial() const { return force_serial_; }
 
 private:
-    static int SDLCALL s_worker_entry(void* self);
-    void worker_loop();
+    // TSan-confirmed data race (2026-09-08, task #50): SDL_CreateThread()
+    // starts the new thread immediately, before Init()'s loop finishes
+    // writing threads_[] for later indices -- an already-running worker's
+    // self-identification scan (the old worker_loop() body) read threads_[]
+    // concurrently with Init()'s writes to it. Fixed by handing each worker
+    // its own identity directly at spawn time instead of making it search a
+    // shared array for itself -- no shared mutable state between Init()'s
+    // loop and a just-started worker at all, not just a narrower window.
+    struct WorkerCtx { JobSystem* js; int idx; };
+    static int SDLCALL s_worker_entry(void* ctx);
+    void worker_loop(int my_idx);
 
+    WorkerCtx     worker_ctxs_[MAX_WORKERS] = {};
     Job           buf_[MAX_JOBS]         = {};
     int           head_                  = 0;
     int           tail_                  = 0;

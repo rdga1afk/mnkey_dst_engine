@@ -42,7 +42,26 @@ static constexpr uint32_t BT_LOD_ULTRA_MODULO = 960u;
 static constexpr float BT_LOD_TIER1_SQ = 30.0f * 30.0f;
 static constexpr float BT_LOD_TIER2_SQ = 80.0f * 80.0f;
 
-void BTSystem::Tick(md::EngineContext& ctx, flecs::world& reg, uint32_t nowMs) {
+#if defined(MD_ECS_GAIA)
+namespace {
+// Raw per-world try_get_mut, NOT via GaiaEntityHandle/MdRegistry::Get() --
+// BTSystem::Tick()'s own `reg` parameter may be a test-local World, not
+// the global singleton (see ConnectRegistry's doc comment), so this can't
+// route through the facade (which only ever targets Registry::Get()).
+// Deliberately NOT cached via a function-local static compEntity the way
+// GaiaEntityHandle's own try_get_mut is -- that optimization assumes the
+// SAME World every call, which doesn't hold here across different test
+// cases' independent worlds.
+template<typename T>
+T* GaiaTryGetMut(gaia::ecs::World& w, gaia::ecs::Entity e) {
+    auto compEntity = w.template add<T>().entity;
+    auto view = w.mut_raw(e, compEntity);
+    return view.valid() ? reinterpret_cast<T*>(view.data) : nullptr;
+}
+} // namespace
+#endif
+
+void BTSystem::Tick(md::EngineContext& ctx, MdWorldRef& reg, uint32_t nowMs) {
     ++frame_idx_;
 
     // B3.4: the periodic near-first sort (every 190 frames, via
@@ -69,6 +88,19 @@ void BTSystem::Tick(md::EngineContext& ctx, flecs::world& reg, uint32_t nowMs) {
     // (see bt_system.h — AISystem::Update bypasses it entirely) so this
     // wasn't reachable from the concurrent JobGraph wave, but closing it
     // now removes the landmine for whenever it IS wired in.
+#if defined(MD_ECS_GAIA)
+    static auto hint_view = reg.query().all<AgentState&>().all<DirectorHintComponent&>();
+    MdEach(hint_view, [&](MdEntity, AgentState& as, DirectorHintComponent& hint) {
+        as.frame_flags   = 0;
+        as.npc_tick_cost = 0;
+        if (hint.role_pending) {
+            if (++hint.pending_ticks > DirectorHintComponent::MAX_PENDING_TICKS) {
+                hint.role_pending  = false;
+                hint.pending_ticks = 0;
+            }
+        }
+    });
+#else
     static auto hint_view = reg.query<AgentState, DirectorHintComponent>();
     hint_view.each([&](flecs::entity, AgentState& as, DirectorHintComponent& hint) {
         // C13: clear per-frame signals before BT tick
@@ -82,18 +114,69 @@ void BTSystem::Tick(md::EngineContext& ctx, flecs::world& reg, uint32_t nowMs) {
             }
         }
     });
+#endif
 
     // Phase 2: clear frame_flags for entities with no DirectorHintComponent
+#if defined(MD_ECS_GAIA)
+    static auto bare_view = reg.query().all<AgentState&>().no<DirectorHintComponent&>();
+    MdEach(bare_view, [](MdEntity, AgentState& as) {
+        as.frame_flags   = 0;
+        as.npc_tick_cost = 0;
+    });
+#else
     static auto bare_view = reg.query_builder<AgentState>().without<DirectorHintComponent>().build();
     bare_view.each([](flecs::entity, AgentState& as) {
         as.frame_flags   = 0;
         as.npc_tick_cost = 0;
     });
+#endif
 
     // Phase 3: tick active behavior trees with distance-based LOD.
     // Frame_flags already cleared in phases 1+2 for ALL entities regardless of LOD.
     const auto& tsoa = TransformSoA::Get();
     const uint32_t fi = frame_idx_;
+#if defined(MD_ECS_GAIA)
+    static auto bt_view = reg.query().all<AgentState&>().all<BehaviorTreeComponent&>();
+    MdEach(bt_view, [&](MdEntity e, AgentState& as, BehaviorTreeComponent& btc) {
+        if (!btc.enabled || !btc.tree || !btc.tree->isValid()) return;
+        if (as.lcflags.test(lcf::IS_SUSPENDED)) return;
+        if (as.npc_dormant) return;
+        if (as.npc_tick_cost >= NPC_TICK_COST_MAX) return;
+
+        const uint32_t eid = e.ToIntegral();
+
+        if (as.motivation == MotivationType::Dormant) {
+            if ((fi + eid) % BT_LOD_FAR_MODULO != 0u) return;
+        } else {
+            const auto* wt = GaiaTryGetMut<WorldTransform>(reg, e.Raw());
+            if (wt && wt->slot < (uint32_t)tsoa.active_count) {
+                float dsq = tsoa.dist_sq[wt->slot];
+                uint32_t modulo = BT_LOD_FAR_MODULO;
+                for (const auto& t : BT_LOD_TIERS) {
+                    if (dsq <= t.dist_sq) { modulo = t.modulo; break; }
+                }
+                if (modulo > 1u) {
+                    if ((fi + eid) % modulo != 0u) return;
+                } else {
+                    if (eid % 7u != fi % 7u) return;
+                }
+            }
+        }
+
+        float cost = BtBudgetCost::kGuard;
+        if (as.lcflags.test(lcf::IS_PLAYER)) {
+            cost = BtBudgetCost::kPlayer;
+        } else {
+            const AIAgent* ag = GaiaTryGetMut<AIAgent>(reg, e.Raw());
+            if (ag && ag->bt_template_id == 255)
+                cost = BtBudgetCost::kScheduleNpc;
+        }
+        if (!AIBudget::Get().TryConsume(cost)) return;
+        as.npc_tick_cost += static_cast<uint16_t>(cost * 100.f);
+
+        btc.tree->tick(ctx, e, &as, nowMs);
+    });
+#else
     static auto bt_view = reg.query<AgentState, BehaviorTreeComponent>();
     bt_view.each([&](flecs::entity e, AgentState& as, BehaviorTreeComponent& btc) {
         if (!btc.enabled || !btc.tree || !btc.tree->isValid()) return;
@@ -141,11 +224,26 @@ void BTSystem::Tick(md::EngineContext& ctx, flecs::world& reg, uint32_t nowMs) {
 
         btc.tree->tick(ctx, MdEntity(e.id()), &as, nowMs);
     });
+#endif
 }
 
+#if defined(MD_ECS_GAIA)
+void BTSystem::OnComponentDestroy(gaia::ecs::Iter& it) {
+    auto btcs = it.view_mut<BehaviorTreeComponent>();
+    for (uint32_t r = 0; r < it.size(); ++r) {
+        BehaviorTreeComponent& btc = btcs[r];
+        if (btc.owning && btc.tree) {
+            delete btc.tree;
+            btc.tree = nullptr;
+        }
+    }
+}
+#else
 void BTSystem::OnComponentDestroy(flecs::entity e, BehaviorTreeComponent& btc) {
     if (btc.owning && btc.tree) {
         delete btc.tree;
         btc.tree = nullptr;
     }
+    (void)e;
 }
+#endif

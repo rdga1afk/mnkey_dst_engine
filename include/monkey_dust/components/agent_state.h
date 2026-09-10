@@ -2,6 +2,9 @@
 #include <monkey_dust/ai/fnv.h>
 #include <monkey_dust/platform/md_log.h>
 #include <cstdint>
+#if defined(MD_ECS_GAIA)
+#include <gaia.h>
+#endif
 
 // ── Pattern 1: MotivationType ─────────────────────────────────────────────────
 // determines which BT branch is active.
@@ -434,7 +437,13 @@ static_assert(sizeof(BlackboardEntry) == 20, "BlackboardEntry must be 20 bytes")
 // AgentState entries to fit in Intel HD 520 L2 (1 MB).
 static constexpr int MAX_BB_ENTRIES = 24;
 
+// GAIA_STORAGE(Sparse) -- Phase 2 (prompt_/PROMPT_GAIA_MIGRATION.md §0/§4):
+// one of the 5 components with a proven B3.4 risk. See world_transform.h's
+// doc comment for the shared rationale.
 struct AgentBlackboard {
+#if defined(MD_ECS_GAIA)
+    GAIA_STORAGE(Sparse);
+#endif
     int             bb_count = 0;
     BlackboardEntry bb[MAX_BB_ENTRIES];
     // CATHODE RE §7.8: NPC_Squad_GetAwarenessWatermark — peak awareness level seen

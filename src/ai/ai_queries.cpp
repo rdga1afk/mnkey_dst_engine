@@ -102,18 +102,10 @@ flecs::query<SquadController>& SquadControllers() {
 // spawned NPC unsorted for up to ~19s or re-sort for nothing when
 // nothing changed.
 
-// gaia comparator signature verified against v1.0.0 source
-// (query_fwd.h:22): int(*)(const World&, const void*, const void*) --
-// same shape as flecs's, just entity args dropped (gaia's sort_by
-// comparator only receives the sorted component's raw pointers, not
-// entity ids either side -- confirmed by the typedef, not assumed).
-#if defined(MD_ECS_GAIA)
-static int CompareAIAgentFactionGaia(const gaia::ecs::World&, const void* a, const void* b) {
-    const auto* pa = (const AIAgent*)a;
-    const auto* pb = (const AIAgent*)b;
-    return (pa->faction_id > pb->faction_id) - (pa->faction_id < pb->faction_id);
-}
-#else
+// CompareAIAgentFactionGaia removed 2026-09-08 along with gaia's
+// .sort_by<AIAgent>() below (GATE 4 root-cause fix) -- no longer called
+// under MD_ECS_GAIA.
+#if !defined(MD_ECS_GAIA)
 static int CompareAIAgentFaction(flecs::entity_t, const AIAgent* a,
                                   flecs::entity_t, const AIAgent* b) {
     return (a->faction_id > b->faction_id) - (a->faction_id < b->faction_id);
@@ -126,11 +118,27 @@ static int CompareAIAgentFaction(flecs::entity_t, const AIAgent* a,
 // p.1 is where the 4th-term removal (confirmed unnecessary under gaia by
 // probe P-G, docs/GAIA_MIGRATION_ANALYSIS.md UNKNOWN-2) belongs, not this
 // mechanical query-syntax pass.
+//
+// .sort_by<AIAgent>() REMOVED under gaia (2026-09-08, GATE 4 root-cause):
+// the flecs .order_by<AIAgent> this was ported "as-is" from is a pure
+// cache-locality optimization (faction-grouped iteration for BT/combat
+// evaluation, ai_system.h's only consumer -- no code depends on iteration
+// ORDER for correctness, verified by grep across engine/+game/). Under
+// gaia it cost 45.76% of ALL sampled CPU cycles at 512 NPCs
+// (perf-diffed against flecs's 0.37% for the equivalent
+// flecs_query_cache_sort_table_generic -- see CLAUDE_STATE.md's GATE 4
+// entry for the full profile comparison): sort_entities_inter's
+// "quicksort across chunks" resolves each element via
+// get_flat_comp_ptr, an O(chunks-in-archetype) linear scan per access
+// (gaia's own TODO above sort_entities() calls this "not optimal,
+// makes sorting more expensive") -- O(n^2 log n / C) overall, not
+// O(n log n). A cache-locality micro-optimization that costs
+// quadratically more than it could ever save is not an optimization;
+// dropped rather than reimplemented as a hand-rolled periodic sort.
 #if defined(MD_ECS_GAIA)
 gaia::ecs::Query& AIAgentBTWorldTransform() {
     static auto q = MdRegistry::Get().Raw()
-        .query().all<AIAgent&>().all<BTComponent&>().all<WorldTransform&>().all<AIAgentTickState&>()
-        .sort_by<AIAgent>(CompareAIAgentFactionGaia);
+        .query().all<AIAgent&>().all<BTComponent&>().all<WorldTransform&>().all<AIAgentTickState&>();
     return q;
 }
 #else

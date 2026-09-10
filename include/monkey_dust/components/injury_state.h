@@ -23,8 +23,21 @@ static constexpr float KO_RECOVERY_DOCTOR_S    = 20.f;    // seconds with a doct
 // Kenshi RE: bleed_rate and bleeding_clot_rate are stored ×10 in config (×0.1 applied at load).
 static constexpr float BLEED_CONFIG_SCALE      = 0.1f;    // multiply config value by this
 
-// alignas(16): bleed_rate[] array starts at offset 0 → _mm_load_ps(bleed_rate) valid.
-struct alignas(16) InjuryState {
+// alignas(16) REMOVED (2026-09-08): was intended for bleed_rate[]'s
+// _mm_load_ps(bleed_rate), but no such SIMD access exists anywhere in the
+// codebase today (grepped engine/ + game/ for _mm_load_ps/_mm_store_ps --
+// only particle_soa.cpp/transform_soa.cpp use them, both on separate SoA
+// arrays, not this struct) -- the alignment was aspirational and unused.
+// Confirmed via a minimal standalone gaia-ecs repro (see
+// docs/GAIA_ALIGNAS_BUG.md) that gaia::ecs::World::add<T>(entity, value)
+// segfaults (null m_pChunk deref inside ComponentSetter::sset,
+// gaia.h:46061) for any alignas(16)+ component type added as a NON-FIRST
+// component on an entity -- every real NPC's InjuryState is always added
+// after other components, so this was a hard blocker under MD_ECS_GAIA.
+// If _mm_load_ps(bleed_rate) is ever actually implemented, use
+// _mm_loadu_ps (unaligned, same result, no alignment requirement) instead
+// of re-adding alignas here.
+struct InjuryState {
     float   bleed_rate[LIMB_COUNT];   // HP/s per limb (0=no bleed)   24B
     float   resting_heal_rate;        // HP/s current heal rate         4B
     float   ko_recovery_timer;        // seconds until KO ends; ≤0=ok   4B
@@ -33,7 +46,7 @@ struct alignas(16) InjuryState {
     uint8_t doctor_skill;             // field_medic skill 0..99         1B
     uint8_t _pad[2];                  //                                 2B
 };                                    //                         total  42B → padded to 44B
-static_assert(sizeof(InjuryState) == 48, "InjuryState size (alignas(16) pads 44→48)");
+static_assert(sizeof(InjuryState) == 44, "InjuryState size (no longer alignas(16)-padded)");
 
 // B-5: DeathShutdownSpeed — distance-based death animation budget (Kenshi RE).
 // Graceful: full ragdoll + sound (<20m from player).

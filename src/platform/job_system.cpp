@@ -17,23 +17,21 @@ JobSystem& JobSystem::Get() {
 
 // ── Worker thread entry ───────────────────────────────────────────────────────
 
-int SDLCALL JobSystem::s_worker_entry(void* self) {
-    static_cast<JobSystem*>(self)->worker_loop();
+int SDLCALL JobSystem::s_worker_entry(void* ctx) {
+    auto* c = static_cast<WorkerCtx*>(ctx);
+    c->js->worker_loop(c->idx);
     return 0;
 }
 
-void JobSystem::worker_loop() {
+void JobSystem::worker_loop(int my_idx) {
     // SDL_SetCurrentThreadPriority sets the *calling* thread's priority.
-    // worker_roles_ index is determined by matching thread ID.
+    // my_idx is handed directly by s_worker_entry (see WorkerCtx's doc
+    // comment) -- no shared-array self-identification scan, so nothing
+    // here can race with Init()'s loop writing threads_[]/worker_ctxs_[]
+    // for other indices.
     {
-        SDL_ThreadID my_id = SDL_GetCurrentThreadID();
-        for (int i = 0; i < num_workers_; ++i) {
-            if (threads_[i] && SDL_GetThreadID(threads_[i]) == my_id) {
-                int prio = kPriorityTable[(int)worker_roles_[i]];
-                SDL_SetCurrentThreadPriority((SDL_ThreadPriority)prio);
-                break;
-            }
-        }
+        int prio = kPriorityTable[(int)worker_roles_[my_idx]];
+        SDL_SetCurrentThreadPriority((SDL_ThreadPriority)prio);
     }
 
     while (true) {
@@ -98,6 +96,18 @@ void JobSystem::SetWorkerRole(int idx, WorkerRole role) {
 }
 
 void JobSystem::Init() {
+    // task #54: Init() must be idempotent. test_gaia_sched_adapter.cpp calls
+    // Init() unconditionally (no NumWorkers()==0 guard) to assert steady-state
+    // behavior; since JobSystem is a process-wide singleton and other tests
+    // (test_job_graph_stress.cpp) deliberately never call Shutdown(), a second
+    // Init() call was overwriting mtx_/cv_work_/cv_done_/cv_cap_ and spawning a
+    // duplicate worker set while the FIRST set's threads were still alive and
+    // reading the now-clobbered mtx_ pointer on every worker_loop() iteration
+    // -- a genuine (TSan-confirmed) data race on job_system.cpp's plain pointer
+    // members, not a false positive. Early-return once workers already exist.
+    if (num_workers_ > 0)
+        return;
+
     mtx_     = SDL_CreateMutex();
     cv_work_ = SDL_CreateCondition();
     cv_done_ = SDL_CreateCondition();
@@ -112,11 +122,13 @@ void JobSystem::Init() {
     for (int i = 0; i < num_workers_; ++i) {
         char name[16];
         SDL_snprintf(name, sizeof(name), "JobWorker%d", i);
-        threads_[i] = SDL_CreateThread(s_worker_entry, name, this);
+        // worker_ctxs_[i] written BEFORE SDL_CreateThread spawns the thread
+        // that reads it -- see WorkerCtx's doc comment in job_system.h.
+        worker_ctxs_[i] = WorkerCtx{this, i};
+        threads_[i] = SDL_CreateThread(s_worker_entry, name, &worker_ctxs_[i]);
 
-        // called from within the worker thread itself via s_worker_entry).
-        // We store the role; worker calls SDL_SetCurrentThreadPriority at startup.
-        (void)worker_roles_[i];  // applied inside worker_loop()
+        // Role applied inside worker_loop() via my_idx (handed directly, no
+        // scan) — worker calls SDL_SetCurrentThreadPriority at startup.
 
 #ifdef __linux__
         {

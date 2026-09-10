@@ -77,68 +77,292 @@ void VerifyReflectedComponentsAreWarmedUp();
 void WarmUpEngineComponents() {
     auto& w = Registry::Get();
 
+    #if defined(MD_ECS_GAIA)
+    w.add<AgentBlackboard>();
+    #else
     w.component<AgentBlackboard>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<AgentState>();
+    #else
     w.component<AgentState>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<AIAgent>();
+    #else
     w.component<AIAgent>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<AIAgentTickState>();
+    #else
     w.component<AIAgentTickState>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<AIScript>();
+    #else
     w.component<AIScript>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<AnimatorComponent>();
+    #else
     w.component<AnimatorComponent>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<BehaviorTreeComponent>();
+    #else
     w.component<BehaviorTreeComponent>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<BleedComponent>();
+    #else
     w.component<BleedComponent>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<BodyBaseline>();
+    #else
     w.component<BodyBaseline>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<BountyComponent>();
+    #else
     w.component<BountyComponent>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<BTComponent>();
+    #else
     w.component<BTComponent>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<Building>();
+    #else
     w.component<Building>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<CharBodyState>();
+    #else
     w.component<CharBodyState>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<CombatModifiers>();
+    #else
     w.component<CombatModifiers>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<DetachedLimb>();
+    #else
     w.component<DetachedLimb>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<DirectorHintComponent>();
+    #else
     w.component<DirectorHintComponent>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<EquipmentComponent>();
+    #else
     w.component<EquipmentComponent>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<Faction>();
+    #else
     w.component<Faction>();
+    #endif
     // Fear/Trust (npc_relationship.h) and FriendlyWith/HostileWith
     // (alliance.h) are private nested relation-tag types inside their
     // owning classes — can't be touched from here. If either ever gets
     // used for the first time from inside a JobGraph batch, that class
     // needs its own warm-up method (e.g. AllianceMatrix::WarmUp()) called
     // from here instead.
+    #if defined(MD_ECS_GAIA)
+    w.add<FlareActorComponent>();
+    #else
     w.component<FlareActorComponent>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<FlareSpriteAnim>();
+    #else
     w.component<FlareSpriteAnim>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<FlowGraph>();
+    #else
     w.component<FlowGraph>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<Health>();
+    #else
     w.component<Health>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<ImpactEvent>();
+    #else
     w.component<ImpactEvent>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<InjuryState>();
+    #else
     w.component<InjuryState>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<InteriorPortal>();
+    #else
     w.component<InteriorPortal>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<Inventory>();
+    #else
     w.component<Inventory>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<LockComponent>();
+    #else
     w.component<LockComponent>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<LuaScriptComponent>();
+    #else
     w.component<LuaScriptComponent>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<MdManagedTag>();
+    #else
     w.component<MdManagedTag>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<NavAgent>();
+    #else
     w.component<NavAgent>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<NoiseEmitter>();
+    #else
     w.component<NoiseEmitter>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<SmellEmitter>();
+    #else
     w.component<SmellEmitter>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<NpcDevelopmentComponent>();
+    #else
     w.component<NpcDevelopmentComponent>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<NpcMemoryComponent>();
+    #else
     w.component<NpcMemoryComponent>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<NpcNeeds>();
+    #else
     w.component<NpcNeeds>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<NpcRelationshipComponent>();
+    #else
     w.component<NpcRelationshipComponent>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<ParentRef>();
+    #else
     w.component<ParentRef>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<ChildrenRef>();
+    #else
     w.component<ChildrenRef>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<PatrolRoute>();
+    #else
     w.component<PatrolRoute>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<PhysicsAgent>();
+    #else
     w.component<PhysicsAgent>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<PlayerController>();
+    #else
     w.component<PlayerController>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<PrisonerComponent>();
+    #else
     w.component<PrisonerComponent>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<ProjectileComponent>();
+    #else
     w.component<ProjectileComponent>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<RagdollComponent>();
+    #else
     w.component<RagdollComponent>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<Renderable>();
+    #else
     w.component<Renderable>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<SenseComponent>();
+    #else
     w.component<SenseComponent>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<SenseModifiers>();
+    #else
     w.component<SenseModifiers>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<ShopInventory>();
+    #else
     w.component<ShopInventory>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<SkillXpAccum>();
+    #else
     w.component<SkillXpAccum>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<SquadController>();
+    #else
     w.component<SquadController>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<SquadMemberComponent>();
+    #else
     w.component<SquadMemberComponent>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<StatSheet>();
+    #else
     w.component<StatSheet>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<StealthComponent>();
+    #else
     w.component<StealthComponent>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<SuspiciousItemGroupComponent>();
+    #else
     w.component<SuspiciousItemGroupComponent>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<WeaponComponent>();
+    #else
     w.component<WeaponComponent>();
+    #endif
+    #if defined(MD_ECS_GAIA)
+    w.add<CollapseState>();
+    #else
     w.component<CollapseState>();
+    #endif
 
     // Phase 5.1 (audit) proof-of-concept: WorldTransform/LimbHealth/Combat
     // are the 3 components this master list currently covers — see
@@ -146,7 +370,11 @@ void WarmUpEngineComponents() {
     // OTHER component above still has its own explicit w.component<T>()
     // line; this isn't a wholesale migration, just a working demonstration
     // that the pattern is safe (same generated calls, same behavior).
+#if defined(MD_ECS_GAIA)
+#define MD_COMPONENT(CppType) w.add<CppType>();
+#else
 #define MD_COMPONENT(CppType) w.component<CppType>();
+#endif
 #include <monkey_dust/ecs/component_master_list.h>
 
     fprintf(stdout, "[ComponentWarmup] all engine ECS component types registered\n");
@@ -276,6 +504,34 @@ void ToPascalCase(const char* snake, char* out, int out_size) {
 // read-only lookup, does NOT register) — same name-resolution approach as
 // tools/editor/editor_reflect_bridge.h's EcsReflectBridge::Init(), reused
 // here as a startup consistency check instead of a live editor bridge.
+// gaia-ecs migration (Phase 5, PROMPT_GAIA_MIGRATION.md §7 p.2-3): gaia's
+// World::resolve(name) is the direct ecs_lookup() equivalent -- read-only,
+// does not register, returns EntityBad on no match (verified via a
+// standalone probe against an UNNAMESPACED struct, matching this
+// codebase's real component declaration style: gaia's RTTI-derived auto
+// name for such a type is the bare unqualified name, e.g. "AgentState",
+// identical to what ToPascalCase(reflect_name) below already produces for
+// the flecs branch -- no separate naming convention to reconcile).
+#if defined(MD_ECS_GAIA)
+void VerifyReflectedComponentsAreWarmedUp() {
+    auto& w = Registry::Get();
+    const ComponentReflect& reg = ComponentReflect::Get();
+    int n = reg.Count();
+    for (int i = 0; i < n; ++i) {
+        const ComponentDesc& desc = reg.GetDesc(i);
+        char pascal[40];
+        ToPascalCase(desc.name, pascal, sizeof(pascal));
+        gaia::ecs::Entity id = w.resolve(pascal);
+        if (id == gaia::ecs::EntityBad) {
+            MD_LOG(MD_LOG_ERROR,
+                   "[ComponentWarmup] '%s' (reflected as '%s' in "
+                   "RegisterCoreComponents) is not gaia-registered — add "
+                   "w.add<%s>() to WarmUpEngineComponents().",
+                   desc.name, pascal, pascal);
+        }
+    }
+}
+#else
 void VerifyReflectedComponentsAreWarmedUp() {
     auto& w = Registry::Get();
     const ComponentReflect& reg = ComponentReflect::Get();
@@ -294,5 +550,6 @@ void VerifyReflectedComponentsAreWarmedUp() {
         }
     }
 }
+#endif
 
 }  // namespace md

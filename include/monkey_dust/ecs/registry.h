@@ -1,6 +1,7 @@
 #pragma once
 #if defined(MD_ECS_GAIA)
 #include <gaia.h>
+#include <monkey_dust/ecs/gaia_sched_adapter.h>
 #else
 #include <flecs.h>
 #endif
@@ -10,11 +11,36 @@
 // час query ітерації. При потребі змінити entities під час ітерації —
 // збирати в temp vector, застосовувати після завершення query.each().
 
+// Registry::Get()'s real return type, backend-dependent -- can't use
+// `auto&` in a plain (non-template, C++17) function parameter, so any
+// function signature that needs to hold "a world reference" generically
+// (FlowGraph's action callbacks, BTSystem::Tick, etc.) uses this alias
+// instead of hardcoding flecs::world&.
+#if defined(MD_ECS_GAIA)
+using MdWorldRef = gaia::ecs::World;
+#else
+using MdWorldRef = flecs::world;
+#endif
+
 class Registry {
 public:
 #if defined(MD_ECS_GAIA)
+    // Phase 4 (PROMPT_GAIA_MIGRATION.md §6): MdGaiaSchedAdapter::Install()
+    // MUST run before the first possible parallel-exec query through this
+    // World, else gaia lazily raises its own gaia::mt::ThreadPool on first
+    // use (verified via probe, see gaia_sched_adapter.h's top comment) --
+    // two thread pools on Intel HD 520 is unacceptable. Installed as part
+    // of this static local's own initialization (guaranteed exactly-once,
+    // before any caller can observe `w`), not a separate call site
+    // someone could forget.
     static gaia::ecs::World& Get() {
         static gaia::ecs::World w;
+        // Function-local statics initialize in declaration order, exactly
+        // once, before Get() can return `w` to any caller -- avoids
+        // constructing World inside a lambda-and-return-by-value (World
+        // isn't necessarily move-constructible; not worth relying on).
+        static bool s_schedInstalled = (MdGaiaSchedAdapter::Install(w), true);
+        (void)s_schedInstalled;
         return w;
     }
 #else

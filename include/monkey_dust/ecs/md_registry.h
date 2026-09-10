@@ -126,45 +126,290 @@ struct MdManagedTag {};
 // flecs::entity into MdEntity when the caller's Func wants an MdEntity
 // first (checked the same way MdView did).
 #if defined(MD_ECS_GAIA)
-// gaia's query.each() ALWAYS delivers a chunk-level ecs::Iter&, never
-// per-component args the way flecs's each() does (checked every each()
-// example in gaia's README — Iter& or bare Entity, no exceptions found).
-// This adapter bridges that real API-shape difference: it inspects
-// Func's own parameter types via function_traits (extracted from
-// operator(), same technique any generic-lambda-argument-deduction needs)
-// and, per row in the chunk, calls func with the right combination of
-// it.view<T>()/it.view_mut<T>() slices — verified against exactly this
-// shape in /tmp/gaia_probe/pk_mdeach.cpp (both the (T1&,T2&...) and
-// (MdEntity,T1&,T2&...) forms, including a real view_mut aliasing/mutation
-// round-trip across two separate MdEach passes). Stage-routing is a
-// documented Phase-1 no-op — see md_registry_detail::t_stage_override's
-// comment above; real behavior lands with the Phase 4 scheduler adapter.
+// MdEach routes through gaia's NATIVE typed .each<Components...>(func)
+// overload (SFINAE-selected when Func does NOT take Iter&, gaia.h:61073),
+// not the Iter&-callback each() this used to call. Found 2026-09-08
+// (task #47/#49): the Iter&-callback path (it.view<T>()/it.view_mut<T>(),
+// eventually Chunk::comp_ptr_mut) assumes every component has chunk-column
+// storage -- for a GAIA_STORAGE(Sparse) component there is no such column
+// (payload lives in a separate entity-indexed store), so it.view<T>()/
+// view_mut<T>() null-derefs and crashes (gdb-confirmed: null rec.pData,
+// DirectorSystemTest.BlackboardBroadcastOnTick and others). gaia's typed
+// each() dispatches Sparse correctly via run_query_on_chunks_sparse_typed/
+// run_query_on_sparse_entities_typed (QueryPlanMode::SparseDense,
+// gaia.h:57052/58514/58519/60060/63123-63348) -- real entity-indexed
+// per-row accessors (TypedSparseQueryView/typed_sparse_chunk_view,
+// gaia.h:62942-62978) the Iter&-callback path never used at all. Audited
+// all 91 real MdEach call sites before this rewrite: none use Iter&/chunk
+// access, so none needed the old path's extra capability, and Entity-as-
+// argument is natively supported by the typed path too (gaia.h:62995,
+// `if constexpr (std::is_same_v<U, Entity>) return entity;` -- works at
+// any argument index, not just first). Stage-routing is a documented
+// Phase-1 no-op — see md_registry_detail::t_stage_override's comment
+// above; Phase 4 (job_graph.cpp) settled on no stage/readonly_begin
+// equivalent being needed for gaia at all.
 namespace md_registry_detail {
+    // Task #52 (CLAUDE_STATE.md "Знахідка C", 2026-09-08): gaia reserves
+    // entity ids [0..GAIA_ID_LastCoreComponent.id()] (currently 0..49 --
+    // Core, EntityDesc, Component, ..., through the runtime-primitive-type
+    // entities ending at F64, gaia.h:32132-32233) for its own bootstrap
+    // state. Every one of these is explicitly given .add(Pair(OnDelete,
+    // Error)) and .add(Core) at bootstrap (gaia.h:80828-80950) -- the
+    // doc comment on Core itself says "the entity it is attached to is
+    // ignored by queries" (gaia.h:32131), so bootstrap entities are
+    // SUPPOSED to be invisible to ordinary user queries.
+    //
+    // Confirmed by direct diagnostic (not assumed) that this guarantee
+    // does not always hold: MdRegistry::Clear()'s query
+    // (.all<MdManagedTag>()) periodically yields gaia::ecs::Core
+    // (id=0,gen=0) as a match, after enough create/delete churn across
+    // the full ~340-file test binary. w.has(Core, MdManagedTag) was
+    // checked directly at the point of the false match and returned
+    // FALSE every time (37/37 occurrences logged) -- so this is a real
+    // query-result correctness bug (almost certainly in one of
+    // QueryInfo's several layered result caches, gaia.h:50705 onward --
+    // seedArchetypeCache/archetypeCache/directChunks, each with its own
+    // world-version-keyed invalidation), NOT entity-id-allocator
+    // corruption (an earlier, now-falsified hypothesis: guarding
+    // MdRegistry::Create() against handing out a reserved id to a real
+    // caller had zero effect -- the warning never fired, yet the false
+    // match persisted identically). Root-causing the exact missing cache
+    // invalidation trigger inside gaia's query engine was not attempted
+    // beyond this point -- multiple interacting version counters across
+    // several cache layers make it a substantial, separate investigation
+    // safely done only with much more time than reproducing this find
+    // already took (~10 failed standalone-probe attempts, and it never
+    // reproduced in isolation -- only in the accumulated-churn full
+    // suite).
+    //
+    // Given (a) w.has() is the one thing PROVEN reliable here, and (b)
+    // this codebase's OWN entity allocator (MdRegistry::Create(), see its
+    // doc comment) never hands a real managed entity an id in this
+    // range, ANY entity with id() in [0..GAIA_ID_LastCoreComponent] that
+    // reaches user code through a query is, by construction in this
+    // codebase, always a leaked gaia bootstrap identifier -- filtering
+    // strictly by id RANGE (not by re-querying has() against every term,
+    // which MdEach's generic dispatch has no cheap way to enumerate) is
+    // the safe, general, low-risk guard every dispatch path below applies.
+    GAIA_NODISCARD inline bool IsGaiaReservedEntity(gaia::ecs::Entity e) {
+        return e.id() <= gaia::ecs::GAIA_ID_LastCoreComponent.id();
+    }
+
     template<typename T> struct function_traits : function_traits<decltype(&T::operator())> {};
     template<typename C, typename R, typename... Args>
     struct function_traits<R(C::*)(Args...) const> { using args_tuple = std::tuple<Args...>; };
     template<typename C, typename R, typename... Args>
     struct function_traits<R(C::*)(Args...)> { using args_tuple = std::tuple<Args...>; };
 
+    // gaia's chunk-column accessors (sview_auto -> sview_mut/view)
+    // static_assert(!is_empty_v<U>) and refuse to fetch ANY empty type's
+    // "value" at all, Sparse or not, Table or not -- a genuinely
+    // zero-size tag (e.g. MdManagedTag) has no backing storage for gaia
+    // to hand out a reference to, and the typed dispatch path has no
+    // Sparse-style special case for it either (found 2026-09-08 rewriting
+    // MdEach for Sparse; a separate, pre-existing gaia limitation this
+    // works around, not something the Sparse fix itself touches). Worked
+    // around by never asking gaia for such a term's value at all: gaia's
+    // typed each() only requires a callback's requested args be a SUBSET
+    // of the query's declared terms (has_all<T...>, gaia.h:62076 --
+    // not an exact match), so omitting an empty-type arg from what the
+    // wrapper asks for is safe -- entity matching still comes from the
+    // query's own .all<T&>() declaration. AllEmpty below is only ever
+    // true for a bare tag term (every real call site today has zero
+    // non-empty args alongside one, per an exhaustive grep) -- AnyEmpty
+    // catches the untested "mixed" shape explicitly rather than silently
+    // doing something unverified.
+    template<typename ArgsTuple, size_t Offset, size_t... I>
+    constexpr bool AnyEmpty(std::index_sequence<I...>) {
+        return (std::is_empty_v<std::remove_cv_t<std::remove_reference_t<
+            std::tuple_element_t<Offset + I, ArgsTuple>>>> || ...);
+    }
+    template<typename ArgsTuple, size_t Offset, size_t... I>
+    constexpr bool AllEmpty(std::index_sequence<I...>) {
+        return (std::is_empty_v<std::remove_cv_t<std::remove_reference_t<
+            std::tuple_element_t<Offset + I, ArgsTuple>>>> && ...);
+    }
+
+    template<typename Func, typename ArgsTuple, size_t Offset, size_t... I>
+    void CallAllEmpty(Func& func, std::index_sequence<I...>) {
+        func(std::tuple_element_t<Offset + I, ArgsTuple>{}...);
+    }
+    template<typename Func, typename ArgsTuple, size_t Offset, size_t... I>
+    void CallAllEmptyWithEntity(Func& func, MdEntity e, std::index_sequence<I...>) {
+        func(e, std::tuple_element_t<Offset + I, ArgsTuple>{}...);
+    }
+
+    // User callbacks take MdEntity (this codebase's own entity wrapper),
+    // never gaia::ecs::Entity directly -- gaia's typed each() needs to see
+    // a signature it recognizes (Entity or a registered component type),
+    // so this wrapper stands between: gaia calls it with (Entity, T1&...),
+    // it converts Entity -> MdEntity and forwards to the real func. Held
+    // by reference, not copied -- the wrapper itself is passed BY VALUE
+    // into gaia's each(Func func), which only copies the reference member,
+    // not whatever func captures.
+    template<typename Func, typename ArgsTuple, size_t... I>
+    struct TypedEntityWrapper {
+        Func& func;
+        void operator()(gaia::ecs::Entity e, std::tuple_element_t<I + 1, ArgsTuple>... args) const {
+            // Task #52 guard -- see IsGaiaReservedEntity's doc comment.
+            if (IsGaiaReservedEntity(e)) {
+                MD_LOG(MD_LOG_WARNING,
+                       "[MdEach] typed dispatch got a reserved gaia "
+                       "bootstrap entity (id=%u gen=%u) as a query match "
+                       "-- skipping (task #52).",
+                       (unsigned)e.id(), (unsigned)e.gen());
+                return;
+            }
+            func(MdEntity(e), args...);
+        }
+    };
+    template<typename Func, typename ArgsTuple, size_t... I>
+    TypedEntityWrapper<Func, ArgsTuple, I...> MakeTypedEntityWrapper(Func& func, std::index_sequence<I...>) {
+        return TypedEntityWrapper<Func, ArgsTuple, I...>{func};
+    }
+
+    // Is T Sparse-storage under gaia? Reuses gaia's own storage-policy
+    // detection rather than hardcoding the 5 component names -- stays
+    // correct automatically if more components become
+    // GAIA_STORAGE(Sparse) later.
+    template<typename T>
+    inline constexpr bool IsSparseV =
+        gaia::ecs::auto_storage_policy_v<T> == gaia::ecs::DataStorageType::Sparse;
+
+    template<typename ArgsTuple, size_t Offset, size_t... I>
+    constexpr bool AnySparse(std::index_sequence<I...>) {
+        return (IsSparseV<std::remove_cv_t<std::remove_reference_t<
+            std::tuple_element_t<Offset + I, ArgsTuple>>>> || ...);
+    }
+
+    // gaia's typed each() has a SEPARATE bug from the Sparse view crash
+    // this file's TypedEntityWrapper works around above (task #51,
+    // 2026-09-08): asking it for Entity AND a Sparse-storage component
+    // TOGETHER fails to COMPILE.
+    // world_query_entity_arg_by_id<Entity>() (gaia.h:85298-85325) has
+    // inconsistent decltype(auto) return-type deduction -- an early
+    // `if constexpr (is_same_v<Arg,Entity>) return entity;` with no
+    // `else`, followed by more code that is UNCONDITIONALLY instantiated
+    // regardless of that branch (if constexpr without else doesn't
+    // exclude subsequent statements from instantiation, only from
+    // execution) and returns a DIFFERENT type (const Arg&, i.e.
+    // const Entity& for Arg=Entity). Reachable whenever Entity appears in
+    // a typed each() callback's arg list alongside ANY Sparse-storage
+    // type: each_typed_inter's Sparse branches are selected by a plain
+    // runtime `if (plan.mode == ...)`, not `if constexpr`, so BOTH
+    // candidate query-plan-mode functions get instantiated regardless of
+    // which one a given query shape would actually use at runtime -- no
+    // way to dodge this by restructuring the query. Worked around by
+    // never asking gaia's typed each() for Entity when a Sparse arg is
+    // also present: falls back to the Iter&-callback path for
+    // iteration/entity (both safe -- Entity is never Sparse-storage), and
+    // for each Sparse-storage arg specifically, reads/writes it via
+    // mut_raw() per-row instead of it.view<T>()/view_mut<T>() (which
+    // crashes on Sparse, per this file's top doc comment). mut_raw() has
+    // its own explicit, correct Sparse branch (gaia.h:71133,
+    // DataStorageType::Sparse check) -- an already-proven primitive
+    // (GaiaEntityHandle::try_get_mut<T> above, bt_system.cpp's own
+    // GaiaTryGetMut). compEntity resolved fresh per call, not cached in a
+    // static -- MdEach may run against a test-local World, not just the
+    // global Registry::Get() singleton (same reasoning as
+    // bt_system.cpp's GaiaTryGetMut, which this mirrors).
+    template<typename T>
+    T* HybridMutRaw(gaia::ecs::World& w, gaia::ecs::Entity e) {
+        auto compEntity = w.template add<T>().entity;
+        auto view = w.mut_raw(e, compEntity);
+        return view.valid() ? reinterpret_cast<T*>(view.data) : nullptr;
+    }
+
     template<typename Arg>
-    decltype(auto) mdeach_view_for(gaia::ecs::Iter& it) {
+    decltype(auto) HybridArgFor(gaia::ecs::World& w, gaia::ecs::Iter& it, uint32_t row, gaia::ecs::Entity e) {
         using Raw = std::remove_cv_t<std::remove_reference_t<Arg>>;
-        if constexpr (std::is_const_v<std::remove_reference_t<Arg>>)
-            return it.template view<Raw>();
-        else
-            return it.template view_mut<Raw>();
+        if constexpr (IsSparseV<Raw>) {
+            // Used for both const and mutable Arg: mut_raw() is a
+            // silent-write path (no auto side effects just from being
+            // called, per its own doc comment) so there's no behavioral
+            // difference for a read-only caller, matching this facade's
+            // existing try_get_mut<T>() convention of not distinguishing
+            // the two at this level.
+            //
+            // GAIA_ASSERT here compiles to nothing under NDEBUG (this
+            // project's actual Release build) -- verified by disassembly
+            // during task #49's investigation: a null p silently became a
+            // null-pointer dereference several frames later instead of an
+            // assert failure. HybridDispatchRowWithEntity's w.valid(e)
+            // check above is the real guard now; this stays a genuine
+            // (non-empty-in-Release) check as defense in depth, since
+            // w.valid(e) confirms the ENTITY is alive but not that this
+            // SPECIFIC sparse component is attached to it.
+            Raw* p = HybridMutRaw<Raw>(w, e);
+            if (p == nullptr) {
+                static Raw s_dummy{};
+                MD_LOG(MD_LOG_WARNING,
+                       "[MdEach] hybrid dispatch: entity (id=%u gen=%u) is "
+                       "alive but missing the Sparse component the query "
+                       "declared present -- returning a dummy value instead "
+                       "of dereferencing null. See HybridArgFor's doc "
+                       "comment (task #49).",
+                       (unsigned)e.id(), (unsigned)e.gen());
+                // Parenthesized: decltype(auto) on a bare identifier
+                // deduces the declared type (Raw, by value); on a
+                // parenthesized id-expression it deduces Raw& instead,
+                // matching `return *p;` below -- the exact "inconsistent
+                // deduction for auto return type" trap task #51's doc
+                // comment above describes gaia itself falling into.
+                return (s_dummy);
+            }
+            return *p;
+        } else if constexpr (std::is_const_v<std::remove_reference_t<Arg>>) {
+            return it.template view<Raw>()[row];
+        } else {
+            return it.template view_mut<Raw>()[row];
+        }
     }
 
-    template<typename Func, typename ArgsTuple, size_t... I>
-    void mdeach_dispatch_row(Func& func, gaia::ecs::Iter& it, uint32_t row,
-                              std::index_sequence<I...>) {
-        func(mdeach_view_for<std::tuple_element_t<I, ArgsTuple>>(it)[row]...);
-    }
-
-    template<typename Func, typename ArgsTuple, size_t... I>
-    void mdeach_dispatch_row_with_entity(Func& func, gaia::ecs::Iter& it, uint32_t row,
-                                          gaia::ecs::Entity e, std::index_sequence<I...>) {
-        func(MdEntity(e), mdeach_view_for<std::tuple_element_t<I + 1, ArgsTuple>>(it)[row]...);
+    // 2026-09-08 runtime finding (debug-instrumented reproduction, task
+    // #49): gaia's Iter&-callback dispatch for a query whose ONLY term is a
+    // Sparse-storage component (e.g. .all<AgentBlackboard&>()) can hand
+    // back a row whose gaia::ecs::Entity is a bogus {id=0,gen=0} that does
+    // NOT correspond to any live entity -- confirmed via a real crashing
+    // test (DirectorSystemTest.BlackboardBroadcastOnTick): it.size()==1,
+    // the chunk's own entity_view() row is {0,0}, yet the real npc entity
+    // (created moments earlier) has an entirely different, valid id.
+    // Reproducing this in an isolated standalone probe (same component
+    // shapes/sizes, same Create-then-emplace-then-emplace structural
+    // sequence, chunk recycling, multi-entity chunks, component
+    // pre-warmup) was NOT possible -- the defect appears to depend on
+    // accumulated world state this project's 340+ test binary produces
+    // that a minimal repro can't cheaply reconstruct. Rather than guess
+    // further at gaia's internals, this is guarded defensively at the one
+    // point that actually matters: never trust an Entity read back from
+    // this dispatch path without confirming it against the world's own
+    // alive-check first. A mismatch is logged (loud, not silent) and the
+    // row is skipped instead of dereferencing a possibly-null pointer.
+    template<typename Func, typename ArgsTuple, size_t Offset, size_t... I>
+    void HybridDispatchRowWithEntity(Func& func, gaia::ecs::World& w, gaia::ecs::Iter& it, uint32_t row,
+                                      gaia::ecs::Entity e, std::index_sequence<I...>) {
+        // Task #52 (IsGaiaReservedEntity's doc comment): checked FIRST and
+        // ahead of w.valid() below -- w.valid() is not reliable evidence
+        // here, since gaia::ecs::Core itself is a legitimately "alive"
+        // bootstrap entity (w.valid(Core) returns true); the id-range
+        // check is what's actually proven to catch this case.
+        if (IsGaiaReservedEntity(e)) {
+            MD_LOG(MD_LOG_WARNING,
+                   "[MdEach] hybrid dispatch got a reserved gaia bootstrap "
+                   "entity (id=%u gen=%u) from a Sparse-only query row -- "
+                   "skipping (task #52).",
+                   (unsigned)e.id(), (unsigned)e.gen());
+            return;
+        }
+        if (!w.valid(e)) {
+            MD_LOG(MD_LOG_WARNING,
+                   "[MdEach] hybrid dispatch got an invalid entity (id=%u "
+                   "gen=%u) from a Sparse-only query row -- skipping. See "
+                   "HybridDispatchRowWithEntity's doc comment (task #49).",
+                   (unsigned)e.id(), (unsigned)e.gen());
+            return;
+        }
+        func(MdEntity(e), HybridArgFor<std::tuple_element_t<Offset + I, ArgsTuple>>(w, it, row, e)...);
     }
 }
 
@@ -175,36 +420,138 @@ void MdEach(Query& q, Func&& func) {
     constexpr size_t N = std::tuple_size_v<ArgsTuple>;
     constexpr bool wantsEntity = N > 0 &&
         std::is_same_v<std::tuple_element_t<0, ArgsTuple>, MdEntity>;
+    constexpr size_t Offset = wantsEntity ? 1 : 0;
+    constexpr size_t RestCount = N - Offset;
 
-    q.each([&](gaia::ecs::Iter& it) {
-        auto entView = it.template view<gaia::ecs::Entity>();
+    if constexpr (RestCount == 0) {
+        // Entity-only callback -- nothing to fetch at all.
+        q.each([&](gaia::ecs::Entity e) {
+            // Task #52 guard -- see IsGaiaReservedEntity's doc comment.
+            // MdRegistry::Clear() is this branch's most consequential
+            // caller (its query is Entity-only) -- confirmed via direct
+            // diagnostic that .all<MdManagedTag>() intermittently yields
+            // gaia::ecs::Core here.
+            if (md_registry_detail::IsGaiaReservedEntity(e)) {
+                MD_LOG(MD_LOG_WARNING,
+                       "[MdEach] entity-only dispatch got a reserved gaia "
+                       "bootstrap entity (id=%u gen=%u) as a query match "
+                       "-- skipping (task #52).",
+                       (unsigned)e.id(), (unsigned)e.gen());
+                return;
+            }
+            func(MdEntity(e));
+        });
+    } else if constexpr (md_registry_detail::AllEmpty<ArgsTuple, Offset>(std::make_index_sequence<RestCount>{})) {
         if constexpr (wantsEntity) {
-            for (uint32_t row = 0; row < it.size(); ++row)
-                md_registry_detail::mdeach_dispatch_row_with_entity<Func, ArgsTuple>(
-                    func, it, row, entView[row], std::make_index_sequence<N - 1>{});
+            q.each([&](gaia::ecs::Entity e) {
+                // Task #52 guard -- see IsGaiaReservedEntity's doc comment.
+                if (md_registry_detail::IsGaiaReservedEntity(e)) {
+                    MD_LOG(MD_LOG_WARNING,
+                           "[MdEach] all-empty dispatch got a reserved "
+                           "gaia bootstrap entity (id=%u gen=%u) as a "
+                           "query match -- skipping (task #52).",
+                           (unsigned)e.id(), (unsigned)e.gen());
+                    return;
+                }
+                md_registry_detail::CallAllEmptyWithEntity<Func, ArgsTuple, Offset>(
+                    func, MdEntity(e), std::make_index_sequence<RestCount>{});
+            });
         } else {
-            for (uint32_t row = 0; row < it.size(); ++row)
-                md_registry_detail::mdeach_dispatch_row<Func, ArgsTuple>(
-                    func, it, row, std::make_index_sequence<N>{});
+            q.each([&]() {
+                md_registry_detail::CallAllEmpty<Func, ArgsTuple, Offset>(
+                    func, std::make_index_sequence<RestCount>{});
+            });
         }
-    });
+    } else if constexpr (md_registry_detail::AnyEmpty<ArgsTuple, Offset>(std::make_index_sequence<RestCount>{})) {
+        static_assert(!md_registry_detail::AnyEmpty<ArgsTuple, Offset>(std::make_index_sequence<RestCount>{}),
+            "MdEach: mixing an empty/zero-size component (e.g. a tag type) "
+            "with a real component in the same callback is not supported "
+            "under gaia (no real call site needs this today, verified "
+            "2026-09-08) -- split into two MdEach calls, or extend this "
+            "file's AllEmpty-only handling to a general filter if this "
+            "combination becomes genuinely needed.");
+    } else if constexpr (wantsEntity &&
+                          md_registry_detail::AnySparse<ArgsTuple, Offset>(std::make_index_sequence<RestCount>{})) {
+        // gaia's typed each() can't combine Entity + a Sparse component
+        // in one callback (task #51) -- hybrid Iter&-callback path
+        // instead, see HybridArgFor's doc comment above for why.
+        // QueryImpl has no public world() of its own (m_storage is
+        // private) -- fetch() (the same call .each() itself makes first,
+        // "creates or refreshes the backing QueryInfo if needed") returns
+        // QueryInfo&, which does expose a public world().
+        gaia::ecs::World& w = *q.fetch().world();
+        q.each([&](gaia::ecs::Iter& it) {
+            auto entView = it.template view<gaia::ecs::Entity>();
+            for (uint32_t row = 0; row < it.size(); ++row)
+                md_registry_detail::HybridDispatchRowWithEntity<Func, ArgsTuple, Offset>(
+                    func, w, it, row, entView[row], std::make_index_sequence<RestCount>{});
+        });
+    } else if constexpr (wantsEntity) {
+        auto wrapper = md_registry_detail::MakeTypedEntityWrapper<Func, ArgsTuple>(
+            func, std::make_index_sequence<RestCount>{});
+        q.each(wrapper);
+    } else {
+        // No MdEntity conversion needed -- func's own signature already
+        // matches what gaia's typed each() expects component-wise, so it
+        // can be called directly with zero wrapper overhead. (A Sparse
+        // arg here, without Entity, doesn't hit task #51's bug -- that's
+        // specifically about combining Entity with Sparse.)
+        //
+        // Known gap (task #52): this is the one MdEach branch that can't
+        // apply IsGaiaReservedEntity's guard -- func's signature carries
+        // no Entity at all here, so there is nothing to check without
+        // wrapping every call (the exact per-call overhead this branch
+        // exists to avoid). Not yet observed to hit the reserved-entity
+        // false-positive in practice (every confirmed occurrence so far
+        // was in an entity-taking branch), but structurally exposed the
+        // same way if it ever does.
+        q.each(std::forward<Func>(func));
+    }
 }
 
 // gaia's Query is a single non-templated type (using Query =
 // detail::QueryImpl) -- unlike flecs::query<Components...>, it carries no
 // compile-time component list, so MdFirst cannot be templated on
-// Components... here. No query-level early-exit primitive was found
-// (verified: no find()-equivalent in gaia's public Query API) -- this
-// scans the full query and keeps the first match, which is correct but
-// not a true early-exit like flecs::query::find(). Acceptable for Phase 1
-// (MdFirst is a rare call, not the ~91-site MdEach hot path); revisit if
-// profiling later shows otherwise.
+// Components... here, and can't route through MdEach's typed-each() path
+// above (which needs the callback's own parameter types to identify what
+// to fetch -- MdFirst's signature carries none). Stays on the untyped
+// Iter&-callback path deliberately: it never calls it.view<T>()/
+// view_mut<T>() for any query-declared component (only it.size() and
+// it.view<Entity>(), and Entity is never Sparse-storage or empty), so it
+// doesn't hit MdEach's task #51 compile-time bug. No query-level
+// early-exit primitive was found (verified: no find()-equivalent in
+// gaia's public Query API) -- this scans the full query and keeps the
+// first match, which is correct but not a true early-exit like
+// flecs::query::find(). Acceptable for Phase 1 (MdFirst is a rare call,
+// not the ~91-site MdEach hot path); revisit if profiling later shows
+// otherwise.
+//
+// Guards added 2026-09-08 (tasks #49, #52): the SAME Iter&-callback +
+// it.view<Entity>() mechanism used here was proven (via
+// DirectorSystemTest.BlackboardBroadcastOnTick, BTSystem::Tick()) to be
+// able to return gaia's own reserved bootstrap entities (e.g.
+// gaia::ecs::Core, id=0,gen=0) as a false-positive query match -- see
+// md_registry_detail::IsGaiaReservedEntity's doc comment for the full
+// finding (this is a query-result-cache correctness bug in gaia, not
+// entity-allocator corruption -- confirmed via w.has() at the point of
+// the false match). All current MdFirst call sites use at least one
+// Table-storage term (StatSheet-only, or PlayerController+WorldTransform
+// mixed) and haven't shown this failure mode in practice, but the guard
+// is cheap and prevents this from becoming a live crash the day it does.
 inline MdEntity MdFirst(gaia::ecs::Query& q) {
     gaia::ecs::Entity found = gaia::ecs::EntityBad;
     q.each([&](gaia::ecs::Iter& it) {
         if (found != gaia::ecs::EntityBad || it.size() == 0)
             return;
-        found = it.template view<gaia::ecs::Entity>()[0];
+        gaia::ecs::Entity candidate = it.template view<gaia::ecs::Entity>()[0];
+        if (md_registry_detail::IsGaiaReservedEntity(candidate)) {
+            MD_LOG(MD_LOG_WARNING,
+                   "[MdFirst] query matched a reserved gaia bootstrap "
+                   "entity (id=%u gen=%u) -- skipping (task #52).",
+                   (unsigned)candidate.id(), (unsigned)candidate.gen());
+            return;
+        }
+        found = candidate;
     });
     return (found != gaia::ecs::EntityBad) ? MdEntity(found) : MdEntity::Null();
 }
@@ -458,9 +805,59 @@ public:
         return inst;
     }
 
+    // Task #52 (CLAUDE_STATE.md "Знахідка C", 2026-09-08): gaia reserves
+    // entity ids [0..GAIA_ID_LastCoreComponent.id()] (currently 0..49 --
+    // Core, EntityDesc, Component, ..., through the runtime-primitive-type
+    // entities ending at F64, gaia.h:32132-32233) for its own bootstrap
+    // state. Confirmed via a real crashing test
+    // (DirectorSystemTest.BlackboardBroadcastOnTick) that gaia's own
+    // entity-id allocator can, after enough create/delete churn across a
+    // long-running World, hand w.add() one of these reserved ids back
+    // WITHOUT bumping its generation -- making the "new" entity bit-
+    // identical to (e.g.) gaia::ecs::Core and indistinguishable from it to
+    // any query/has()/valid() check. Tagging that entity with
+    // MdManagedTag corrupts gaia's own bootstrap state (MdRegistry::
+    // Clear()'s later w.del() on it fails: "forbidden from being
+    // deleted"), and any OTHER unrelated MdEach query that later matches
+    // it can crash deep inside gaia's own each() machinery (confirmed:
+    // BTSystem::Tick(), a plain non-Sparse query, segfaulted in
+    // Chunk::comp_ptr_mut on exactly this entity).
+    //
+    // This is gaia's own allocator bug, not fixable from here -- but
+    // every MdRegistry-managed entity is minted through this ONE
+    // function, so refusing to ever hand out a reserved-range id to a
+    // caller closes the actual hazard (a real user entity accidentally
+    // aliasing gaia's bootstrap state) without needing to touch gaia's
+    // vendored allocator internals. Bounded retry: this should be rare
+    // (confirmed reachable only after substantial churn); a tight loop
+    // here would indicate a much deeper allocator problem worth its own
+    // investigation, not something to spin on silently.
     MdEntity Create() {
-        auto e = Raw().add();
-        Raw().add<MdManagedTag>(e);
+        auto& w = Raw();
+        gaia::ecs::Entity e = w.add();
+        int guard = 0;
+        while (e.id() <= gaia::ecs::GAIA_ID_LastCoreComponent.id()) {
+            MD_LOG(MD_LOG_WARNING,
+                   "[MdRegistry::Create] w.add() returned a reserved gaia "
+                   "core-namespace id (id=%u gen=%u, reserved range is "
+                   "[0..%u]) -- discarding and retrying (task #52, see "
+                   "CLAUDE_STATE.md Знахідка C).",
+                   (unsigned)e.id(), (unsigned)e.gen(),
+                   (unsigned)gaia::ecs::GAIA_ID_LastCoreComponent.id());
+            w.del(e);  // best-effort; a no-op if e really is e.g. Core itself
+            if (++guard >= 8) {
+                MD_LOG(MD_LOG_ERROR,
+                       "[MdRegistry::Create] w.add() kept returning "
+                       "reserved-range ids after %d retries -- gaia's "
+                       "allocator may be exhausted or more broadly broken "
+                       "than task #52 anticipated. Proceeding with the "
+                       "last id anyway to avoid an infinite loop.",
+                       guard);
+                break;
+            }
+            e = w.add();
+        }
+        w.add<MdManagedTag>(e);
         return MdEntity(e);
     }
     void Destroy(MdEntity e) { Handle(e).destruct(); }
@@ -506,19 +903,30 @@ public:
         // the exact "mutate world during each()" hazard CLAUDE_CONSTITUTION.md
         // already names generically ("collect → apply патерн"), gaia just
         // enforces it with a hard assert where flecs's own version relied
-        // on defer_begin/defer_end to make the in-place del() safe. Collect
-        // first, delete after iteration completes. Not hot-path (real
-        // callers are editor-only per the flecs branch's comment), so
-        // std::vector here does not violate the hot-path fixed-array rule.
-        // Phase 5 (prompt_/PROMPT_GAIA_MIGRATION.md §7 p.4) may replace
-        // this with ecs::CommandBufferST for a closer idiomatic match to
-        // flecs's defer_begin/defer_end -- functionally equivalent either
-        // way, this is the verified-correct baseline.
+        // on defer_begin/defer_end to make the in-place del() safe.
+        // Phase 5 (prompt_/PROMPT_GAIA_MIGRATION.md §7 p.4): replaced the
+        // earlier std::vector-collect+apply-after baseline with gaia's own
+        // world-owned CommandBufferST -- del() calls made during iteration
+        // are deferred and applied at commit(), gaia's own idiomatic
+        // equivalent to flecs's defer_begin/defer_end (functionally
+        // identical to the std::vector version this replaces; not
+        // hot-path, real callers are editor-only per the flecs branch's
+        // comment).
+        // Task #52 (md_registry_detail::IsGaiaReservedEntity's doc
+        // comment): confirmed via direct diagnostic that this exact query
+        // (.all<MdManagedTag>()) intermittently yields gaia::ecs::Core as
+        // a false-positive match after enough create/delete churn --
+        // w.has(Core, MdManagedTag) checked false every time (37/37
+        // occurrences), so it is not a real managed entity to delete.
+        // MdEach's own entity-only dispatch branch (RestCount==0, which
+        // this call uses) now filters any reserved-range entity out
+        // before it ever reaches this lambda, so nothing reserved ever
+        // reaches cmdBuf.del() below -- no per-entity check needed here.
         auto& w = Raw();
+        auto& cmdBuf = w.cmd_buffer_st();
         auto q = w.query().all<MdManagedTag>();
-        std::vector<gaia::ecs::Entity> toDelete;
-        MdEach(q, [&](MdEntity e) { toDelete.push_back(e.Raw()); });
-        for (gaia::ecs::Entity e : toDelete) w.del(e);
+        MdEach(q, [&](MdEntity e) { cmdBuf.del(e.Raw()); });
+        cmdBuf.commit();
     }
 
     // gaia's World::try_get(EntityId) IS the generation-aware alive-lookup

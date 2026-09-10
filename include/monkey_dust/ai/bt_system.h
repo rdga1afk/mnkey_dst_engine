@@ -3,7 +3,9 @@
 #include <monkey_dust/ecs/md_registry.h>
 #include <monkey_dust/components/agent_state.h>
 #include <monkey_dust/components/bt_components.h>
+#if !defined(MD_ECS_GAIA)
 #include <flecs.h>
+#endif
 #include <cstdint>
 
 // ── BTSystem ──────────────────────────────────────────────────────────────────
@@ -44,26 +46,39 @@ class BTSystem {
 public:
     // nowMs: current game time in milliseconds (for TimerStart/TimerCheck nodes).
     // ctx:   engine context (frame_index for WeightedSelector RNG, delta_time, etc.)
-    // reg:   flecs world — queries (AgentState + BehaviorTreeComponent).
-    void Tick(md::EngineContext& ctx, flecs::world& reg, uint32_t nowMs);
+    // reg:   world — queries (AgentState + BehaviorTreeComponent).
+    void Tick(md::EngineContext& ctx, MdWorldRef& reg, uint32_t nowMs);
 
     uint32_t frame_idx() const noexcept { return frame_idx_; }
 
+#if defined(MD_ECS_GAIA)
+    // gaia's observer callback shape is Iter&-based (no direct
+    // (entity, T&) form the way flecs's .each() supports) -- see
+    // hierarchy_utils.cpp's port for the same pattern applied first.
+    static void OnComponentDestroy(gaia::ecs::Iter& it);
+
+    static void ConnectRegistry(MdWorldRef& reg) {
+        reg.observer().event(gaia::ecs::ObserverEvent::OnDel)
+            .all<BehaviorTreeComponent&>()
+            .on_each(OnComponentDestroy);
+    }
+#else
     // Called on entity removal to free owning trees.
     // Must be connected via ConnectRegistry() (flecs OnRemove observer for
     // BehaviorTreeComponent).
     static void OnComponentDestroy(flecs::entity e, BehaviorTreeComponent& btc);
 
     // Convenience: connect destroy listener to a world. Takes a plain
-    // flecs::world& (not MdRegistry&) because unit tests construct their
-    // own independent flecs::world instances for isolation — MdRegistry
-    // can only ever wrap the one global singleton (Registry::Get()), so it
-    // can't stand in for an arbitrary world here.
-    static void ConnectRegistry(flecs::world& reg) {
+    // MdWorldRef& (not MdRegistry&) because unit tests construct their
+    // own independent world instances for isolation — MdRegistry can only
+    // ever wrap the one global singleton (Registry::Get()), so it can't
+    // stand in for an arbitrary world here.
+    static void ConnectRegistry(MdWorldRef& reg) {
         reg.observer<BehaviorTreeComponent>()
             .event(flecs::OnRemove)
             .each(OnComponentDestroy);
     }
+#endif
 
 private:
     uint32_t frame_idx_ = 0;  // incremented each Tick(); used for tiered modulo skip

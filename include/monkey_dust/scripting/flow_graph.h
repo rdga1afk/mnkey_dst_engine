@@ -1,7 +1,11 @@
 #pragma once
 #include <monkey_dust/ai/fnv.h>
 #include <monkey_dust/ecs/md_entity.h>
+#if defined(MD_ECS_GAIA)
+#include <gaia.h>
+#else
 #include <flecs.h>
+#endif
 #include <cstdint>
 
 // ── FlowGraph ─────────────────────────────────────────────────────────────────
@@ -15,8 +19,17 @@
 //   3=Delay    — re-schedules trigger with fire_at_s + params[param_offset]
 //   4=Variable — sets FlowVar key=params[param_offset] val=params[param_offset+1]
 
+// Registry::Get()'s real return type, backend-dependent -- can't use `auto&`
+// in a plain (non-template, C++17) function parameter, so this project-wide
+// dual-backend pattern gets a named alias here instead.
+#if defined(MD_ECS_GAIA)
+using MdWorldRef = gaia::ecs::World;
+#else
+using MdWorldRef = flecs::world;
+#endif
+
 // Callback invoked when an Action node fires.
-using FlowActionFunc = void(*)(uint32_t node_id, double now_s, MdEntity ctx, flecs::world& reg);
+using FlowActionFunc = void(*)(uint32_t node_id, double now_s, MdEntity ctx, MdWorldRef& reg);
 
 struct FlowNode {
     uint32_t id;           // FNV-1a hash of node name
@@ -142,7 +155,7 @@ struct FlowGraph {
     }
 
     // Process all expired triggers. Propagates connections; dispatches actions.
-    void Tick(double now_s, MdEntity context, flecs::world& reg);
+    void Tick(double now_s, MdEntity context, MdWorldRef& reg);
 
     // Load graph structure from a *.flow.json file.
     bool LoadFromJson(const char* path);
@@ -190,7 +203,7 @@ private:
     FlowNode* find_node(uint32_t id);
     FlowActionFunc find_action(uint32_t node_id) const;
     void propagate(uint32_t from_node_id, uint8_t from_port, double now_s,
-                   MdEntity ctx, flecs::world& reg);
+                   MdEntity ctx, MdWorldRef& reg);
 
     // P17: alias table (zeroed by Init())
     static constexpr int MAX_ALIASES = 8;

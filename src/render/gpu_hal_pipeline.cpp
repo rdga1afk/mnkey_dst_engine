@@ -526,7 +526,24 @@ bool GpuPipeline::Create(const Desc& desc) {
 void GpuPipeline::Destroy() {
 #ifdef MD_SDL_GPU
     if (sdl_pipeline_) {
-        SDL_ReleaseGPUGraphicsPipeline(md::GpuDevice::Get().SDLDevice(), sdl_pipeline_);
+        // gaia-migration Phase 5 GATE 5 follow-up (2026-09-10): was a raw
+        // SDL_ReleaseGPUGraphicsPipeline() that freed sdl_pipeline_ but left
+        // its entry in the process-wide s_pipe_cache (s_pipe_cache lives in
+        // monkey_dust_engine, linked into the host exe, so it survives an
+        // editor_panels.so dlclose/dlopen reload cycle) -- exactly the
+        // use-after-free Reload()'s own comment above already documents for
+        // that path, just triggered here by any direct Destroy() caller
+        // instead (e.g. PropRenderer::Shutdown()/TerrainShadingProjected::
+        // Shutdown(), both called from every WorldEditor3D_SDLGPU reload).
+        // On the NEXT Create() for the same vert/frag/features/raster combo,
+        // PipeCache_Get() handed back the dangling pointer as if valid; a
+        // LATER reload's Destroy() then double-freed it -- reproduced as a
+        // real Vulkan validation error (VUID-vkDestroyPipeline-pipeline-
+        // parameter, "Couldn't find VkPipeline Object") right before a
+        // SIGSEGV under rapid repeated reload. MdPipeCache_Invalidate()
+        // (same call Reload() already makes) both releases the GPU resource
+        // AND evicts the cache entry atomically, closing the gap.
+        MdPipeCache_Invalidate(desc_.vert_path, desc_.frag_path);
         sdl_pipeline_ = nullptr;
         md::GpuResourceTracker::Get().OnPipelineDestroy();
     }

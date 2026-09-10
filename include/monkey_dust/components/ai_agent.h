@@ -1,8 +1,17 @@
 #pragma once
 #include <monkey_dust/ecs/md_entity.h>
 #include <cstdint>
+#if defined(MD_ECS_GAIA)
+#include <gaia.h>
+#endif
 
+// GAIA_STORAGE(Sparse) -- Phase 2 (prompt_/PROMPT_GAIA_MIGRATION.md §0/§4):
+// one of the 5 components with a proven B3.4 risk. See world_transform.h's
+// doc comment for the shared rationale.
 struct AIAgent {
+#if defined(MD_ECS_GAIA)
+    GAIA_STORAGE(Sparse);
+#endif
     uint32_t     faction_id;
     uint8_t      bt_template_id    = 0;  // 255 = schedule NPC
     uint8_t      level             = 1;  // NPC power level [1..255]; scales hp and damage
