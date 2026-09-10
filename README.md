@@ -3,7 +3,7 @@ id: kb-engine-readme
 type: reference
 status: active
 date: 2026-05-14
-updated: 2026-09-05
+updated: 2026-09-10
 repo: engine
 tags: [engine, readme, sdl-gpu, rendering, ecs, public-repo]
 summary: "Public engine/ README: feature list (rendering/AI/ECS/physics/terrain/nav/audio/scripting), build, repo layout"
@@ -55,7 +55,7 @@ and **[Jolt Physics](https://github.com/jrouwe/JoltPhysics)**.
 - NpcInteractionComponent (M58) — `dialog_faction_id` + `interaction_range` (2.5 m) + `cooldown_ms`; 20 bytes
 - FlowDurableTrigger — ref-counted durable triggers with duration decay
 
-### ECS — flecs
+### ECS — flecs (default) + experimental gaia-ecs
 Backed by flecs (archetype-based) behind the `MdRegistry`/`MdEntity` facade — no call site touches
 flecs directly. `AllianceMatrix` and `NpcRelationshipComponent` use real flecs relation pairs
 (`(HostileWith/FriendlyWith, group)`, `(Trust/Fear, other)`) instead of fixed arrays/matrices.
@@ -67,6 +67,16 @@ flecs directly. `AllianceMatrix` and `NpcRelationshipComponent` use real flecs r
 `Squad`, `RaceDef`, `NpcNeeds`, `NpcRelationship`, `BleedComponent`, `BountyComponent`,
 `InjuryState`, `MorphComponent`, `PrisonerComponent`, `ScheduleComponent`, `StealthComponent`,
 `WeaponComponent`, and more.
+
+**Experimental gaia-ecs backend** (branch `gaia/phase-0`, `-DMD_ECS_GAIA=ON`, vendored in
+`third_party/gaia-ecs/`, not the default): a strangler-fig port of the same `MdRegistry`/`MdEntity`
+facade onto [gaia-ecs](https://github.com/richardbiely/gaia-ecs) instead of flecs — relations,
+sorting, the JobGraph scheduler adapter (`gaia_sched_adapter.h`), and the standalone editor's
+`EcsReflectBridge` (hot-reload-safe by-name component resolution across `dlopen`/`dlclose`) are all
+ported and verified. Two root-cause defects found in gaia-ecs's own core during this migration were
+reported upstream: [#42](https://github.com/richardbiely/gaia-ecs/issues/42) (archetype-move data
+corruption) and [#43](https://github.com/richardbiely/gaia-ecs/issues/43) (`rem_from_entities`
+iterator invalidation) — both patched locally in the vendored copy pending upstream fixes.
 
 ### Physics & Animation
 - **Jolt Physics** — `JoltWorld`: `CharacterVirtual` (max_bodies=512); `TempAllocatorImpl` 8 MB
