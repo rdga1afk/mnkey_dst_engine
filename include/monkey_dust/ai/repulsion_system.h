@@ -50,11 +50,7 @@ public:
         auto& reg = MdRegistry::Get();
 
         // Collect: gather push vectors without modifying positions.
-#if defined(MD_ECS_GAIA)
         static auto q_p3_repulsion_system_1 = reg.Raw().query().all<WorldTransform>().all<NavAgent>();
-#else
-        static auto q_p3_repulsion_system_1 = reg.Raw().query<WorldTransform, NavAgent>();
-#endif
         MdEach(q_p3_repulsion_system_1, [&](MdEntity a, const WorldTransform& ta, const NavAgent&) {
                MdEntity near[8];
                int nc = grid.QueryRadius(ta.x, ta.z, QUERY_R, near, 8);

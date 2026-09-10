@@ -158,11 +158,7 @@ void RagdollSystem::Tick(float dt, float player_x, float player_z) {
     // directly inside this query's .each() mutates the same registry being
     // iterated (house rule violation; combat_dispatch.h documents the same
     // collect-then-apply pattern for exactly this reason).
-#if defined(MD_ECS_GAIA)
     static auto q_lod = reg.Raw().query().all<LimbHealth&>().all<WorldTransform&>();
-#else
-    static auto q_lod = reg.Raw().query<LimbHealth, WorldTransform>();
-#endif
     MdEntity to_activate[MAX_RAGDOLLS], to_deactivate[MAX_RAGDOLLS];
     int n_activate = 0, n_deactivate = 0;
     MdEach(q_lod, [&](MdEntity e, LimbHealth& lh, WorldTransform& tr) {
@@ -185,11 +181,7 @@ void RagdollSystem::Tick(float dt, float player_x, float player_z) {
     for (int i = 0; i < n_deactivate; ++i) Deactivate(to_deactivate[i], reg);
 
     // Advance timers on active ragdolls; remove after SLEEP_SETTLE_S.
-#if defined(MD_ECS_GAIA)
     static auto q_active_ragdolls = reg.Raw().query().all<RagdollComponent&>();
-#else
-    static auto q_active_ragdolls = reg.Raw().query<RagdollComponent>();
-#endif
     MdEach(q_active_ragdolls, [&](MdEntity e, RagdollComponent& rc) {
         if (!rc.active) return;
         rc.time_active_s += dt;
@@ -251,11 +243,7 @@ bool RagdollSystem::GetBoneMatrices(MdEntity e, float* out, int bone_count) cons
 void RagdollSystem::DeactivateChunk(float min_x, float min_z,
                                     float max_x, float max_z) {
     auto& reg = MdRegistry::Get();
-#if defined(MD_ECS_GAIA)
     static auto q_chunk = reg.Raw().query().all<RagdollComponent&>().all<WorldTransform&>();
-#else
-    static auto q_chunk = reg.Raw().query<RagdollComponent, WorldTransform>();
-#endif
     MdEach(q_chunk, [&](MdEntity e, RagdollComponent& rc, WorldTransform& tr) {
         if (!rc.active) return;
         if (tr.x >= min_x && tr.x <= max_x && tr.z >= min_z && tr.z <= max_z)

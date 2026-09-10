@@ -6,32 +6,6 @@
 
 namespace md {
 
-#if !defined(MD_ECS_GAIA)
-namespace {
-// Wraps one batch's (fn, user) with the flecs stage it must run through —
-// JobSystem::Submit only carries a single void* payload, so the stage
-// index rides along in this struct instead. StagedThunk sets up the
-// thread-local MdRegistryStageScope for the DURATION of the real fn()
-// call, on whichever worker thread picks this job up, then tears it down
-// — see md_registry.h's task #7/#8 concurrency section for why this
-// specific pattern (readonly_begin(true) + per-batch stage + queries
-// built once against the main world) is the only one confirmed safe by
-// probe, out of several that looked equivalent on paper.
-struct StagedJob {
-    JobBatchFn fn;
-    void* user;
-    flecs::world stage;
-};
-StagedJob g_staged_jobs[JobGraph::MAX_BATCHES];
-
-void StagedThunk(void* p) {
-    auto* job = static_cast<StagedJob*>(p);
-    MdRegistryStageScope scope(job->stage);
-    job->fn(job->user);
-}
-} // namespace
-#endif
-
 JobGraph& JobGraph::Get() {
     static JobGraph inst;
     return inst;
@@ -136,7 +110,6 @@ void JobGraph::Run() {
     // NumWorkers()==0 fallback shape used elsewhere (e.g. logic_tick.cpp's
     // TickNavigation) so test binaries without JobSystem::Init() still work.
     for (int w = 0; w <= max_wave; ++w) {
-#if defined(MD_ECS_GAIA)
         // Concurrency audit (2026-09-08, task #47/#48): gaia's
         // World::lock()/unlock() (m_structuralChangesLocked) is a plain
         // non-atomic uint32_t, incremented/decremented with ZERO
@@ -173,52 +146,6 @@ void JobGraph::Run() {
         // differs.
         for (int i = 0; i < count_; ++i)
             if (wave[i] == w) entries_[i].fn(entries_[i].user);
-#else
-        int wave_count = 0;
-        for (int i = 0; i < count_; ++i) if (wave[i] == w) ++wave_count;
-
-        if (wave_count > 1 && JobSystem::Get().NumWorkers() > 0) {
-            // Real concurrent dispatch, per the probe-verified pattern in
-            // md_registry.h: queries used by MdView::each() were already
-            // built once against the main world (function-local statics),
-            // so it's safe to enter readonly_begin(true) here and hand each
-            // batch its own stage — MdRegistryStageScope (set inside
-            // StagedThunk) makes every View<T>().each() in that batch's
-            // call tree route through .iter(stage) instead of the raw
-            // world for the duration of this wave.
-            flecs::world& raw = Registry::Get();
-            raw.set_stage_count(wave_count);
-            raw.readonly_begin(true);
-            int slot = 0;
-            for (int i = 0; i < count_; ++i) {
-                if (wave[i] != w) continue;
-                StagedJob& job = g_staged_jobs[slot];
-                job.fn    = entries_[i].fn;
-                job.user  = entries_[i].user;
-                job.stage = raw.get_stage(slot);
-                JobSystem::Get().Submit(StagedThunk, &job);
-                ++slot;
-            }
-            JobSystem::Get().Flush();
-            raw.readonly_end();
-            // Phase 4.4 (audit): release each used slot's stage claim right
-            // after this wave, instead of leaving it in the global
-            // g_staged_jobs array until the next Run() reassigns it (or,
-            // worst case, until process exit). ASan caught a real
-            // heap-use-after-free at teardown: a later, unrelated
-            // set_stage_count() call elsewhere (e.g. a test manually
-            // constructing its own stage) can resize/reallocate the main
-            // world's internal stage array, invalidating a stale claim this
-            // array was still holding from a previous wave — flecs::world's
-            // move-assignment (world_t* -> nullptr) properly calls release()
-            // first (see flecs.h's world::operator=(world&&)), so this is a
-            // real fix, not just quieting the sanitizer.
-            for (int i = 0; i < slot; ++i) g_staged_jobs[i].stage = flecs::world(nullptr);
-        } else {
-            for (int i = 0; i < count_; ++i)
-                if (wave[i] == w) entries_[i].fn(entries_[i].user);
-        }
-#endif
     }
 
     count_ = 0;

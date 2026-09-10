@@ -4,11 +4,7 @@
 #include <monkey_dust/ecs/registry.h>
 #include <monkey_dust/ecs/md_registry.h>
 #include <monkey_dust/platform/md_log.h>
-#if defined(MD_ECS_GAIA)
 #include <gaia.h>
-#else
-#include <flecs.h>
-#endif
 
 // ── NpcRelationshipComponent ──────────────────────────────────────────────────
 // Echo-engine inspired inter-NPC relationship system.
@@ -78,15 +74,9 @@ private:
     // remove<T>(target) (md_registry.h) implement exactly this file's needs
     // -- reused directly rather than re-deriving the ecs::Pair(relEntity,
     // target) composition here a second time.
-#if defined(MD_ECS_GAIA)
     static GaiaEntityHandle Handle(MdEntity e) noexcept {
         return GaiaEntityHandle(Registry::Get(), e.Raw());
     }
-#else
-    static flecs::entity Handle(MdEntity e) noexcept {
-        return flecs::entity(Registry::Get(), e.Raw());
-    }
-#endif
 
     // Fixed-8 FIFO eviction bookkeeping — bounds flecs's otherwise-
     // unbounded pair storage to the same guarantee the old array had. Not

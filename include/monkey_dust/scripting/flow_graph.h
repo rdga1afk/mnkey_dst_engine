@@ -1,11 +1,7 @@
 #pragma once
 #include <monkey_dust/ai/fnv.h>
 #include <monkey_dust/ecs/md_entity.h>
-#if defined(MD_ECS_GAIA)
 #include <gaia.h>
-#else
-#include <flecs.h>
-#endif
 #include <cstdint>
 
 // ── FlowGraph ─────────────────────────────────────────────────────────────────
@@ -22,11 +18,7 @@
 // Registry::Get()'s real return type, backend-dependent -- can't use `auto&`
 // in a plain (non-template, C++17) function parameter, so this project-wide
 // dual-backend pattern gets a named alias here instead.
-#if defined(MD_ECS_GAIA)
 using MdWorldRef = gaia::ecs::World;
-#else
-using MdWorldRef = flecs::world;
-#endif
 
 // Callback invoked when an Action node fires.
 using FlowActionFunc = void(*)(uint32_t node_id, double now_s, MdEntity ctx, MdWorldRef& reg);

@@ -2,11 +2,7 @@
 #include <monkey_dust/ecs/md_entity.h>
 #include <monkey_dust/ecs/registry.h>
 #include <monkey_dust/platform/md_log.h>
-#if defined(MD_ECS_GAIA)
 #include <gaia.h>
-#else
-#include <flecs.h>
-#endif
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -35,7 +31,6 @@
 // active, the overwhelming majority of the game's execution) is
 // byte-for-byte the same code path as before this feature existed — zero
 // risk to anything outside the one JobGraph wave that sets it.
-#if defined(MD_ECS_GAIA)
 // Phase 1 stub: gaia has no stage/readonly-world concept analogous to
 // flecs's world.get_stage(i) — the REAL replacement is the external
 // scheduler adapter (w.set_sched(...) over the existing JobSystem),
@@ -62,28 +57,6 @@ public:
 private:
     gaia::ecs::World* prev_;
 };
-#else
-namespace md_registry_detail {
-    inline thread_local ecs_world_t* t_stage_override = nullptr;
-}
-
-// RAII guard: while alive on the calling thread, MdView::each() iterates
-// through `stage` instead of the raw world. Nest-safe (restores the prior
-// value on destruction, not unconditionally nullptr) though nesting isn't
-// expected in practice — one guard per JobGraph batch invocation.
-class MdRegistryStageScope {
-public:
-    explicit MdRegistryStageScope(flecs::world& stage) noexcept
-        : prev_(md_registry_detail::t_stage_override) {
-        md_registry_detail::t_stage_override = stage.c_ptr();
-    }
-    ~MdRegistryStageScope() { md_registry_detail::t_stage_override = prev_; }
-    MdRegistryStageScope(const MdRegistryStageScope&) = delete;
-    MdRegistryStageScope& operator=(const MdRegistryStageScope&) = delete;
-private:
-    ecs_world_t* prev_;
-};
-#endif
 
 // MdManagedTag — task #8 B3.4. Every entity created via MdRegistry::Create()
 // gets this tag, so MdRegistry::Each()/Clear()/Count() can scope "every
@@ -125,7 +98,6 @@ struct MdManagedTag {};
 // just (T&...), so the wrapping lambda below only needs to convert that
 // flecs::entity into MdEntity when the caller's Func wants an MdEntity
 // first (checked the same way MdView did).
-#if defined(MD_ECS_GAIA)
 // MdEach routes through gaia's NATIVE typed .each<Components...>(func)
 // overload (SFINAE-selected when Func does NOT take Iter&, gaia.h:61073),
 // not the Iter&-callback each() this used to call. Found 2026-09-08
@@ -555,46 +527,7 @@ inline MdEntity MdFirst(gaia::ecs::Query& q) {
     });
     return (found != gaia::ecs::EntityBad) ? MdEntity(found) : MdEntity::Null();
 }
-#else
-template<typename Query, typename Func>
-void MdEach(Query& q, Func&& func) {
-    ecs_world_t* stage = md_registry_detail::t_stage_override;
-    // auto&&, not auto& (found 2026-09-07, see lua_scenario_api_misc.cpp's
-    // fix note): a genuinely empty/zero-size tag component (MdManagedTag)
-    // has no backing storage for flecs to hand out a real reference to --
-    // its each_delegate dispatches such fields by VALUE (each_field), not
-    // by reference (each_ref_field), regardless of how the query itself
-    // declares the term (T vs T&). auto& can never bind that value-typed
-    // arg; auto&& binds both a real component's lvalue-ref (deduces T&,
-    // identical behavior to before) and a zero-size tag's by-value arg
-    // (deduces T&&, still usable as an lvalue by name inside the body).
-    auto wrapped = [&func](flecs::entity fe, auto&&... args) {
-        if constexpr (std::is_invocable_v<Func, MdEntity, decltype(args)&...>) {
-            func(MdEntity(fe.id()), args...);
-        } else {
-            func(args...);
-        }
-    };
-    if (stage) q.iter(stage).each(wrapped);
-    else       q.each(wrapped);
-}
 
-// First matching entity, or MdEntity::Null() if none — a real early-exit
-// via flecs::query::find() (unlike MdView::front(), which had to visit
-// every match since flecs's each() has no early-exit protocol). Templated
-// on the query's Components... pack (not a generic `auto&...` predicate)
-// because flecs::find_delegate resolves the predicate against TWO
-// candidate signatures — (flecs::iter&, size_t, Components&...) and plain
-// (Components&...) — and a fully generic lambda matches both at once,
-// making overload resolution ambiguous.
-template<typename... Components>
-MdEntity MdFirst(flecs::query<Components...>& q) {
-    flecs::entity found = q.find([](Components&...) { return true; });
-    return found ? MdEntity(found.id()) : MdEntity::Null();
-}
-#endif
-
-#if defined(MD_ECS_GAIA)
 // GaiaEntityHandle — Phase 1 replacement for MdRegistry::Handle()'s return
 // type. flecs::entity is a real library type carrying (world, id) that
 // exposes get_mut<T>/has<T>/etc AS ITS OWN methods; gaia has no equivalent
@@ -768,7 +701,6 @@ private:
     gaia::ecs::World& w_;
     gaia::ecs::Entity e_;
 };
-#endif
 
 // MdRegistry — task #8 (EnTT->flecs strangler-fig migration), part B3.4.
 //
@@ -797,7 +729,6 @@ private:
 // get_mut<T>()/try_get_mut<T>() do not themselves invalidate anything (no
 // structural change) — freely chaining several in a row is safe. Found and
 // fixed 3 real production bugs of this exact shape (see CLAUDE_INVARIANTS.md).
-#if defined(MD_ECS_GAIA)
 class MdRegistry {
 public:
     static MdRegistry& Get() {
@@ -956,177 +887,3 @@ public:
 private:
     MdRegistry() = default;
 };
-#else
-class MdRegistry {
-public:
-    static MdRegistry& Get() {
-        static MdRegistry inst;
-        return inst;
-    }
-
-    MdEntity Create() {
-        auto e = Raw().entity();
-        e.add<MdManagedTag>();
-        return MdEntity(e.id());
-    }
-    void Destroy(MdEntity e) { Handle(e).destruct(); }
-    // flecs's ecs_is_alive() requires entity != 0 (ecs_check, aborts in
-    // debug builds otherwise) — MdEntity::Null() is id_=0, so it must be
-    // rejected here before ever reaching is_alive().
-    bool Valid(MdEntity e) const {
-        return e != MdEntity::Null() && Handle(e).is_alive();
-    }
-
-    template<typename T>
-    void Remove(MdEntity e) { Handle(e).template remove<T>(); }
-
-    // entt's replace() requires T already present; flecs's set() is a safe
-    // upsert either way (verified: does not crash/assert if T is absent),
-    // so this is slightly more permissive than the old entt contract but
-    // not unsafe.
-    template<typename T, typename... Args>
-    T& Replace(MdEntity e, Args&&... args) {
-        auto h = Handle(e);
-        h.template set<T>(T{std::forward<Args>(args)...});
-        return h.get_mut<T>();
-    }
-
-    template<typename T, typename Fn>
-    void Patch(MdEntity e, Fn fn) {
-        auto h = Handle(e);
-        T& v = h.get_mut<T>();
-        fn(v);
-        h.template modified<T>();
-    }
-
-    // Destroys every MdRegistry-managed entity (tagged MdManagedTag) —
-    // does NOT touch flecs's own internal bootstrap/module entities.
-    // defer_begin/defer_end: destructing an entity mid-.each() mutates its
-    // own table (locked for the duration of iteration) — flecs's internal
-    // ecs_assert(!table->_->lock) catches this in debug builds (SIGABRT);
-    // in release (NDEBUG) the assert compiles away and the mutation still
-    // happens, silently violating "no reg mutation during view.each()".
-    // Deferring queues the destructs until after iteration completes.
-    // Point 1 (concurrency audit): Clear() is NOT stage-aware (builds a
-    // fresh, non-static query and calls .each() directly, bypassing
-    // MdEach()'s t_stage_override check) — see job_graph.h's caveat. No
-    // current call site reaches Clear() from inside a JobGraph batch (both
-    // real callers — editor_toolbar.cpp, scene_serializer.h — are
-    // editor-only, main-thread, outside JobGraph::Run()'s window), so this
-    // is a latent-risk guard, not a fix for an active bug: it turns future
-    // silent UB into a loud signal instead. Deliberately NOT gated behind
-    // #ifndef NDEBUG: CLAUDE.md's own documented default build is
-    // `-DCMAKE_BUILD_TYPE=Release` (confirmed via build/CMakeCache.txt), so
-    // an NDEBUG-gated check would never fire in the configuration this
-    // project actually builds/tests with day to day. The check itself is a
-    // single pointer compare — negligible next to Clear()'s own query+.each()
-    // cost — so there is no real reason to gate it at all.
-    //
-    // Early-return (not just log-and-continue): Clear()'s body calls
-    // defer_begin()/query().each()/defer_end() on the RAW (non-stage) world
-    // — running that while a JobGraph wave's readonly_begin(true) is active
-    // is exactly the "structural op during readonly mode" hazard flecs's own
-    // FLECS_SANITIZE checks (Debug builds, engine/CMakeLists.txt) assert on.
-    // Confirmed by running this guard's own test under
-    // -DCMAKE_BUILD_TYPE=Debug -DMD_SANITIZE=asan (Phase 4.4 audit): logging
-    // alone still let Clear() run its unsafe body and abort — skipping the
-    // body once the hazard is detected is the actual fix, not just a louder
-    // warning.
-    void Clear() {
-        if (md_registry_detail::t_stage_override != nullptr) {
-            MD_LOG(MD_LOG_ERROR,
-                   "[MdRegistry] Clear() called while a JobGraph stage is "
-                   "active — Clear()'s query+.each() does not route through "
-                   "t_stage_override and will race with concurrent staged "
-                   "query iteration. Move this call outside the JobGraph "
-                   "batch. Clear() was NOT executed.");
-            return;
-        }
-        auto& w = Raw();
-        w.defer_begin();
-        w.query<MdManagedTag>().each([](flecs::entity e, MdManagedTag) { e.destruct(); });
-        w.defer_end();
-    }
-
-    // Reconstruct an MdEntity from a stored uint32 index (e.g.
-    // BlackboardEntry::val.e, Lua integer args) — resolves to the
-    // CURRENTLY alive entity for that index via flecs's generation-aware
-    // lookup, safe against the index having been recycled by a different,
-    // later-created entity since the id was stored. Falls back to a
-    // generation-0 MdEntity (same as MdEntity(uint32_t) directly) if no
-    // alive entity currently holds that index.
-    MdEntity FromIndex(uint32_t idx) const {
-        ecs_entity_t alive = ecs_get_alive(Raw().c_ptr(), (ecs_entity_t)idx);
-        return alive ? MdEntity(alive) : MdEntity(idx);
-    }
-
-    flecs::world& Raw() { return Registry::Get(); }
-    const flecs::world& Raw() const { return Registry::Get(); }
-
-    // Native flecs::entity handle for MdEntity e — the facade-removal escape
-    // hatch (task #8 phase-out): call sites migrating off Emplace/GetOrEmplace/
-    // EmplaceOrReplace use Handle(e).emplace<T>()/.set<T>() directly instead
-    // of the old T&-returning facade methods, since flecs::entity::emplace/set
-    // return the entity itself (not T&), which is what makes the B3.4
-    // dangling-reference bug class structurally impossible here.
-    flecs::entity Handle(MdEntity e) const { return flecs::entity(Raw(), e.Raw()); }
-
-    // task #8 Phase 5: stage-routed handle for STRUCTURAL ops (emplace/
-    // set/destruct/remove) issued from code that might run inside a
-    // JobGraph-staged batch (see MdRegistryStageScope above). During
-    // world.readonly_begin(true) (which JobGraph::Run() wraps its wave
-    // in), flecs forbids structural ops on the main world outright — "readonly
-    // assert" — but permits them on a STAGE, where they're automatically
-    // queued and merged back into the world on readonly_end() (readonly_
-    // begin/end are documented to internally bracket defer_begin/defer_end
-    // — see flecs.h's ecs_readonly_begin() doc comment). This is what
-    // replaces DeferredStructuralOps' 3 hand-rolled queues: route the
-    // structural call through StagedHandle() instead of Handle(), and
-    // flecs's own deferred-command mechanism does the rest, generalizing
-    // to any future structural op instead of only the 3 that were
-    // manually audited and queued before.
-    //
-    // Falls back to the plain (main-world) Handle() when no stage is
-    // active (t_stage_override unset) — i.e. this is always safe to call,
-    // inside or outside a JobGraph batch, unlike the old Queue*() calls
-    // which only made sense because Flush() ran them through the real
-    // structural path afterward.
-    //
-    // Read-only accessors (Get/TryGet/AllOf/has) are NOT routed through
-    // this — the existing get_mut<T>()/try_get<T>() on the RAW world
-    // during a concurrent stage's iteration was separately verified safe
-    // by probe (see md_registry.h's top-of-file note); only structural
-    // ops need the stage.
-    //
-    // A second, easy-to-miss distinction (empirically verified, standalone
-    // flecs probes — red/green-tested against game/src/combat/skill_xp.h's
-    // real lost-update bug, see tests/behavior/test_skill_xp_staged_grant.
-    // cpp): StagedHandle().set<T>() is genuinely DEFERRED — invisible even
-    // through the SAME stage's own reads — ONLY the first time T is added to
-    // an entity (a real structural/archetype change). Once T already exists
-    // on the entity, a stage-routed set<>() to it is a plain VALUE write and
-    // applies immediately, visible to the very next read (staged or main-
-    // world) in the same batch — flecs does not defer it at all, because no
-    // archetype move is needed. Practical implication for any code called
-    // from inside a JobGraph batch: reading a MAIN-world (Handle()) snapshot
-    // of T, computing on it, and writing the WHOLE struct back via a single
-    // StagedHandle().set<T>() is safe to repeat multiple times per entity
-    // per batch ONLY if T already existed on that entity BEFORE the batch
-    // started. If T might be getting its first-ever add mid-batch, that
-    // pattern silently loses every write but the last one for that entity —
-    // prefer MdRegistry::Patch<T>() (in-place mutation via a main-world
-    // pointer) once T is known to exist, and treat "T doesn't exist yet" as
-    // its own explicit, single, no-computation StagedHandle().set<T>(T{})
-    // branch rather than folding it into the same read-compute-write path.
-    flecs::entity StagedHandle(MdEntity e) const {
-        ecs_world_t* stage = md_registry_detail::t_stage_override;
-        return stage ? flecs::entity(stage, e.Raw()) : Handle(e);
-    }
-
-    MdRegistry(const MdRegistry&) = delete;
-    MdRegistry& operator=(const MdRegistry&) = delete;
-
-private:
-    MdRegistry() = default;
-};
-#endif

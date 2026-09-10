@@ -42,7 +42,6 @@ bool SetParent(MdEntity child, MdEntity parent) {
 // reading cr here is valid (flecs OnRemove contract — verified empirically,
 // same guarantee EnTT's on_destroy made; gaia's ObserverEvent::OnDel is the
 // documented equivalent, see docs/GAIA_SEAM_AUDIT.md's Phase 0 probe P-I).
-#if defined(MD_ECS_GAIA)
 void RegisterDestroyHooks() {
     auto& w = MdRegistry::Get().Raw();
     w.observer().event(gaia::ecs::ObserverEvent::OnDel).all<ChildrenRef&>()
@@ -67,27 +66,5 @@ void RegisterDestroyHooks() {
                 RemoveFromChildrenList(MdRegistry::Get(), prs[r].parent, MdEntity(ents[r]));
         });
 }
-#else
-static void OnChildrenRefDestroyed(flecs::entity parent, ChildrenRef& cr) {
-    auto& reg = MdRegistry::Get();
-    for (int i = 0; i < cr.count; ++i) {
-        MdEntity child = cr.children[i];
-        if (reg.Valid(child) && (reg.Handle(child).has<ParentRef>())) reg.Remove<ParentRef>(child);
-    }
-    (void)parent;
-}
-
-// Child destroyed (or ParentRef removed) -> remove it from its parent's
-// ChildrenRef so the slot doesn't reference a dangling entity.
-static void OnParentRefDestroyed(flecs::entity child, ParentRef& pr) {
-    RemoveFromChildrenList(MdRegistry::Get(), pr.parent, MdEntity(child.id()));
-}
-
-void RegisterDestroyHooks() {
-    auto& w = MdRegistry::Get().Raw();
-    w.observer<ChildrenRef>().event(flecs::OnRemove).each(OnChildrenRefDestroyed);
-    w.observer<ParentRef>().event(flecs::OnRemove).each(OnParentRefDestroyed);
-}
-#endif
 
 } // namespace Hierarchy

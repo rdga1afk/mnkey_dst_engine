@@ -42,11 +42,7 @@ void FlareAnimSystem::Init() {
     BillboardRenderer::Get().Init();
 
     auto& reg = MdRegistry::Get();
-#if defined(MD_ECS_GAIA)
     static auto q_p3_flare_anim_system_1 = reg.Raw().query().all<FlareActorComponent&>().all<FlareSpriteAnim&>();
-#else
-    static auto q_p3_flare_anim_system_1 = reg.Raw().query<FlareActorComponent, FlareSpriteAnim>();
-#endif
     MdEach(q_p3_flare_anim_system_1, [&](FlareActorComponent& fac, FlareSpriteAnim& sa) {
         if (sa.atlas_slot >= 0) return;
         const SpriteCategoryEntry* e =
@@ -62,11 +58,7 @@ void FlareAnimSystem::Init() {
 void FlareAnimSystem::Tick(float dt_ms) {
     if (!inited_) return;
     auto& reg = MdRegistry::Get();
-#if defined(MD_ECS_GAIA)
     static auto q_p3_flare_anim_system_2 = reg.Raw().query().all<FlareActorComponent>().all<FlareSpriteAnim&>().all<NavAgent>().all<WorldTransform>();
-#else
-    static auto q_p3_flare_anim_system_2 = reg.Raw().query<FlareActorComponent, FlareSpriteAnim, NavAgent, WorldTransform>();
-#endif
     MdEach(q_p3_flare_anim_system_2, [&](const FlareActorComponent&,
                  FlareSpriteAnim& sa,
                  const NavAgent& nav,
@@ -96,11 +88,7 @@ void FlareAnimSystem::Tick(float dt_ms) {
 void FlareAnimSystem::SubmitBillboards(float tile_world_size) {
     if (!inited_) return;
     auto& reg = MdRegistry::Get();
-#if defined(MD_ECS_GAIA)
     static auto q_p3_flare_anim_system_3 = reg.Raw().query().all<FlareSpriteAnim>().all<WorldTransform>();
-#else
-    static auto q_p3_flare_anim_system_3 = reg.Raw().query<FlareSpriteAnim, WorldTransform>();
-#endif
     MdEach(q_p3_flare_anim_system_3, [&](const FlareSpriteAnim& sa, const WorldTransform& tr) {
         if (sa.atlas_slot < 0 || !sa.anim.set) return;
         const SpriteFrame* f = CurrentFrame(sa.anim);

@@ -1,9 +1,5 @@
 #pragma once
-#if defined(MD_ECS_GAIA)
 #include <gaia.h>
-#else
-#include <flecs.h>
-#endif
 #include <cstdint>
 
 // MdEntity — task #8 (EnTT->flecs strangler-fig migration), part B3.4.
@@ -40,7 +36,6 @@
 // world-aware equivalent (via ecs_get_alive) and is what call sites that
 // round-trip an entity through a uint32_t (BlackboardEntry::val.e, Lua
 // integer args) should actually use.
-#if defined(MD_ECS_GAIA)
 // gaia-ecs backend. gaia::ecs::Entity is ALSO a 64-bit value type (union
 // of a raw uint64 and a bit-packed struct: 32-bit index + 28-bit
 // generation + 4 flag bits) -- same shape as flecs::entity_t, different
@@ -70,22 +65,3 @@ public:
 private:
     gaia::ecs::Entity id_ = gaia::ecs::EntityBad;
 };
-#else
-class MdEntity {
-public:
-    MdEntity() = default;
-    explicit MdEntity(flecs::entity_t e) : id_(e) {}
-    explicit MdEntity(uint32_t raw_index) : id_(static_cast<flecs::entity_t>(raw_index)) {}
-
-    flecs::entity_t Raw() const { return id_; }
-    uint32_t        ToIntegral() const { return static_cast<uint32_t>(id_); }
-
-    static MdEntity Null() { return MdEntity(); }
-
-    friend bool operator==(MdEntity a, MdEntity b) { return a.id_ == b.id_; }
-    friend bool operator!=(MdEntity a, MdEntity b) { return a.id_ != b.id_; }
-
-private:
-    flecs::entity_t id_ = 0;
-};
-#endif

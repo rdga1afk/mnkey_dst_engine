@@ -1,8 +1,6 @@
 #pragma once
 #include <stdint.h>
-#if defined(MD_ECS_GAIA)
 #include <gaia.h>
-#endif
 
 // CharBodyState — per-entity body development state.
 //
@@ -26,9 +24,7 @@ static constexpr int BODY_MAX_BONES = 64;  // must equal OZZ_ANIM_MAX_BONES
 // one of the 5 components with a proven B3.4 risk. See world_transform.h's
 // doc comment for the shared rationale.
 struct CharBodyState {
-#if defined(MD_ECS_GAIA)
     GAIA_STORAGE(Sparse);
-#endif
     float bone_scales[BODY_MAX_BONES][3];  // vertex scale per bone, default {1,1,1}
     float pos_scales [BODY_MAX_BONES][3];  // positional scale, default {1,1,1}
     // Raw chardef body[4] Posture slider value (Kenshi range 0-70, neutral=35)
@@ -55,9 +51,7 @@ struct CharBodyState {
 // one of the 5 components with a proven B3.4 risk. See world_transform.h's
 // doc comment for the shared rationale.
 struct BodyBaseline {
-#if defined(MD_ECS_GAIA)
     GAIA_STORAGE(Sparse);
-#endif
     float bone_scales[BODY_MAX_BONES][3];
     float posture = 35.f;
 };

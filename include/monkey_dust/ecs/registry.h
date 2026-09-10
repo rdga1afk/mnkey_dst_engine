@@ -1,30 +1,23 @@
 #pragma once
-#if defined(MD_ECS_GAIA)
 #include <gaia.h>
 #include <monkey_dust/ecs/gaia_sched_adapter.h>
-#else
-#include <flecs.h>
-#endif
 
-// Глобальний singleton flecs::world (task #8 B3.4 — was entt::registry
-// through B1-B3.3). КРИТИЧНО: не передавати по значенню, не мутувати під
+// Глобальний singleton gaia::ecs::World (task #8 B3.4 — was entt::registry
+// through B1-B3.3, flecs through the ECS-2 migration, gaia-ecs since
+// 2026-09-10 — see CLAUDE_STATE.md for the full migration history).
+// КРИТИЧНО: не передавати по значенню, не мутувати під
 // час query ітерації. При потребі змінити entities під час ітерації —
 // збирати в temp vector, застосовувати після завершення query.each().
 
-// Registry::Get()'s real return type, backend-dependent -- can't use
-// `auto&` in a plain (non-template, C++17) function parameter, so any
-// function signature that needs to hold "a world reference" generically
-// (FlowGraph's action callbacks, BTSystem::Tick, etc.) uses this alias
-// instead of hardcoding flecs::world&.
-#if defined(MD_ECS_GAIA)
+// Registry::Get()'s real return type -- can't use `auto&` in a plain
+// (non-template, C++17) function parameter, so any function signature that
+// needs to hold "a world reference" generically (FlowGraph's action
+// callbacks, BTSystem::Tick, etc.) uses this alias instead of hardcoding
+// gaia::ecs::World&.
 using MdWorldRef = gaia::ecs::World;
-#else
-using MdWorldRef = flecs::world;
-#endif
 
 class Registry {
 public:
-#if defined(MD_ECS_GAIA)
     // Phase 4 (PROMPT_GAIA_MIGRATION.md §6): MdGaiaSchedAdapter::Install()
     // MUST run before the first possible parallel-exec query through this
     // World, else gaia lazily raises its own gaia::mt::ThreadPool on first
@@ -43,11 +36,5 @@ public:
         (void)s_schedInstalled;
         return w;
     }
-#else
-    static flecs::world& Get() {
-        static flecs::world w;
-        return w;
-    }
-#endif
     Registry() = delete;
 };

@@ -13,7 +13,7 @@ summary: "Public engine/ README: feature list (rendering/AI/ECS/physics/terrain/
 
 Open-source C++17 game engine library for a Flare-inspired isometric RPG sandbox.
 Built around **[SDL3](https://github.com/libsdl-org/SDL) + SDL\_GPU (Vulkan)**,
-**[gaia-ecs](https://github.com/richardbiely/gaia-ecs) ECS** (default; [flecs](https://github.com/SanderMertens/flecs) supported), a custom stackless
+**[gaia-ecs](https://github.com/richardbiely/gaia-ecs) ECS**, a custom stackless
 **Behavior Tree VM**, **[ozz-animation](https://github.com/guillaumeblanc/ozz-animation)**,
 and **[Jolt Physics](https://github.com/jrouwe/JoltPhysics)**.
 
@@ -55,10 +55,10 @@ and **[Jolt Physics](https://github.com/jrouwe/JoltPhysics)**.
 - NpcInteractionComponent (M58) — `dialog_faction_id` + `interaction_range` (2.5 m) + `cooldown_ms`; 20 bytes
 - FlowDurableTrigger — ref-counted durable triggers with duration decay
 
-### ECS — gaia-ecs (default) + flecs (supported)
+### ECS — gaia-ecs
 Backed by [gaia-ecs](https://github.com/richardbiely/gaia-ecs) 1.0.0 (archetype-based, vendored
 single-header in `third_party/gaia-ecs/`) behind the `MdRegistry`/`MdEntity` facade — no call site
-touches gaia-ecs (or flecs) directly. `AllianceMatrix` and `NpcRelationshipComponent` use real
+touches gaia-ecs directly. `AllianceMatrix` and `NpcRelationshipComponent` use real
 relation pairs (`(HostileWith/FriendlyWith, group)`, `(Trust/Fear, other)`) instead of fixed
 arrays/matrices. 41 engine-side components in `engine/include/monkey_dust/components/`, incl.:
 `WorldTransform` (via `ai_agent.h`) · `AIAgent` · `Health` · `Combat` · `Renderable` · `Building` ·
@@ -69,16 +69,18 @@ arrays/matrices. 41 engine-side components in `engine/include/monkey_dust/compon
 `InjuryState`, `MorphComponent`, `PrisonerComponent`, `ScheduleComponent`, `StealthComponent`,
 `WeaponComponent`, and more.
 
-**flecs 4.1.6 remains a fully supported alternative backend** (`-DMD_ECS_GAIA=OFF`) — both backends
-compile and pass the full test suite at all times, and switching is a build flag, not a code change.
-gaia-ecs became the default on 2026-09-10 after a 6-phase strangler-fig migration (relations,
-sorting, the JobGraph scheduler adapter `gaia_sched_adapter.h`, and the standalone editor's
-`EcsReflectBridge` — hot-reload-safe by-name component resolution across `dlopen`/`dlclose`) and
-full verification: 1629/1629 gtest, 3/3 `scenario_*`, live 40 s smoke (game+editor), ASan+UBSan
-clean through a real `--exec` scenario, `.mdsave` v11 confirmed cross-backend compatible in both
-directions. Measured: logic tick ~2.4× faster and far less noisy than flecs (0.7 ms stdev=0 vs
+gaia-ecs is the engine's sole ECS backend, replacing flecs entirely on 2026-09-10 after a
+6-phase strangler-fig migration (relations, sorting, the JobGraph scheduler adapter
+`gaia_sched_adapter.h`, and the standalone editor's `EcsReflectBridge` — hot-reload-safe
+by-name component resolution across `dlopen`/`dlclose`) and full verification: 1629/1629
+gtest, 3/3 `scenario_*`, live 40 s smoke (game+editor), ASan+UBSan clean through a real
+`--exec` scenario, `.mdsave` v11 confirmed cross-backend compatible in both directions.
+Measured: logic tick ~2.4× faster and far less noisy than flecs (0.7 ms stdev=0 vs
 1.7 ms with real variance, 512 NPC), RSS parity, full build ~4× slower (gaia.h's 86k-line
-single-include amalgamation has no PCH coverage — a real, accepted cost).
+single-include amalgamation has no PCH coverage — a real, accepted cost). Both backends
+briefly coexisted behind a `-DMD_ECS_GAIA` build flag during the migration; flecs and the
+flag were removed once the gaia default proved stable, since maintaining two backends
+simultaneously was judged not worth the complexity for a solo project.
 
 Two root-cause defects found in gaia-ecs's own core during this migration were reported upstream
 and **fixed by the maintainer**: [#42](https://github.com/richardbiely/gaia-ecs/issues/42)
@@ -86,9 +88,8 @@ and **fixed by the maintainer**: [#42](https://github.com/richardbiely/gaia-ecs/
 [#43](https://github.com/richardbiely/gaia-ecs/issues/43) (`rem_from_entities` iterator
 invalidation, fixed in `4c74879f`). A third real bug found — a confirmed data race in concurrent
 `.each()` calls, [#39](https://github.com/richardbiely/gaia-ecs/issues/39) — is structurally closed
-off in this codebase's own `JobGraph` dispatch (unconditionally sequential under gaia, never
-concurrent) independent of upstream status; see `job_graph.cpp`'s gaia branch for the full
-writeup.
+off in this codebase's own `JobGraph` dispatch (unconditionally sequential, never
+concurrent) independent of upstream status; see `job_graph.cpp` for the full writeup.
 
 ### Physics & Animation
 - **Jolt Physics** — `JoltWorld`: `CharacterVirtual` (max_bodies=512); `TempAllocatorImpl` 8 MB
@@ -173,7 +174,7 @@ ninja -C build monkey_dust_engine
 > The engine library itself is shader-agnostic — it loads pre-compiled SPIR-V at runtime via `GpuPipeline::Create(desc)`.
 
 **Dependencies** (bring your own or via CMake FetchContent):
-`SDL3` · `gaia-ecs` (default ECS backend) / `flecs` (supported alt., `-DMD_ECS_GAIA=OFF`) · `Recast/Detour` · `ozz-animation` · `JoltPhysics` · `miniaudio` · `Lua 5.4`
+`SDL3` · `gaia-ecs` (sole ECS backend) · `Recast/Detour` · `ozz-animation` · `JoltPhysics` · `miniaudio` · `Lua 5.4`
 
 > **ImGui is NOT an engine dependency.** Dear ImGui and all extensions (imnodes, imgui-node-editor, ImGuiColorTextEdit, imguizmo, imgui-flame-graph, imgui-command-palette) live in `tools/third_party/`. The engine library has zero UI dependencies and is split-ready.
 
@@ -189,7 +190,7 @@ ninja -C build md_tests          # meta-target, depends on flare_ini_parser + fl
 ./build/tests/flare_tile_map
 ```
 
-> The large GTest suite (1808 tests: 1629 gtest + 179 behavior, default gaia-ecs backend — FNV · AgentBlackboard · FlowGraph ·
+> The large GTest suite (1809 tests: 1630 gtest + 179 behavior, gaia-ecs backend — FNV · AgentBlackboard · FlowGraph ·
 > DirectorSystem · BT VM · Batch 3–31 · M47–M59 · O3DE-1–4 · ZLD-1–2 · FL-3–4 · KEN-1–8 ·
 > VBfA-R1–9 · VBfA-AI1–6, etc.) lives in the private parent
 > [`monkey_dust`](https://github.com/rdga1bot/monkey_dust) game repo's `tests/` directory, not in
@@ -208,7 +209,7 @@ engine/
     combat/                ← damage_calc, hit_zones, power_def
     compat/                ← md_dirent.h (POSIX dirent shim)
     components/            ← 41 ECS components
-    ecs/                   ← Registry (gaia::ecs::World / flecs::world singleton)
+    ecs/                   ← Registry (gaia::ecs::World singleton)
     editor/                ← EditorPanelRegistry (MAX_PANELS=16)
     flare/                 ← tile map, sprite animation, renderer
     hot/                   ← hot-reloadable module interfaces (editor_module.h, gameplay_module.h)

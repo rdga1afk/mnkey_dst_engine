@@ -1,5 +1,4 @@
 #pragma once
-#if defined(MD_ECS_GAIA)
 #include <gaia.h>
 #include <monkey_dust/platform/job_system.h>
 #include <SDL3/SDL_atomic.h>
@@ -270,4 +269,3 @@ public:
     static void Install(gaia::ecs::World& w) { w.set_sched(Instance()); }
 };
 
-#endif // MD_ECS_GAIA

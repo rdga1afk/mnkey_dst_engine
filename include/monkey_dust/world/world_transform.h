@@ -1,8 +1,6 @@
 #pragma once
 #include <cstdint>
-#if defined(MD_ECS_GAIA)
 #include <gaia.h>
-#endif
 
 // Перейменовано в WorldTransform — raylib вже має свій тип Transform.
 // Базовий engine-рівень просторовий компонент; використовується
@@ -14,9 +12,7 @@
 // Sparse storage gives payload a stable address across archetype moves,
 // closing this mechanically instead of by convention).
 struct WorldTransform {
-#if defined(MD_ECS_GAIA)
     GAIA_STORAGE(Sparse);
-#endif
     float    x, y, z;
     float    rot_y;      // тільки поворот по Y (top-down RPG)
     uint32_t slot = 0xFFFFFFFFu; // TransformSoA slot index

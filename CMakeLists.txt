@@ -16,57 +16,28 @@ set(MD_THIRD_PARTY "${CMAKE_CURRENT_SOURCE_DIR}/third_party")
 if(NOT TARGET glm)
     add_subdirectory(${MD_THIRD_PARTY}/glm EXCLUDE_FROM_ALL)
 endif()
-# flecs — task #8. Vendored in B2 as a standalone, parallel dependency;
-# B3.4 makes it monkey_dust_engine's actual ECS backend (see md_registry.h),
-# replacing entt::registry.
-if(NOT TARGET flecs)
-    add_subdirectory(${MD_THIRD_PARTY}/flecs EXCLUDE_FROM_ALL)
-endif()
-# FLECS_SANITIZE (flecs 4.1.6, flecs.h ~L92) enables expensive internal
-# consistency checks — catches stale-pointer/use-after-structural-change
-# bugs (the B3.4 class) immediately instead of as an intermittent crash.
-# PUBLIC so it propagates to every TU that includes flecs.h through the
-# `flecs` target, not just flecs.c's own compilation.
-target_compile_definitions(flecs PUBLIC $<$<CONFIG:Debug>:FLECS_SANITIZE>)
-# NOTE (Phase 2.1 concurrency audit, 2026-07-23): tests/test_job_graph_stress.cpp
-# + ThreadSanitizer confirmed a real data race in flecs's own
-# world->info.queries_ran_total counter (bare `++` via ecs_os_linc, flecs.h
-# ~L3944-3956, when FLECS_ACCURATE_COUNTERS is undefined — the current
-# state). Tried enabling FLECS_ACCURATE_COUNTERS here to fix it (routes the
-# increment through a real atomic, ecs_os_lainc/posix_lainc using
-# __sync_add_and_fetch) — but this vendored flecs 4.1.6's OWN
-# ecs_query_iter (flecs.c:87183) has a pre-existing type-mismatch bug: it
-# calls ecs_os_linc (expects int64_t*) on ecs_query_t::eval_count, which is
-# declared int32_t — enabling the define does not compile as shipped. NOT
-# fixing this here: it requires patching vendored third-party source
-# (flecs.c), out of this audit's scope without an explicit decision to do
-# so. See the audit report for the full writeup — the race itself is
-# confirmed benign (stats-only counter, never read by query-correctness
-# logic, no entity/component data corruption), just real UB.
-
-# gaia-ecs — strangler-fig migration target for the flecs ECS backend
-# (docs/GAIA_MIGRATION_ANALYSIS.md, docs/GAIA_SEAM_AUDIT.md,
-# prompt_/PROMPT_GAIA_MIGRATION.md). Header-only single-include vendor,
-# pinned to v1.0.0 (2843d22a) — see the header comment in
-# third_party/gaia-ecs/single_include/gaia.h for the exact commit and why
-# it must not be silently re-pinned against `main`.
+# gaia-ecs — the engine's sole ECS backend (docs/GAIA_MIGRATION_ANALYSIS.md,
+# docs/GAIA_SEAM_AUDIT.md, prompt_/PROMPT_GAIA_MIGRATION.md). Header-only
+# single-include vendor, pinned to v1.0.0 (2843d22a) — see the header
+# comment in third_party/gaia-ecs/single_include/gaia.h for the exact
+# commit and why it must not be silently re-pinned against `main`.
 #
-# ON by default (2026-09-10): GATE 1-6 all closed — 1629/1629 gtest +
-# 3/3 scenario_* green under gaia, live 40s smoke (game+editor) clean,
-# ASan+UBSan clean through a real --exec scenario, .mdsave v11 verified
-# cross-backend compatible (both directions, not assumed), perf measured
-# (logic tick ~2.4x faster and far less noisy than flecs on this
-# machine; RSS parity; compile time ~4x slower, a real known cost — no
-# PCH coverage for gaia.h's 86k-line single-include amalgamation).
-# Explicit owner decision to switch the default and merge to master,
-# after review of all upstream gaia-ecs issues filed during the
-# migration (2 fixed by the maintainer, 3 open — the one real
+# Replaced flecs entirely on 2026-09-10: GATE 1-6 all closed —
+# 1629/1629 gtest + 3/3 scenario_* green under gaia, live 40s smoke
+# (game+editor) clean, ASan+UBSan clean through a real --exec scenario,
+# .mdsave v11 verified cross-backend compatible (both directions, not
+# assumed), perf measured (logic tick ~2.4x faster and far less noisy
+# than flecs on this machine; RSS parity; compile time ~4x slower, a
+# real known cost — no PCH coverage for gaia.h's 86k-line single-include
+# amalgamation). Explicit owner decision to switch the default and merge
+# to master, after review of all upstream gaia-ecs issues filed during
+# the migration (2 fixed by the maintainer, 3 open — the one real
 # concurrency bug among them, #39, was independently found and
 # structurally closed off in this codebase's own JobGraph dispatch
-# before the upstream fix, see job_graph.cpp's gaia branch). flecs
-# remains fully supported (-DMD_ECS_GAIA=OFF) — both backends must
-# keep compiling; never remove the flecs path.
-option(MD_ECS_GAIA "Use gaia-ecs instead of flecs as the ECS backend (default ON since 2026-09-10, GATE 1-6 closed)" ON)
+# before the upstream fix, see job_graph.cpp). flecs was removed
+# entirely on 2026-09-10 — maintaining two backends simultaneously was
+# judged not worth the complexity once gaia's default switch was proven
+# stable; see git history for the flecs-era implementation.
 
 if(NOT TARGET Recast)
     set(RECASTNAVIGATION_DEMO     OFF CACHE BOOL "" FORCE)
@@ -240,7 +211,6 @@ target_include_directories(monkey_dust_engine
     PUBLIC  ${MD_THIRD_PARTY}/ozz-animation/include
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src
     # Third-party (PUBLIC so consumers also see them)
-    PUBLIC  ${MD_THIRD_PARTY}/flecs
     PUBLIC  ${MD_THIRD_PARTY}/gaia-ecs/single_include
     PUBLIC  ${MD_THIRD_PARTY}/glm
     PRIVATE ${MD_THIRD_PARTY}/recastnavigation/Recast/Include
@@ -294,14 +264,6 @@ set_property(CACHE MD_RENDER_BACKEND PROPERTY STRINGS
     SDLGPU GODOT FILAMENT BGFX DILIGENT OGRENEXT)
 target_compile_definitions(monkey_dust_engine PUBLIC MD_RENDER_BACKEND_${MD_RENDER_BACKEND})
 
-# MD_ECS_GAIA — see the option() comment near the flecs/gaia-ecs vendoring
-# block above. PUBLIC so every TU that includes md_registry.h/md_entity.h
-# (game/, tools/, not just engine/) sees the same backend selection —
-# mismatched TUs would silently disagree on the facade's underlying type.
-if(MD_ECS_GAIA)
-    target_compile_definitions(monkey_dust_engine PUBLIC MD_ECS_GAIA)
-endif()
-
 # SDL3 + SDL_GPU is the only REAL rendering backend (see MD_RENDER_BACKEND
 # above for the other 5's compile-only stub scaffolding).
 # GLM provides math types; MD_LOG_NO_RAYLIB replaces TraceLog with fprintf.
@@ -333,7 +295,6 @@ target_link_libraries(monkey_dust_engine PRIVATE
     ozz_animation_offline
     ozz_base
 )
-target_link_libraries(monkey_dust_engine PUBLIC flecs)
 # gameplay_module.cpp uses dlopen/dlclose (POSIX dl)
 if(UNIX AND NOT APPLE)
     target_link_libraries(monkey_dust_engine PRIVATE dl)
@@ -375,7 +336,7 @@ endif()
 
 # ── Warning hygiene (Phase 4.3 audit) ────────────────────────────────────────
 # PRIVATE: only monkey_dust_engine's OWN sources get these flags, not the
-# vendored third_party/ subdirectories added above (flecs/Jolt/recast/ozz
+# vendored third_party/ subdirectories added above (Jolt/recast/ozz
 # each configure their own warning levels; recastnavigation's own CMakeLists
 # already sets -Wall/-Werror for its own targets independently of this).
 # Not -Werror here — this is a count-and-report exercise (see audit report),

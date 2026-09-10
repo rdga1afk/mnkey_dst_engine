@@ -95,7 +95,6 @@ namespace ai_queries {
 // being visible in the return type here -- determined by auditing every
 // real MdEach consumer of each function across the codebase (not guessed),
 // see ai_queries.cpp's per-function comments for the consumer list.
-#if defined(MD_ECS_GAIA)
 gaia::ecs::Query& NpcNeedsOnly();
 gaia::ecs::Query& BleedLimbHealth();
 gaia::ecs::Query& InjuryLimbHealth();
@@ -114,27 +113,6 @@ gaia::ecs::Query& InventoryWorldTransform();
 gaia::ecs::Query& BuildingWorldTransform();
 gaia::ecs::Query& StatSheetWorldTransform();
 gaia::ecs::Query& ShopInventoryWorldTransform();
-#else
-flecs::query<NpcNeeds>& NpcNeedsOnly();
-
-flecs::query<BleedComponent, LimbHealth>& BleedLimbHealth();
-flecs::query<InjuryState, LimbHealth>& InjuryLimbHealth();
-flecs::query<AgentState, NpcSchedule>& AgentStateSchedule();
-flecs::query<AIAgent, BTComponent>& AIAgentBT();
-flecs::query<SquadController>& SquadControllers();
-flecs::query<AIAgent, BTComponent, WorldTransform, AIAgentTickState>& AIAgentBTWorldTransform();
-flecs::query<AgentState, WorldTransform>& AgentStateWorldTransform();
-flecs::query<AgentState>& AgentStateOnly();
-flecs::query<SenseComponent, WorldTransform, AgentState>& SenseWorldTransformAgentState();
-flecs::query<NoiseEmitter, WorldTransform>& NoiseWorldTransform();
-flecs::query<SenseComponent, WorldTransform>& SenseWorldTransform();
-flecs::query<SmellEmitter, WorldTransform>& SmellWorldTransform();
-flecs::query<AgentState, AgentBlackboard, Combat, WorldTransform>& AgentFullCombat();
-flecs::query<Inventory, WorldTransform>& InventoryWorldTransform();
-flecs::query<Building, WorldTransform>& BuildingWorldTransform();
-flecs::query<StatSheet, WorldTransform>& StatSheetWorldTransform();
-flecs::query<ShopInventory, WorldTransform>& ShopInventoryWorldTransform();
-#endif
 
 // Forces construction of all 18 above, single-threaded — call once at
 // startup, before the first JobGraph wave that runs TickNeedsAndInjuries
