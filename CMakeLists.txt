@@ -51,11 +51,22 @@ target_compile_definitions(flecs PUBLIC $<$<CONFIG:Debug>:FLECS_SANITIZE>)
 # third_party/gaia-ecs/single_include/gaia.h for the exact commit and why
 # it must not be silently re-pinned against `main`.
 #
-# OFF by default: flecs remains the active, real ECS backend everywhere
-# until the migration's own gates (GATE 1-6) say otherwise. Both backends
-# must compile at all times during the migration — never remove the flecs
-# path to make gaia's path simpler.
-option(MD_ECS_GAIA "Use gaia-ecs instead of flecs as the ECS backend (migration in progress, default OFF)" OFF)
+# ON by default (2026-09-10): GATE 1-6 all closed — 1629/1629 gtest +
+# 3/3 scenario_* green under gaia, live 40s smoke (game+editor) clean,
+# ASan+UBSan clean through a real --exec scenario, .mdsave v11 verified
+# cross-backend compatible (both directions, not assumed), perf measured
+# (logic tick ~2.4x faster and far less noisy than flecs on this
+# machine; RSS parity; compile time ~4x slower, a real known cost — no
+# PCH coverage for gaia.h's 86k-line single-include amalgamation).
+# Explicit owner decision to switch the default and merge to master,
+# after review of all upstream gaia-ecs issues filed during the
+# migration (2 fixed by the maintainer, 3 open — the one real
+# concurrency bug among them, #39, was independently found and
+# structurally closed off in this codebase's own JobGraph dispatch
+# before the upstream fix, see job_graph.cpp's gaia branch). flecs
+# remains fully supported (-DMD_ECS_GAIA=OFF) — both backends must
+# keep compiling; never remove the flecs path.
+option(MD_ECS_GAIA "Use gaia-ecs instead of flecs as the ECS backend (default ON since 2026-09-10, GATE 1-6 closed)" ON)
 
 if(NOT TARGET Recast)
     set(RECASTNAVIGATION_DEMO     OFF CACHE BOOL "" FORCE)
