@@ -71,7 +71,24 @@ bool RenderPassGraph::LoadFromJSON(const char* path) {
     while (*p && *p != '}') {
         // Skip whitespace and commas.
         while (*p && (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r' || *p == ',')) ++p;
-        if (*p != '"') { ++p; continue; }
+        // gaia-migration Phase 6.3 (2026-09-10): if *p=='\0' here (malformed/
+        // truncated JSON with no closing '}'), it's != '"' too -- advancing
+        // unconditionally walked one byte past the buffer's null terminator,
+        // and the next loop-top `while (*p ...)` dereferenced that
+        // out-of-bounds byte. ASan heap-buffer-overflow, caught via a real
+        // --exec scenario run for the first time. Only advance on an actual
+        // non-'"' byte, not past the string's own end.
+        //
+        // Separate correctness bug found alongside it: the outer loop's
+        // `*p != '}'` exit check only fires at loop-top, but this "skip
+        // anything that isn't a quote" branch was skipping straight past the
+        // passes object's own closing '}' (it's a valid non-'"' byte) before
+        // the outer check ever saw it -- data/render_settings.json's real
+        // content walks past BOTH its closing braces this way, all the way
+        // to EOF, before the null-terminator guard above stops it. Breaking
+        // here instead makes '}' actually end the loop where it's found.
+        if (*p == '}') break;
+        if (*p != '"') { if (*p) ++p; continue; }
 
         // Extract key.
         ++p;  // skip opening "
@@ -91,7 +108,7 @@ bool RenderPassGraph::LoadFromJSON(const char* path) {
         bool val = true;
         if (strncmp(p, "true",  4) == 0)  { val = true;  p += 4; }
         else if (strncmp(p, "false", 5) == 0) { val = false; p += 5; }
-        else { ++p; continue; }
+        else { if (*p) ++p; continue; }  // same end-of-string guard as above
 
         // Apply to matching pass.
         uint32_t h = Hash(key);
