@@ -70,6 +70,31 @@ public:
     // wsi.begin_frame() reports no work to do this tick (matches
     // RenderEmptyFrame()'s own early-return case).
     bool RenderFrameWithOverlay(GraniteOverlayDrawFn draw_fn, void* user);
+
+    // docs/GRANITE_IRENDERBACKEND_INTEGRATION.md §5 item 5 (screenshot
+    // comparison SDL_GPU vs Granite). One-shot request/consume, same shape
+    // as tools/editor/editor_screenshot.h's EditorScreenshot_RequestPending/
+    // ConsumePending -- but for Granite's own swapchain, which
+    // EditorScreenshot's SDL_GPU-based DownloadFromGPUTexture path cannot
+    // reach (no SDL_GPU command buffer/texture exists in the frames
+    // RenderFrameWithOverlay() renders).
+    //
+    // RequestScreenshot(): call any time before the next RenderFrameWithOverlay()
+    // call. That call will then capture its own fully-composited frame
+    // (swapchain clear + draw_fn's overlay content) via an extra copy_image_
+    // to_buffer + host-visible readback buffer, tight-packed RGBA8 (Vulkan-
+    // side R/B channel order already corrected against swapchain_format --
+    // caller gets true RGBA, no format-dependent swap needed unlike
+    // EditorScreenshot's own B8G8R8A8 check).
+    void RequestScreenshot();
+
+    // Call once, any time after a RenderFrameWithOverlay() that had a
+    // pending request. Returns a malloc()'d width*height*4 RGBA8 buffer
+    // (caller must free() it) and fills out_w/out_h, or returns nullptr
+    // (out_w/out_h left untouched) if no capture is ready yet (request not
+    // consumed by a render call yet, or that call failed/had no work to do).
+    // One-shot: clears the captured buffer from internal state either way.
+    void* ConsumeScreenshotRGBA(unsigned* out_w, unsigned* out_h);
 };
 
 } // namespace md
