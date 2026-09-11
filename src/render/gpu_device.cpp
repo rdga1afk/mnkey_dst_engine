@@ -96,12 +96,14 @@ const char* GpuDevice::DriverName() const {
 }
 
 SDL_GPUCommandBuffer* GpuDevice::AcquireCommandBuffer() {
+    std::lock_guard<std::mutex> lock(mu_);
     SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(device_);
     if (cmd) cmd_buffer_active_ = true;
     return cmd;
 }
 
 void GpuDevice::WarnIfActive(const char* what) const {
+    std::lock_guard<std::mutex> lock(mu_);
     if (cmd_buffer_active_) {
         MD_LOG(MD_LOG_WARNING,
                "[GpuDevice] %s called while a command buffer is active -- "
@@ -119,10 +121,12 @@ SDL_GPUTexture* GpuDevice::AcquireSwapchainTexture(SDL_GPUCommandBuffer* cmd,
 }
 
 void GpuDevice::AdvanceFrameSlot() {
+    std::lock_guard<std::mutex> lock(mu_);
     frame_slot_ = (frame_slot_ + 1) % 3;
 }
 
 void GpuDevice::BeginFrame() {
+    std::lock_guard<std::mutex> lock(mu_);
     if (!prev_fence_ || !device_) return;
     SDL_WaitForGPUFences(device_, true, &prev_fence_, 1);
     SDL_ReleaseGPUFence(device_, prev_fence_);
@@ -132,6 +136,7 @@ void GpuDevice::BeginFrame() {
 }
 
 void GpuDevice::Submit(SDL_GPUCommandBuffer* cmd) {
+    std::lock_guard<std::mutex> lock(mu_);
     // prev_fence_ is shared by every caller of Submit() (the main per-frame
     // render path AND every utility subsystem -- texture upload/terrain
     // streaming/SSBO upload -- that also submits through this same
@@ -176,19 +181,27 @@ void GpuDevice::Submit(SDL_GPUCommandBuffer* cmd) {
 }
 
 SDL_GPUFence* GpuDevice::SubmitAndAcquireFence(SDL_GPUCommandBuffer* cmd) {
+    // No class state touched here, but the underlying SDL/Vulkan queue
+    // submit itself needs external synchronization against Submit()'s own
+    // SDL_SubmitGPUCommandBufferAndAcquireFence call from another thread --
+    // same mutex, see its doc comment on mu_ (gpu_device.h).
+    std::lock_guard<std::mutex> lock(mu_);
     return SDL_SubmitGPUCommandBufferAndAcquireFence(cmd);
 }
 
 bool GpuDevice::WaitForFence(SDL_GPUFence* fence) {
+    std::lock_guard<std::mutex> lock(mu_);
     if (!fence) return false;
     return SDL_WaitForGPUFences(device_, true, &fence, 1);
 }
 
 void GpuDevice::ReleaseFence(SDL_GPUFence* fence) {
+    std::lock_guard<std::mutex> lock(mu_);
     if (fence) SDL_ReleaseGPUFence(device_, fence);
 }
 
 void GpuDevice::WaitForIdle() {
+    std::lock_guard<std::mutex> lock(mu_);
     if (device_) SDL_WaitForGPUIdle(device_);
 }
 
