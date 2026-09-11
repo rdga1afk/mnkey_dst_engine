@@ -16,6 +16,7 @@
 
 #include <SDL3/SDL_gpu.h>
 #include <cstdint>
+#include <mutex>
 
 namespace md {
 
@@ -148,6 +149,24 @@ private:
     bool           sync_timing_  = false;
     float          last_gpu_ms_  = 0.f;
     bool           cmd_buffer_active_ = false;
+    // GATE-5/W3D-freeze fix (2026-09-12): AcquireCommandBuffer/Submit are
+    // called from the main render thread EVERY frame, AND from the editor's
+    // WorldEditor3D_SDLGPU loader thread (TerrainRenderer::Init, DDS array
+    // upload, PropMesh::LoadGLB -- all route through this same singleton).
+    // prev_fence_/cmd_buffer_active_/frame_slot_ were plain, unsynchronized
+    // fields -- a real data race, confirmed as the root cause of two prior
+    // SIGSEGVs at different call sites (docs/CLAUDE_STATE.md GATE 5,
+    // 2026-09-10), which the loader thread was subsequently made fully
+    // synchronous to work around (trading the async, non-blocking editor
+    // startup for correctness -- the visible ~6.5s "freeze" on editor
+    // launch/reload). This mutex is the narrower fix speculated about in
+    // that decision's own comment ("a mutex around SDL_GPU calls") --
+    // serializes both the C++ bookkeeping AND the underlying
+    // SDL_SubmitGPUCommandBufferAndAcquireFence call (Vulkan itself
+    // requires external synchronization for concurrent queue submission,
+    // independent of this class's own state). `mutable` so the const
+    // WarnIfActive() can also take it.
+    mutable std::mutex mu_;
 };
 
 } // namespace md
