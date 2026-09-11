@@ -102,6 +102,31 @@ void TransformSoA::Init() {
 #endif
 }
 
+// ── TransformSoA::Shutdown ───────────────────────────────────────────────────
+// Never existed before -- global singleton, Init() ran at startup but nothing
+// released its handles at process exit. Reuses the exact defensive-release
+// block Init() already runs on every re-entry (see that comment above) for
+// the 18 raw sdl_*_buf_/sdl_*_stg_ handles, plus the ring buffer/SSBO wrapper
+// Shutdown()s neither Init() nor anything else ever called.
+void TransformSoA::Shutdown() {
+#ifdef MD_SDL_GPU
+    md::GpuDeviceHandle dev = md::GpuDevice::Get().SDLDevice();
+    if (dev) {
+        for (int s = 0; s < 3; ++s) {
+            if (sdl_xzyr_buf_[s])    { SDL_ReleaseGPUBuffer(dev, sdl_xzyr_buf_[s]);       sdl_xzyr_buf_[s]    = nullptr; }
+            if (sdl_xzyr_stg_[s])    { GpuReleaseTransferBuffer(dev, sdl_xzyr_stg_[s]);    sdl_xzyr_stg_[s]    = nullptr; }
+            if (sdl_faction_buf_[s]) { SDL_ReleaseGPUBuffer(dev, sdl_faction_buf_[s]);     sdl_faction_buf_[s] = nullptr; }
+            if (sdl_faction_stg_[s]) { GpuReleaseTransferBuffer(dev, sdl_faction_stg_[s]); sdl_faction_stg_[s] = nullptr; }
+            if (sdl_skin_buf_[s])    { SDL_ReleaseGPUBuffer(dev, sdl_skin_buf_[s]);        sdl_skin_buf_[s]    = nullptr; }
+            if (sdl_skin_stg_[s])    { GpuReleaseTransferBuffer(dev, sdl_skin_stg_[s]);    sdl_skin_stg_[s]    = nullptr; }
+        }
+    }
+#endif
+    transform_ring_.Shutdown();
+    faction_ssbo_.Shutdown();
+    skin_ssbo_.Shutdown();
+}
+
 uint32_t TransformSoA::Alloc(MdEntity e, float x, float z, uint8_t faction_id) {
     if (active_count >= MAX_SLOTS) {
         MD_LOG(MD_LOG_WARNING, "[TransformSoA] Alloc: out of slots (%d)", MAX_SLOTS);

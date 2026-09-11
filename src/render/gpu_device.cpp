@@ -1,6 +1,7 @@
 #ifdef MD_SDL_GPU
 #include <monkey_dust/render/gpu_device.h>
 #include <monkey_dust/render/gpu_frame_timeline.h>
+#include <monkey_dust/render/gpu_hal.h>  // MdPipeCache_Shutdown/MdSpvCache_Shutdown
 #include <monkey_dust/platform/md_log.h>
 #include <SDL3/SDL_gpu.h>
 #include <SDL3/SDL_timer.h>  // SDL_GetPerformanceCounter/Frequency -- sync-timing path
@@ -59,6 +60,15 @@ void GpuDevice::Shutdown() {
         // scenarios that quit quickly — never during normal interactive
         // use, which naturally gives every upload time to finish).
         SDL_WaitForGPUIdle(device_);
+        // MdPipeCache_Shutdown/MdSpvCache_Shutdown exist and are declared for
+        // exactly this purpose (splash_screen.cpp's own comment already
+        // assumed "whole cache is freed by MdPipeCache_Shutdown() at exit
+        // regardless") but were never actually wired in here -- confirmed via
+        // a live SDL_CreateGPU*/SDL_ReleaseGPU* call-count audit
+        // (docs/SDLGPU_FENCE_OBJECT_LEAK_BUG.md): 19 GraphicsPipeline created,
+        // 0 released, exactly matching this cache's live entry count.
+        MdPipeCache_Shutdown();
+        MdSpvCache_Shutdown();
         SDL_DestroyGPUDevice(device_);
         device_ = nullptr;
         window_ = nullptr;
@@ -122,7 +132,25 @@ void GpuDevice::BeginFrame() {
 }
 
 void GpuDevice::Submit(SDL_GPUCommandBuffer* cmd) {
-    if (prev_fence_) { SDL_ReleaseGPUFence(device_, prev_fence_); prev_fence_ = nullptr; }
+    // prev_fence_ is shared by every caller of Submit() (the main per-frame
+    // render path AND every utility subsystem -- texture upload/terrain
+    // streaming/SSBO upload -- that also submits through this same
+    // function). If one of those secondary Submit() calls lands after the
+    // primary frame's Submit() but before the next BeginFrame() (which is
+    // the only other prev_fence_ consumer and DOES wait first), prev_fence_
+    // is still set here and must be retired the same way BeginFrame() does
+    // it: wait, then release. Releasing without waiting (the previous
+    // version of this block) drops the last reference to a fence whose GPU
+    // work has NOT finished, returning a genuinely not-yet-signaled fence to
+    // SDL3's pool -- confirmed live as the root cause of the intermittent
+    // VUID-vkResetFences-pFences-01123 validation error (fence reused/reset
+    // while still associated with an incomplete queue submission), see
+    // docs/SDLGPU_FENCE_OBJECT_LEAK_BUG.md §9.
+    if (prev_fence_) {
+        SDL_WaitForGPUFences(device_, true, &prev_fence_, 1);
+        SDL_ReleaseGPUFence(device_, prev_fence_);
+        prev_fence_ = nullptr;
+    }
 
     if (sync_timing_) {
         // terrain-perf-measure (2026-08-12): serialize on THIS frame's fence

@@ -53,6 +53,7 @@ public:
     SSBO          skin_ssbo_;
 
     void     Init();
+    void     Shutdown();
     uint32_t Alloc(MdEntity e, float x, float z, uint8_t faction_id = 0);
     void     Free(MdEntity e);
     void     FlushAoStoSoA(MdRegistry& reg);
