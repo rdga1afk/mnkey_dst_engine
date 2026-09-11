@@ -60,6 +60,17 @@ public:
         cull_user_ = user;
     }
 
+    // RENDER-BACKEND-STAGE-6 (docs/GRANITE_IRENDERBACKEND_INTEGRATION.md
+    // §2.3). Not present on SdlGpuBackend -- that backend's RenderHud()/
+    // RenderEditorOverlay() are still plain stubs (no callback slot exists
+    // for them yet). Granite gets this slot first because its ImGui bridge
+    // (tools/editor/, wired to md::GraniteBackend::RenderFrameWithOverlay())
+    // is the one Крок 3 actually implements as permanent code.
+    void SetEditorOverlayCallback(BackendStageFn fn, void* user) {
+        editor_overlay_fn_ = fn;
+        editor_overlay_user_ = user;
+    }
+
     void UploadTransforms() override;
     void RunGpuCulling() override;
     void RunGpuSkinning() override;
@@ -84,6 +95,8 @@ private:
     void*          upload_skin_user_ = nullptr;
     BackendStageFn cull_fn_          = nullptr;
     void*          cull_user_        = nullptr;
+    BackendStageFn editor_overlay_fn_   = nullptr;
+    void*          editor_overlay_user_ = nullptr;
 };
 
 }  // namespace md::render_backend

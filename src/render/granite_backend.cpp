@@ -9,6 +9,7 @@
 #include "context.hpp"
 #include "device.hpp"
 #include "command_buffer.hpp"
+#include "image.hpp"
 
 #include <monkey_dust/platform/md_log.h>
 
@@ -148,6 +149,87 @@ void GraniteBackend::RenderEmptyFrame() {
     s.wsi->end_frame();
 }
 
+GraniteVulkanHandles GraniteBackend::GetVulkanHandlesForImGui() const {
+    GraniteVulkanHandles h;
+    GraniteState& s = State();
+    if (!s.ready) return h;
+
+    Vulkan::Device& dev = s.wsi->get_device();
+    const auto& queue_info = dev.get_queue_info();
+    h.instance          = (void*)dev.get_instance();
+    h.physical_device   = (void*)dev.get_physical_device();
+    h.device            = (void*)dev.get_device();
+    h.queue             = (void*)queue_info.queues[Vulkan::QUEUE_INDEX_GRAPHICS];
+    h.queue_family      = queue_info.family_indices[Vulkan::QUEUE_INDEX_GRAPHICS];
+    h.swapchain_format  = (int)dev.get_swapchain_view().get_format();
+    h.dynamic_rendering_supported = dev.get_device_features().vk13_features.dynamicRendering != 0;
+    return h;
+}
+
+bool GraniteBackend::RenderFrameWithOverlay(GraniteOverlayDrawFn draw_fn, void* user) {
+    GraniteState& s = State();
+    if (!s.ready) return false;
+    if (!s.wsi->begin_frame()) return false;
+
+    Vulkan::Device& dev = s.wsi->get_device();
+    auto cmd = dev.request_command_buffer();
+
+    // Same swapchain clear pass as RenderEmptyFrame() -- the overlay draws
+    // ON TOP of it in a separate vkCmdBeginRendering scope below (matches
+    // probes/granite_m3_imgui_dynamic_rendering.cpp's proven sequence).
+    auto rp = dev.get_swapchain_render_pass(Vulkan::SwapchainRenderPass::ColorOnly);
+    rp.clear_color[0].float32[0] = 0.0f;
+    rp.clear_color[0].float32[1] = 0.45f;
+    rp.clear_color[0].float32[2] = 0.65f;
+    rp.clear_color[0].float32[3] = 1.0f;
+    cmd->begin_render_pass(rp);
+    cmd->end_render_pass();
+
+    const Vulkan::Image& swapchain_image = dev.get_swapchain_view().get_image();
+
+    // PRESENT_SRC_KHR -> ATTACHMENT_OPTIMAL, READ|WRITE dst access (the
+    // upcoming loadOp=LOAD read needs READ, not just WRITE -- a real
+    // SYNC-HAZARD-READ-AFTER-WRITE validation error until this exact fix,
+    // see probes/granite_m3_imgui_dynamic_rendering.cpp's own doc comment).
+    cmd->image_barrier(swapchain_image,
+                        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+                        VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                        VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+                        VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT);
+
+    VkRenderingAttachmentInfoKHR color_attachment = { VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR };
+    color_attachment.imageView = dev.get_swapchain_view().get_view().view;
+    color_attachment.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
+    color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+
+    VkRenderingInfoKHR rendering_info = { VK_STRUCTURE_TYPE_RENDERING_INFO_KHR };
+    rendering_info.renderArea.extent.width = s.platform->get_surface_width();
+    rendering_info.renderArea.extent.height = s.platform->get_surface_height();
+    rendering_info.layerCount = 1;
+    rendering_info.colorAttachmentCount = 1;
+    rendering_info.pColorAttachments = &color_attachment;
+
+    VkCommandBuffer raw_cmd = cmd->get_command_buffer();
+    // Raw global vkCmdBeginRenderingKHR/vkCmdEndRenderingKHR resolve through
+    // volk's global function-pointer table, populated only for symbols
+    // Granite itself calls -- device.get_device_table() gives the real,
+    // populated per-device table instead (same fix as the probe).
+    const auto& vk_table = dev.get_device_table();
+    vk_table.vkCmdBeginRendering(raw_cmd, &rendering_info);
+    if (draw_fn) draw_fn(user, (void*)raw_cmd);
+    vk_table.vkCmdEndRendering(raw_cmd);
+
+    cmd->image_barrier(swapchain_image,
+                        VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                        VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                        VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT);
+
+    dev.submit(cmd);
+    s.wsi->end_frame();
+    return true;
+}
+
 } // namespace md
 
 #else // !MD_USE_GRANITE -- empty TU, zero Granite dependency
@@ -159,6 +241,8 @@ bool GraniteBackend::Init(SDL_Window*) { return false; }
 void GraniteBackend::Shutdown() {}
 bool GraniteBackend::IsReady() const { return false; }
 void GraniteBackend::RenderEmptyFrame() {}
+GraniteVulkanHandles GraniteBackend::GetVulkanHandlesForImGui() const { return {}; }
+bool GraniteBackend::RenderFrameWithOverlay(GraniteOverlayDrawFn, void*) { return false; }
 } // namespace md
 
 #endif // MD_USE_GRANITE

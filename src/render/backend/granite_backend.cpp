@@ -107,10 +107,20 @@ void GraniteBackend::RenderHud() {
 }
 
 void GraniteBackend::RenderEditorOverlay() {
-    // Крок 3 (ImGui integration, docs/GRANITE_IRENDERBACKEND_INTEGRATION.md
-    // §2.3) -- the granite_m3_imgui_dynamic_rendering probe's
-    // VK_KHR_dynamic_rendering approach is proven but not yet wired here as
-    // permanent code, out of scope for Крок 2.
+    // RENDER-BACKEND-STAGE-6 (docs/GRANITE_IRENDERBACKEND_INTEGRATION.md
+    // §2.3): the registered callback (tools/editor/editor_granite_imgui_
+    // bridge.cpp) does its own ImGui::NewFrame()/content/ImGui::Render()
+    // and then calls md::GraniteBackend::Get().RenderFrameWithOverlay() --
+    // that call OWNS Granite's entire per-frame sequence itself (begin_frame
+    // through end_frame), unlike every other stage method here which draws
+    // into an already-active frame_params_.cmd. frame_params_ is passed
+    // through regardless so the callback can still read camera/viewport/etc
+    // if it ever needs to (not used by the current ImGui bridge).
+    if (editor_overlay_fn_) {
+        editor_overlay_fn_(editor_overlay_user_, frame_params_);
+    } else {
+        MD_LOG(MD_LOG_WARNING, "[GraniteBackend] RenderEditorOverlay: no callback registered");
+    }
 }
 
 }  // namespace md::render_backend
