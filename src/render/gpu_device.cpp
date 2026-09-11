@@ -132,7 +132,25 @@ void GpuDevice::BeginFrame() {
 }
 
 void GpuDevice::Submit(SDL_GPUCommandBuffer* cmd) {
-    if (prev_fence_) { SDL_ReleaseGPUFence(device_, prev_fence_); prev_fence_ = nullptr; }
+    // prev_fence_ is shared by every caller of Submit() (the main per-frame
+    // render path AND every utility subsystem -- texture upload/terrain
+    // streaming/SSBO upload -- that also submits through this same
+    // function). If one of those secondary Submit() calls lands after the
+    // primary frame's Submit() but before the next BeginFrame() (which is
+    // the only other prev_fence_ consumer and DOES wait first), prev_fence_
+    // is still set here and must be retired the same way BeginFrame() does
+    // it: wait, then release. Releasing without waiting (the previous
+    // version of this block) drops the last reference to a fence whose GPU
+    // work has NOT finished, returning a genuinely not-yet-signaled fence to
+    // SDL3's pool -- confirmed live as the root cause of the intermittent
+    // VUID-vkResetFences-pFences-01123 validation error (fence reused/reset
+    // while still associated with an incomplete queue submission), see
+    // docs/SDLGPU_FENCE_OBJECT_LEAK_BUG.md §9.
+    if (prev_fence_) {
+        SDL_WaitForGPUFences(device_, true, &prev_fence_, 1);
+        SDL_ReleaseGPUFence(device_, prev_fence_);
+        prev_fence_ = nullptr;
+    }
 
     if (sync_timing_) {
         // terrain-perf-measure (2026-08-12): serialize on THIS frame's fence
