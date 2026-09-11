@@ -1,6 +1,7 @@
 #ifdef MD_SDL_GPU
 #include <monkey_dust/render/gpu_device.h>
 #include <monkey_dust/render/gpu_frame_timeline.h>
+#include <monkey_dust/render/gpu_hal.h>  // MdPipeCache_Shutdown/MdSpvCache_Shutdown
 #include <monkey_dust/platform/md_log.h>
 #include <SDL3/SDL_gpu.h>
 #include <SDL3/SDL_timer.h>  // SDL_GetPerformanceCounter/Frequency -- sync-timing path
@@ -59,6 +60,15 @@ void GpuDevice::Shutdown() {
         // scenarios that quit quickly — never during normal interactive
         // use, which naturally gives every upload time to finish).
         SDL_WaitForGPUIdle(device_);
+        // MdPipeCache_Shutdown/MdSpvCache_Shutdown exist and are declared for
+        // exactly this purpose (splash_screen.cpp's own comment already
+        // assumed "whole cache is freed by MdPipeCache_Shutdown() at exit
+        // regardless") but were never actually wired in here -- confirmed via
+        // a live SDL_CreateGPU*/SDL_ReleaseGPU* call-count audit
+        // (docs/SDLGPU_FENCE_OBJECT_LEAK_BUG.md): 19 GraphicsPipeline created,
+        // 0 released, exactly matching this cache's live entry count.
+        MdPipeCache_Shutdown();
+        MdSpvCache_Shutdown();
         SDL_DestroyGPUDevice(device_);
         device_ = nullptr;
         window_ = nullptr;
