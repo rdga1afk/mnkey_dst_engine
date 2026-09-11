@@ -260,16 +260,39 @@ if(NOT TARGET SDL3::SDL3 AND NOT TARGET SDL3::SDL3-static)
     find_package(SDL3 REQUIRED CONFIG)
 endif()
 
-# RENDER-BACKEND-STAGE-4 (docs/RENDER_BACKEND_ABSTRACTION.md, §7.1): render
-# backend selection. Only SDLGPU is real and wired into game_init.cpp's
-# runtime backend creation -- the other 5 compile an empty stub class
-# (engine/include/monkey_dust/render/backend/stubs/, validated for real by
-# render_backend_stub_compile_check.cpp) implementing IRenderBackend, but
-# are not otherwise used (§9: real embedding is a separate future phase).
+# RENDER-BACKEND-STAGE-4 (docs/RENDER_BACKEND_ABSTRACTION.md, §7.1). Render
+# backend selection. SDLGPU is the real default, always wired into
+# npc_render_init.cpp's runtime backend creation. GODOT/FILAMENT/BGFX/
+# DILIGENT/OGRENEXT compile an empty stub class (engine/include/monkey_dust/
+# render/backend/stubs/, validated for real by render_backend_stub_compile_
+# check.cpp) implementing IRenderBackend, but are not otherwise used (§9:
+# real embedding is a separate future phase).
+#
+# GRANITE (docs/GRANITE_IRENDERBACKEND_INTEGRATION.md §2.4) is the one
+# exception with REAL runtime wiring at this stage, requires
+# USE_GRANITE=ON -DGRANITE_ROOT=<checkout> (root CMakeLists.txt) to do
+# anything -- MD_RENDER_BACKEND=GRANITE alone with USE_GRANITE=OFF falls
+# back to SDLGPU (npc_render_init.cpp checks both). When active:
+#   - game/ (npc_render_init.cpp): GraniteBackend constructed, but zero
+#     Set<Stage>PassCallback registered -- NPC/terrain/shadow draw calls
+#     are written against SDL_GPU directly, not ported to Granite's API
+#     (docs/GRANITE_IRENDERBACKEND_INTEGRATION.md §4 "ЩО НЕ РОБИТИ" --
+#     feature parity is a separate future phase). The game runs, shows
+#     only Granite's swapchain clear color, no crash -- deliberate, not
+#     a bug.
+#   - tools/editor: the editor's own ImGui UI chrome (toolbar/panels/menus)
+#     renders through GraniteBackend's RenderEditorOverlay() (tools/editor/
+#     editor_granite_imgui_bridge.cpp) instead of imgui_impl_sdlgpu3 -- this
+#     DOES show real content (ImGui doesn't care which backend submits its
+#     draw data). The 3D viewports (editor_world_3d_sdlgpu.cpp/editor_char_
+#     preview_runtime.cpp/editor_map_view*.cpp) keep their own SdlGpuBackend
+#     instances unconditionally (§5.4 "власний екземпляр") -- same
+#     not-yet-ported-content reasoning as the game, so they stay blank when
+#     GRANITE is selected.
 set(MD_RENDER_BACKEND "SDLGPU" CACHE STRING
-    "Render backend: SDLGPU, GODOT, FILAMENT, BGFX, DILIGENT, OGRENEXT")
+    "Render backend: SDLGPU, GRANITE, GODOT, FILAMENT, BGFX, DILIGENT, OGRENEXT")
 set_property(CACHE MD_RENDER_BACKEND PROPERTY STRINGS
-    SDLGPU GODOT FILAMENT BGFX DILIGENT OGRENEXT)
+    SDLGPU GRANITE GODOT FILAMENT BGFX DILIGENT OGRENEXT)
 target_compile_definitions(monkey_dust_engine PUBLIC MD_RENDER_BACKEND_${MD_RENDER_BACKEND})
 
 # SDL3 + SDL_GPU is the only REAL rendering backend (see MD_RENDER_BACKEND
