@@ -3,7 +3,7 @@ id: kb-engine-readme
 type: reference
 status: active
 date: 2026-05-14
-updated: 2026-09-10
+updated: 2026-09-12
 repo: engine
 tags: [engine, readme, sdl-gpu, rendering, ecs, public-repo]
 summary: "Public engine/ README: feature list (rendering/AI/ECS/physics/terrain/nav/audio/scripting), build, repo layout"
@@ -38,6 +38,7 @@ and **[Jolt Physics](https://github.com/jrouwe/JoltPhysics)**.
 | GPU skinning | AnimationSoA; SSBO skeletal bones (MAX\_BONES=64, Kenshi uses 30 of 64); compute dispatch |
 | Particles | ParticleSoA CPU-sim; SMOKE/SPARK/BLOOD types |
 | Material system | O3DE-inspired: JSON → `GpuPipeline::Desc`; **parent inheritance** (`"parent": "base_pbr"`); `shader_features` bitmask; `MaterialTypeRegistry` (MAX=32) |
+| `GpuDevice` thread-safety | `AcquireCommandBuffer`/`Submit`/`SubmitAndAcquireFence`/`BeginFrame` are `std::mutex`-guarded (2026-09-12) — safe to call from a background loader thread concurrently with the main render thread's per-frame submissions; also serializes the underlying Vulkan queue submission, which requires external synchronization regardless of this class's own bookkeeping |
 | Terrain geometry + shading | Flat fixed-depth tiling (`terrain_quadtree.vert/.frag`, plain GLSL — Slang removed 2026-07-26; geometry simplified 2026-09-04): `TerrainQuadtree::SelectVisible` walks a fixed depth (`kFlatLodDepth=3`) out to `kFlatMaxRenderDistance=3000 m` — no adaptive subdivision, no geomorph blend, no skirts, no stitched-IBO seam handling (removed after RMSE-verified pixel-identical output at 2.3–3.6× lower render cost than the old adaptive quadtree); one shared filled index buffer per node depth; ground shading matches original Kenshi (same material at all tiers, no POM/normal-mapping split), per-pixel dominant-weight selection (base/slope/cliff/grass/dirt/road) |
 
 ### AI — Behavior Tree VM
