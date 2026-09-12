@@ -69,10 +69,45 @@ public:
         auto hostileBA  = (gaia::ecs::Entity)gaia::ecs::Pair(hostileWith_, ea);
         auto friendlyAB = (gaia::ecs::Entity)gaia::ecs::Pair(friendlyWith_, eb);
         auto friendlyBA = (gaia::ecs::Entity)gaia::ecs::Pair(friendlyWith_, ea);
-        world_.del(ea, hostileAB);  world_.del(eb, hostileBA);
-        world_.del(ea, friendlyAB); world_.del(eb, friendlyBA);
-        if (s == AllianceStance::Hostile)  { world_.add(ea, hostileAB);  world_.add(eb, hostileBA); }
-        if (s == AllianceStance::Friendly) { world_.add(ea, friendlyAB); world_.add(eb, friendlyBA); }
+        // has() guard before del(): the very first SetStance() call ever made
+        // (from the constructor's own default-hostility setup, e.g.
+        // Player/Alien) targets pairs that have never been add()-ed yet --
+        // gaia's del() asserts the target is valid(), and a pair that was
+        // never materialized in this World's archetype graph doesn't count
+        // as valid for deletion purposes (confirmed live: 100% deterministic
+        // GAIA_ASSERT(m_world.valid(entity)) abort in gaia.h's
+        // EntityBuilder::del, gaia.h:67333, on every Debug-config CI run --
+        // silently no-op'd in Release only because GAIA_ASSERT compiles out
+        // under NDEBUG, not because the underlying call was actually safe).
+        if (world_.has(ea, hostileAB))   world_.del(ea, hostileAB);
+        if (world_.has(eb, hostileBA))   world_.del(eb, hostileBA);
+        if (world_.has(ea, friendlyAB))  world_.del(ea, friendlyAB);
+        if (world_.has(eb, friendlyBA))  world_.del(eb, friendlyBA);
+        // world_.add(Entity, Entity) does not exist -- gaia only overloads
+        // add(Entity, Pair), which validates the pair's two CONSTITUENT
+        // entities (both already-valid group_[]/relation-tag entities here),
+        // not any pre-existing pair-record. Passing the Entity-cast values
+        // above (hostileAB etc.) instead of a bare Pair still compiles
+        // (Entity has an implicit conversion), but silently resolves to a
+        // DIFFERENT, incompatible code path that asserts the pair was
+        // already add()-ed once before -- impossible on this function's
+        // very first-ever call (the constructor's own default-hostility
+        // setup). Confirmed live: 100% deterministic
+        // GAIA_ASSERT(m_world.valid(entity)) abort in EntityBuilder::add,
+        // gaia.h:67253, masked in Release only because GAIA_ASSERT compiles
+        // out under NDEBUG -- same class of overload-resolution trap the
+        // del() calls above hit (that one already fixed via a has() guard;
+        // this one needs the correct overload instead, since del(Entity,Pair)
+        // and del(Entity,Entity) share a safe has()-guardable contract but
+        // add(Entity,Entity) has no safe form at all -- it doesn't exist).
+        if (s == AllianceStance::Hostile) {
+            world_.add(ea, gaia::ecs::Pair(hostileWith_, eb));
+            world_.add(eb, gaia::ecs::Pair(hostileWith_, ea));
+        }
+        if (s == AllianceStance::Friendly) {
+            world_.add(ea, gaia::ecs::Pair(friendlyWith_, eb));
+            world_.add(eb, gaia::ecs::Pair(friendlyWith_, ea));
+        }
     }
 
     bool IsEnemy(AllianceGroup a, AllianceGroup b) const noexcept {
