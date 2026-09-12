@@ -151,13 +151,11 @@ void BTSystem::Tick(md::EngineContext& ctx, MdWorldRef& reg, uint32_t nowMs) {
     });
 }
 
-void BTSystem::OnComponentDestroy(gaia::ecs::Iter& it) {
-    auto btcs = it.view_mut<BehaviorTreeComponent>();
-    for (uint32_t r = 0; r < it.size(); ++r) {
-        BehaviorTreeComponent& btc = btcs[r];
-        if (btc.owning && btc.tree) {
-            delete btc.tree;
-            btc.tree = nullptr;
-        }
+void BTSystem::ReleaseOwnedTree(gaia::ecs::World& w, gaia::ecs::Entity e) {
+    if (!w.has<BehaviorTreeComponent>(e)) return;
+    auto& btc = w.mut<BehaviorTreeComponent>(e);
+    if (btc.owning && btc.tree != nullptr) {
+        delete btc.tree;
+        btc.tree = nullptr;
     }
 }

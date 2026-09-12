@@ -167,6 +167,39 @@ namespace md_registry_detail {
         return e.id() <= gaia::ecs::GAIA_ID_LastCoreComponent.id();
     }
 
+    // Pre-destroy hooks — BT-leak investigation (CLAUDE_STATE.md БОРГ entry).
+    //
+    // gaia::ecs::ObserverEvent::OnDel only fires when a component leaves a
+    // STILL-LIVING entity's archetype (a component-removal transition) --
+    // confirmed via standalone repro that it structurally never fires for
+    // whole-entity destruction (w.del(entity)), unlike flecs's equivalent.
+    // A real non-trivial C++ destructor on the component type was also
+    // tried and rejected: gaia's chunk shift/move helpers (gaia.h,
+    // shift_elements_left/right_aos, move_elements_aos) move-ASSIGN
+    // non-trivial types during chunk compaction/growth rather than
+    // construct+destroy, which a standalone stress repro (50 owning
+    // entities under storage churn) showed drops roughly half of the
+    // real frees and can double-free a copied component — worse than the
+    // leak it would fix.
+    //
+    // The only two call sites that ever destroy an MdRegistry-managed
+    // entity are MdRegistry::Destroy() and MdRegistry::Clear() below --
+    // both invoke every registered hook immediately before the entity is
+    // actually removed, so this is the one place guaranteed to fire for
+    // every destruction path (single-entity and bulk). Fixed-size table,
+    // no malloc (CLAUDE.md hot-path rule) -- registration happens a
+    // handful of times at startup (BTSystem::ConnectRegistry() etc.), not
+    // per-entity.
+    using PreDestroyHook = void(*)(gaia::ecs::World&, gaia::ecs::Entity);
+    inline constexpr size_t MAX_PRE_DESTROY_HOOKS = 8;
+    inline PreDestroyHook g_pre_destroy_hooks[MAX_PRE_DESTROY_HOOKS] = {};
+    inline size_t g_pre_destroy_hook_count = 0;
+
+    inline void RunPreDestroyHooks(gaia::ecs::World& w, gaia::ecs::Entity e) {
+        for (size_t i = 0; i < g_pre_destroy_hook_count; ++i)
+            g_pre_destroy_hooks[i](w, e);
+    }
+
     template<typename T> struct function_traits : function_traits<decltype(&T::operator())> {};
     template<typename C, typename R, typename... Args>
     struct function_traits<R(C::*)(Args...) const> { using args_tuple = std::tuple<Args...>; };
@@ -791,7 +824,30 @@ public:
         w.add<MdManagedTag>(e);
         return MdEntity(e);
     }
-    void Destroy(MdEntity e) { Handle(e).destruct(); }
+    // See md_registry_detail's pre-destroy-hook doc comment above --
+    // registers a callback invoked before an entity is actually removed
+    // by Destroy() or Clear(), the only two entity-destruction call
+    // sites in this facade. Idempotent by design: callers like
+    // BTSystem::ConnectRegistry() run from per-TEST_F SetUp() across a
+    // dozen+ fixtures in the same test binary, so the same function
+    // pointer would otherwise be registered dozens of times and blow
+    // through the fixed-size table.
+    static void RegisterPreDestroyHook(md_registry_detail::PreDestroyHook fn) {
+        for (size_t i = 0; i < md_registry_detail::g_pre_destroy_hook_count; ++i) {
+            if (md_registry_detail::g_pre_destroy_hooks[i] == fn) return;
+        }
+        if (md_registry_detail::g_pre_destroy_hook_count < md_registry_detail::MAX_PRE_DESTROY_HOOKS) {
+            md_registry_detail::g_pre_destroy_hooks[md_registry_detail::g_pre_destroy_hook_count++] = fn;
+        } else {
+            MD_LOG(MD_LOG_ERROR, "[MdRegistry] pre-destroy hook table full (MAX=%zu)",
+                   md_registry_detail::MAX_PRE_DESTROY_HOOKS);
+        }
+    }
+
+    void Destroy(MdEntity e) {
+        md_registry_detail::RunPreDestroyHooks(Raw(), e.Raw());
+        Handle(e).destruct();
+    }
     bool Valid(MdEntity e) const {
         return e != MdEntity::Null() && Raw().valid(e.Raw());
     }
@@ -856,7 +912,10 @@ public:
         auto& w = Raw();
         auto& cmdBuf = w.cmd_buffer_st();
         auto q = w.query().all<MdManagedTag>();
-        MdEach(q, [&](MdEntity e) { cmdBuf.del(e.Raw()); });
+        MdEach(q, [&](MdEntity e) {
+            md_registry_detail::RunPreDestroyHooks(w, e.Raw());
+            cmdBuf.del(e.Raw());
+        });
         cmdBuf.commit();
     }
 
