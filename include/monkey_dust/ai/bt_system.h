@@ -48,15 +48,20 @@ public:
 
     uint32_t frame_idx() const noexcept { return frame_idx_; }
 
-    // gaia's observer callback shape is Iter&-based (no direct
-    // (entity, T&) form the way flecs's .each() supports) -- see
-    // hierarchy_utils.cpp's port for the same pattern applied first.
-    static void OnComponentDestroy(gaia::ecs::Iter& it);
+    // BT-leak investigation (CLAUDE_STATE.md БОРГ entry): gaia's
+    // ObserverEvent::OnDel only fires for component-removal-from-a-
+    // living-entity (an archetype transition) -- confirmed via
+    // standalone repro that it structurally never fires for whole-entity
+    // destruction, so a previous version of this class registered an
+    // OnDel observer here that silently never ran. Nothing in this
+    // codebase removes just BehaviorTreeComponent from a live entity
+    // (checked), so that path was pure dead weight -- replaced with
+    // MdRegistry's generic pre-destroy hook (md_registry.h), which fires
+    // for every real destruction path (MdRegistry::Destroy()/Clear()).
+    static void ReleaseOwnedTree(gaia::ecs::World& w, gaia::ecs::Entity e);
 
-    static void ConnectRegistry(MdWorldRef& reg) {
-        reg.observer().event(gaia::ecs::ObserverEvent::OnDel)
-            .all<BehaviorTreeComponent&>()
-            .on_each(OnComponentDestroy);
+    static void ConnectRegistry(MdWorldRef& /*reg*/) {
+        MdRegistry::RegisterPreDestroyHook(&BTSystem::ReleaseOwnedTree);
     }
 
 private:
