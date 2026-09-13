@@ -59,8 +59,8 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
     rd.vert_uniform_bufs  = 0;
     rd.vert_samplers      = 0;
     rd.frag_uniform_bufs  = 2;  // set=3 binding=0 ProjFragUBO, binding=1 ProjCamUBO
-    rd.frag_samplers      = 10;  // set=2: tex_colour,tex_ground,tex_ground_baked,tex_overlay_mask,tex_ground_nml (task #12); gbufPacked,gbufDepth; terrain-vt Phase 4: vtIndirection,vtAtlas; zoneGroundLayersTex (texture, not SSBO, since 2026-08-09)
-    rd.frag_storage_bufs  = 1;  // set=2 binding=10: vtPageMeta (terrain-vt clipmap fix)
+    rd.frag_samplers      = 8;  // set=2: tex_colour,tex_ground,tex_ground_baked,tex_overlay_mask,tex_ground_nml (task #12); gbufPacked,gbufDepth; zoneGroundLayersTex (texture, not SSBO, since 2026-08-09). БОРГ-TERRAIN-2 (2026-09-13): was 10 -- vtIndirection/vtAtlas removed, dead VT cache-hit path never called
+    rd.frag_storage_bufs  = 0;  // БОРГ-TERRAIN-2 (2026-09-13): was 1 (vtPageMeta) -- removed with the rest of TerrainVtPageCache
     if (!resolve_pipeline_.Create(rd)) {
         MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] resolve pipeline create failed");
         return false;
@@ -132,30 +132,9 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
                                                    float cam_x, float cam_y, float cam_z,
                                                    float world_origin_x, float world_origin_z, float world_to_uv,
                                                    float fog_far, const float fog_color[3], float fog_near,
-                                                   const TerrainRenderer& ground, const TerrainVtPageCache& vt,
+                                                   const TerrainRenderer& ground,
                                                    bool shade_constant_debug) {
     if (!ready_) return;
-    // terrain-vt Phase 4: defensive -- the atlas/indirection textures must
-    // be valid, non-null objects to bind (SDL_GPU requires a real sampler
-    // binding, not an optional one).
-    //
-    // 2026-08-27 fix: this USED to check `!vt.IsReady()`, which bailed out
-    // of this entire function -- including the SDL_DrawGPUPrimitives call
-    // below that actually resolves terrain shading to the screen -- any
-    // time real VT caching was disabled (IsReady() reflects "actively
-    // caching pages", not "safe to bind"). Since VT is now permanently
-    // disabled (see TerrainVtPageCache::Init()'s own doc comment),
-    // IsReady() is permanently false, and terrain silently stopped
-    // rendering entirely (G-buffer fill still ran and cost real GPU time;
-    // this resolve pass, the thing that turns it into visible pixels,
-    // never did). Root-caused via git bisect + live screenshot
-    // classification. TerrainVtPageCache::InitDisabledFallback() now
-    // guarantees Atlas/IndirectionTexture()/PageMetaSSBO() are always
-    // valid 1x1/1-slot objects even when disabled, so a direct null check
-    // on what's actually bound below is both correct AND matches this
-    // comment's original intent (defensive null-safety, not a "VT active"
-    // gate).
-    if (!vt.AtlasTexture() || !vt.IndirectionTexture() || !vt.PageMetaSSBO()) return;
 
     GpuPassView pv = GpuPassView::FromRaw(rp, cmd);
     pv.BindPipeline(&resolve_pipeline_);
@@ -193,11 +172,9 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
         if (!ground_bindings[i].texture || !ground_bindings[i].sampler) return;
     }
     pv.BindFragmentSamplers(0, ground_bindings, 5);
-    // Single remaining SSBO (vtPageMeta) -- zoneGroundLayers moved to a
-    // texture (binding=9, bound below with the other samplers) since
-    // 2026-08-09, see ZoneGroundLayersTexture's header doc comment.
-    SDL_GPUBuffer* storage_bufs[1] = { vt.PageMetaSSBO() };
-    pv.BindFragmentStorageBuffers(0, storage_bufs, 1);
+    // No SSBO left in this set (БОРГ-TERRAIN-2, 2026-09-13: vtPageMeta
+    // removed with the rest of TerrainVtPageCache) -- zoneGroundLayers is
+    // a texture, not an SSBO, since 2026-08-09.
 
     // set=1: this class's own G-buffer (packed world-pos/normal + dedicated depth).
     SDL_GPUTextureSamplerBinding gbuf_bindings[2] = {
@@ -206,23 +183,15 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
     };
     pv.BindFragmentSamplers(5, gbuf_bindings, 2);
 
-    // terrain-vt Phase 4: indirection + physical atlas -- bindings 7/8,
-    // continuing the same contiguous sampler run (see terrain_shading_
-    // screenspace.frag's own doc comment on why the SSBO above must stay
-    // numbered AFTER every sampler in this set).
-    SDL_GPUTextureSamplerBinding vt_bindings[2] = {
-        { vt.IndirectionTexture(), vt.IndirectionSampler() },
-        { vt.AtlasTexture(),       vt.AtlasSampler() },
-    };
-    pv.BindFragmentSamplers(7, vt_bindings, 2);
-
-    // Zone ground-layer lookup -- binding=9, texture not SSBO since
-    // 2026-08-09 (Filament-blocker reduction, see ZoneGroundLayersTexture's
-    // header doc comment). Continues the same contiguous sampler run.
+    // Zone ground-layer lookup -- binding=7 (БОРГ-TERRAIN-2, 2026-09-13:
+    // was 9, shifted down 2 after removing vtIndirection/vtAtlas at 7/8),
+    // texture not SSBO since 2026-08-09 (Filament-blocker reduction, see
+    // ZoneGroundLayersTexture's header doc comment). Continues the same
+    // contiguous sampler run.
     SDL_GPUTextureSamplerBinding zone_binding[1] = {
         { ground.ZoneGroundLayersTexture(), ground.ZoneGroundLayersSampler() },
     };
-    pv.BindFragmentSamplers(9, zone_binding, 1);
+    pv.BindFragmentSamplers(7, zone_binding, 1);
 
     pv.Draw(3, 1, 0, 0);
 }

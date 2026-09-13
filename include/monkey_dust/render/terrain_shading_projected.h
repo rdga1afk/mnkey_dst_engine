@@ -2,7 +2,6 @@
 #ifdef MD_SDL_GPU
 #include <monkey_dust/render/gpu_hal.h>
 #include <monkey_dust/render/terrain_renderer.h>
-#include <monkey_dust/render/terrain_vt_page_cache.h>
 #include <SDL3/SDL_gpu.h>
 
 // TERRAIN_CA_REBUILD_PROMPT.md Phase 4 -- Variant A (screen-space decoupled
@@ -80,20 +79,20 @@ public:
     // mirrors TerrainPatchRenderer::DrawBatch exactly (minus vp16/
     // patch_size/hmap, which this pass has no vertex geometry to need) so
     // callers can swap between the two variants with the same data.
-    // terrain-vt Phase 4: `vt` supplies the indirection+atlas textures the
-    // fragment shader samples for a cache hit (see terrain_shading_
-    // screenspace.frag's VT_SampleAlbedo) -- caller must have already
-    // called vt.FlushFillQueue this frame (outside this render pass,
-    // before it opens) so any newly-filled pages are visible here.
     // shade_constant_debug: Крок 0 ablation (2026-08-23) -- true bypasses
     // TS_ComputeGroundAlbedo with a flat colour via world_params.w, a
     // single value for the whole draw (uniform branch, not per-pixel).
+    // БОРГ-TERRAIN-2 (2026-09-13): `vt` (TerrainVtPageCache) parameter
+    // removed -- the cache-hit sampling path it fed (VT_SampleAlbedo in
+    // terrain_shading_screenspace.frag) was never called from that
+    // shader's main() (VT caching has been permanently disabled since
+    // 2026-08-09), confirmed via grep before removal.
     void DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd,
                              const TerrainRenderer::SunParams& sun,
                              float cam_x, float cam_y, float cam_z,
                              float world_origin_x, float world_origin_z, float world_to_uv,
                              float fog_far, const float fog_color[3], float fog_near,
-                             const TerrainRenderer& ground, const TerrainVtPageCache& vt,
+                             const TerrainRenderer& ground,
                              bool shade_constant_debug = false);
 
 private:

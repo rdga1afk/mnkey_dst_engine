@@ -92,15 +92,11 @@ bool TerrainWorldHeightmap::Init(md::GpuDeviceHandle dev) {
     // "coarse" sample is a resample at a DIFFERENT WORLD POSITION on this
     // same LOD 0, not a different mip level. The one reader that COULD use
     // mip>0 (TerrainVtPageCache's page-fill compute, via TH_SampleHeightFrac's
-    // explicit lod param) is provably dead in every exercised path: the game
-    // never calls RequestPage/FlushFillQueue at all (VT cache disabled
-    // 2026-08-09, see scene_render.h's terrain_vt_cache doc comment), and
-    // the editor's only call site (tools/editor/editor_world_3d_sdlgpu.cpp's
-    // VtDebugFill(), reachable only via a manual Lua console command) hardcodes
-    // tier=0 (LOD 0) unconditionally. Full mip chain was previously
+    // explicit lod param) was provably dead in every exercised path (VT
+    // cache disabled 2026-08-09) and the class itself was deleted entirely
+    // in БОРГ-TERRAIN-2 (2026-09-13). Full mip chain was previously
     // floor(log2(N))+1 (14 levels for N=8193) -- ~44MB of never-sampled
-    // GPU memory. If VT paging is ever revived with tier>0, restore that
-    // formula here (this texture/sampler is the same one page-fill binds).
+    // GPU memory. If VT paging is ever revived, restore that formula here.
     const uint32_t kNumLevels = 1;
     GpuSamplerDesc tex_sdesc;
     tex_sdesc.min_filter = GpuSamplerDesc::Filter::LINEAR; // mipmap_mode moot with 1 level
