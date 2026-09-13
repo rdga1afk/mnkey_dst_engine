@@ -466,8 +466,7 @@ bash scripts/compile_shaders.sh</code></pre>
 │   ├── <span class="hl">pbr.frag · npc_instanced.frag</span>  <span class="note">ACES filmic tonemapping replaces Reinhard (IMP-1)</span>
 │   ├── <span class="hl">animated.vert · skinning.comp</span>  <span class="note">MAX_BONES=6 (FIX-6)</span>
 │   ├── <span class="note">cull.comp · shadow_cull.comp (#version 460, FIX-5) · shadow_csm.vert/frag</span>
-│   ├── <span class="note">deferred_point.vert/frag · deferred_strip.vert/frag</span>
-│   ├── <span class="note">ssao.comp · smaa_edge/blend/final.vert/frag</span>
+│   ├── <span class="note">deferred_lighting.vert/frag · ssao.comp</span>
 │   ├── <span class="note">tile_map.vert/frag · tile_map_2d.vert/frag · particle.vert/frag</span>
 │   └── <span class="dir">spirv/</span>                     <span class="note">*.spv — gitignored (compile_shaders.sh)</span>
 │
@@ -699,10 +698,8 @@ int prio = (layer.type == LT::FRINGE) ? 1 : (layer.type == LT::OBJECT) ? 2 : 0;
     <tr><td>cull.comp</td><td>Compute</td><td>Main frustum + distance cull</td></tr>
     <tr><td>shadow_cull.comp</td><td>Compute</td><td>Shadow frustum cull (#version 460, FIX-5)</td></tr>
     <tr><td>shadow_csm.vert/frag</td><td>Graphics</td><td>3-cascade CSM depth pass</td></tr>
-    <tr><td>deferred_point.vert/frag</td><td>Graphics</td><td>Point light icosphere volumes (M29)</td></tr>
-    <tr><td>deferred_strip.vert/frag</td><td>Graphics</td><td>Strip (capsule) lights AABB (M31)</td></tr>
+    <tr><td>deferred_lighting.vert/frag</td><td>Graphics</td><td>Fullscreen ambient+directional pass, reads GBuffer (M57)</td></tr>
     <tr><td>ssao.comp</td><td>Compute</td><td>SSAO half-res R8_UNORM 16-tap (M30)</td></tr>
-    <tr><td>smaa_edge/blend/final.vert/frag</td><td>Graphics</td><td>3-pass SMAA post-process (M32)</td></tr>
     <tr><td>tile_map.vert/frag</td><td>Graphics</td><td>Isometric tile map 3D (stride=36)</td></tr>
     <tr><td>tile_map_2d.vert/frag</td><td>Graphics</td><td>2D SDL_GPU tile map (4-atlas)</td></tr>
     <tr><td>particle.vert/frag</td><td>Graphics</td><td>Point sprite particles</td></tr>
@@ -737,19 +734,21 @@ int prio = (layer.type == LT::FRINGE) ? 1 : (layer.type == LT::OBJECT) ? 2 : 0;
   │    Flare billboards (BillboardRenderer)
   │    GpuProfiler::EndPass()
   │
-  ├── [Deferred lights] Point volumes → additive blend (SSBO 1+2 reused)
-  │
   ├── [SSAO] ssao.comp → half-res R8_UNORM
   │
-  └── [SMAA] 3-pass fullscreen: edge → blend weight → final blend</code></pre>
+  └── [Deferred Lighting] DeferredLightingSystem::DrawAmbientPass() -- fullscreen ambient+directional, reads GBuffer RT0/RT1</code></pre>
 
-  <h3>Deferred Lighting (M29–M31)</h3>
+  <h3>Deferred Lighting (M57)</h3>
+  <p><em>PointLightSystem (M29, icosphere volumes) and StripLightSystem
+  (M31, capsule SDF) were removed as dead code — a systematic pass over
+  the Granite <code>renderer/</code> reference confirmed no live call
+  sites. M57's <code>DeferredLightingSystem</code> replaced both with a
+  single fullscreen ambient+directional pass. SMAA (M32) was removed
+  entirely (task #623) — no antialiasing pass currently runs.</em></p>
   <table>
     <tr><th>Система</th><th>Геометрія</th><th>Шейдер</th></tr>
-    <tr><td>PointLightSystem</td><td>Icosphere 80 трикутників</td><td>deferred_point.vert/frag (additive)</td></tr>
-    <tr><td>StripLightSystem</td><td>AABB volume (capsule SDF)</td><td>deferred_strip.vert/frag (additive)</td></tr>
+    <tr><td>DeferredLightingSystem</td><td>Fullscreen triangle (no VBO)</td><td>deferred_lighting.vert/frag</td></tr>
     <tr><td>SSAOSystem</td><td>Half-res compute dispatch</td><td>ssao.comp (R8_UNORM, 16-tap rotated disk)</td></tr>
-    <tr><td>SMAASystem</td><td>3× fullscreen triangle</td><td>smaa_edge/blend/final.vert/frag</td></tr>
   </table>
 
   <h3>GPU Profiler (M41)</h3>
