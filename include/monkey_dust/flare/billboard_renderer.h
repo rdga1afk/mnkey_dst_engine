@@ -11,10 +11,10 @@
 namespace md::flare {
 
 struct BillboardInstance {
-    float    x, y, z;         // world center
-    float    width, height;
-    float    u0, v0, u1, v1;  // atlas UV rect [0,1]
-    uint8_t  r, g, b, a;      // tint color
+    float    x = 0.f, y = 0.f, z = 0.f;         // world center
+    float    width = 0.f, height = 0.f;
+    float    u0 = 0.f, v0 = 0.f, u1 = 0.f, v1 = 0.f;  // atlas UV rect [0,1]
+    uint8_t  r = 255, g = 255, b = 255, a = 255;      // tint color
     uint8_t  atlas_idx = 0;   // which atlas slot [0..MAX_ATLAS-1]
 };
 
@@ -103,7 +103,7 @@ private:
 
     MdTexture atlases_[MAX_ATLAS] = {};
 
-    BillboardInstance instances_[MAX_BILLBOARDS];
+    BillboardInstance instances_[MAX_BILLBOARDS] = {};
     int               count_ = 0;
 
     bool init_ = false;

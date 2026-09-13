@@ -113,19 +113,19 @@ struct FlowGraph {
     static constexpr int MAX_ACTIONS         = 16;   // registered action callbacks
     static constexpr int MAX_DURABLE_TRIGGERS= 16;   // C20: durable trigger pool
 
-    FlowNode             nodes  [MAX_NODES];
-    FlowConn             conns  [MAX_CONNS];
-    FlowVar              vars   [MAX_VARS];
-    FlowPendingTrigger   pending[MAX_PENDING];
-    float                params [MAX_PARAMS];
-    FlowDurableTrigger   durable[MAX_DURABLE_TRIGGERS]; // C20 pool
+    FlowNode             nodes  [MAX_NODES] = {};
+    FlowConn             conns  [MAX_CONNS] = {};
+    FlowVar              vars   [MAX_VARS] = {};
+    FlowPendingTrigger   pending[MAX_PENDING] = {};
+    float                params [MAX_PARAMS] = {};
+    FlowDurableTrigger   durable[MAX_DURABLE_TRIGGERS] = {}; // C20 pool
 
-    int node_count, conn_count, var_count, params_count;
-    int pending_head, pending_tail;  // ring buffer indices
+    int node_count = 0, conn_count = 0, var_count = 0, params_count = 0;
+    int pending_head = 0, pending_tail = 0;  // ring buffer indices
 
     struct ActionEntry { uint32_t node_id; FlowActionFunc func; };
-    ActionEntry actions[MAX_ACTIONS];
-    int         action_count;
+    ActionEntry actions[MAX_ACTIONS] = {};
+    int         action_count = 0;
 
     void Init();
 
@@ -199,6 +199,6 @@ private:
 
     // P17: alias table (zeroed by Init())
     static constexpr int MAX_ALIASES = 8;
-    FlowAlias aliases_    [MAX_ALIASES];
+    FlowAlias aliases_    [MAX_ALIASES] = {};
     int       alias_count_ = 0;
 };

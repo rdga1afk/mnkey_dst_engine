@@ -8,10 +8,10 @@
 // for the (also generic) file-format parser and lookup implementation.
 
 struct BiomeDef {
-    int  tex_base, tex_slope, tex_cliff;   // indices into BiomeRegistry's ground texture table
-    int  tex_grass, tex_dirt, tex_road;    // per-biome ground layer indices
-    float fog_r, fog_g, fog_b;
-    float sky_horizon_r, sky_horizon_g, sky_horizon_b;
+    int  tex_base = 0, tex_slope = 0, tex_cliff = 0;   // indices into BiomeRegistry's ground texture table
+    int  tex_grass = 0, tex_dirt = 0, tex_road = 0;    // per-biome ground layer indices
+    float fog_r = 0.f, fog_g = 0.f, fog_b = 0.f;
+    float sky_horizon_r = 0.f, sky_horizon_g = 0.f, sky_horizon_b = 0.f;
     // Real per-biome cliff UV tiling scale (Kenshi FCS "tiling X/Y 2",
     // confirmed against tmp_/kenshi_re/materials/deferred/terrainfp4.hlsl's
     // computeBiome() -- texCoords.yz/xz * scales0.zw). Multiplies the
@@ -123,11 +123,11 @@ private:
         uint8_t legend_rgb[3];
     };
 
-    BiomeEntry biomes_[MAX_BIOMES];
+    BiomeEntry biomes_[MAX_BIOMES] = {};
     int        biome_count_ = 0;
     BiomeDef   default_{};
 
-    char tex_paths_[MAX_TEXTURES][MAX_PATH_LEN];
-    char nml_paths_[MAX_TEXTURES][MAX_PATH_LEN];
+    char tex_paths_[MAX_TEXTURES][MAX_PATH_LEN] = {};
+    char nml_paths_[MAX_TEXTURES][MAX_PATH_LEN] = {};
     int  tex_count_ = 0;
 };

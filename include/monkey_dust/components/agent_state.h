@@ -441,7 +441,7 @@ static constexpr int MAX_BB_ENTRIES = 24;
 struct AgentBlackboard {
     GAIA_STORAGE(Sparse);
     int             bb_count = 0;
-    BlackboardEntry bb[MAX_BB_ENTRIES];
+    BlackboardEntry bb[MAX_BB_ENTRIES] = {};
     // CATHODE RE §7.8: NPC_Squad_GetAwarenessWatermark — peak awareness level seen
     // within a rolling time window; avoids re-querying if awareness hasn't changed.
     // Written by SenseSystem/Director when awareness rises; read by BT AwarenessCheck.
@@ -519,33 +519,33 @@ enum class CharacterClass : uint8_t {
 // area_sweep_type:  MD AreaSweepType — current search pattern for Search motivation.
 // Blackboard (bb): now in separate AgentBlackboard component (cold path).
 struct AgentState {
-    uint64_t            timers[MAX_AGENT_TIMERS];  // ms deadlines; 0 = inactive
+    uint64_t            timers[MAX_AGENT_TIMERS] = {};  // ms deadlines; 0 = inactive
     LogicCharacterFlags lcflags;                    // Pattern 4: 40-bit flag bitmask
-    uint64_t            frame_flags;               // C13: cleared each logic tick
-    uint32_t            entity_state;               // Pattern 8: EntityStateFlag OR
+    uint64_t            frame_flags = 0;            // C13: cleared each logic tick
+    uint32_t            entity_state = 0;            // Pattern 8: EntityStateFlag OR
     AgentGauges         gauges;                     // Pattern 6: retreat/stun gauges
-    MotivationType      motivation;                 // Pattern 1: active motivation
-    AwarenessState      awareness;                  // C15: cognitive threat awareness
-    AlertnessState      alertness;                  // C16: behavioural alertness level
-    NpcMood             mood;                       // C17: affective state / anim layer
-    WithdrawState       withdraw_state;             // C19: 3-stage retreat FSM
-    LocomotionState     locomotion_state;           // MD: anim/physics locomotion
-    LocomotionTargetSpeed target_speed;             // MD: nav speed profile
-    AreaSweepType       area_sweep_type;            // MD: search pattern for Search
-    NpcAggroLevel       aggro_level;                // deepseek: NPC_AGGRO_LEVEL escalation
-    NpcCombatState      combat_state;               // deepseek: combat phase sub-state
-    MoodIntensity       mood_intensity;             // deepseek: intensity of current mood
-    uint8_t             motivation_ticks;           // Batch 13 P13: consecutive ticks on current motivation
-    uint32_t            event_ts[MAX_EVENT_TYPES];   // Batch 4: ms when EventType[i] last fired; 0=never
-    SuspiciousItemReaction si_reaction;               // Batch 7: NPC reaction decision for SI
-    AmbushType             ambush_type;               // Batch 7: subtype of ambush approach
-    NoiseType              last_noise_type;           // Batch 7: most recent noise sub-type
-    uint8_t                alliance_group;            // Batch 15: AllianceGroup cast to uint8 (0=Player)
-    CharacterClass         character_class;           // Batch 17: entity archetype for ConditionIsCharacterClass
-    BehaviourMoodSet       behaviour_mood_set;        // Batch 18: MD threat-escalation composite state
-    ViewconeType           viewcone_type;             // Batch 18: shape of visual detection frustum
-    SensoryType            last_sensory_type;         // Batch 18: channel that last triggered sense activation
-    uint32_t               last_searched_ms;          // Batch 26: ms when entity last searched a position; 0=never
+    MotivationType      motivation = MotivationType::None;    // Pattern 1: active motivation
+    AwarenessState      awareness = AwarenessState::Unaware;  // C15: cognitive threat awareness (default patrol, NOT the 0 value which is Dead)
+    AlertnessState      alertness = AlertnessState::Relaxed;  // C16: behavioural alertness level
+    NpcMood             mood = NpcMood::Neutral;              // C17: affective state / anim layer
+    WithdrawState       withdraw_state = WithdrawState::NotWithdrawing;  // C19: 3-stage retreat FSM
+    LocomotionState     locomotion_state = LocomotionState::Walking;    // MD: anim/physics locomotion
+    LocomotionTargetSpeed target_speed = LocomotionTargetSpeed::Slowest;  // MD: nav speed profile
+    AreaSweepType       area_sweep_type = AreaSweepType::InAndOutBetweenTargetAndPosition;  // MD: search pattern for Search
+    NpcAggroLevel       aggro_level = NpcAggroLevel::None;    // deepseek: NPC_AGGRO_LEVEL escalation
+    NpcCombatState      combat_state = NpcCombatState::None;  // deepseek: combat phase sub-state
+    MoodIntensity       mood_intensity = MoodIntensity::Low;  // deepseek: intensity of current mood
+    uint8_t             motivation_ticks = 0;       // Batch 13 P13: consecutive ticks on current motivation
+    uint32_t            event_ts[MAX_EVENT_TYPES] = {};   // Batch 4: ms when EventType[i] last fired; 0=never
+    SuspiciousItemReaction si_reaction = SuspiciousItemReaction::Investigate;  // Batch 7: NPC reaction decision for SI
+    AmbushType             ambush_type = AmbushType::None;        // Batch 7: subtype of ambush approach
+    NoiseType              last_noise_type = NoiseType::None;     // Batch 7: most recent noise sub-type
+    uint8_t                alliance_group = 0;            // Batch 15: AllianceGroup cast to uint8 (0=Player)
+    CharacterClass         character_class = CharacterClass::Player;  // Batch 17: entity archetype for ConditionIsCharacterClass
+    BehaviourMoodSet       behaviour_mood_set = BehaviourMoodSet::Neutral;  // Batch 18: MD threat-escalation composite state
+    ViewconeType           viewcone_type = ViewconeType::Rectangle;        // Batch 18: shape of visual detection frustum
+    SensoryType            last_sensory_type = SensoryType::Visual;       // Batch 18: channel that last triggered sense activation
+    uint32_t               last_searched_ms = 0;          // Batch 26: ms when entity last searched a position; 0=never
     // ── Batch 33 fields ────────────────────────────────────────────────────────
     uint32_t               last_shot_at_ms   = 0;    // ms when this entity last took ranged damage; 0=never
     uint8_t                hp_pct            = 100;  // 0-100 HP ratio; game CombatSystem writes each tick

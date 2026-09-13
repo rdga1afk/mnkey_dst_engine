@@ -32,32 +32,32 @@ enum class ItemLimbSlot : uint8_t {
 };
 
 struct ItemDef {
-    uint32_t     id;
-    char         name[32];
-    float        weight;
-    float        value;          // trade cats
-    ItemType     item_type;
-    ItemLimbSlot limb_slot;
-    uint8_t      _pad[2];
+    uint32_t     id = 0;
+    char         name[32] = {};
+    float        weight = 0.f;
+    float        value = 0.f;          // trade cats
+    ItemType     item_type = ItemType::None;
+    ItemLimbSlot limb_slot = ItemLimbSlot::None;
+    uint8_t      _pad[2] = {};
     // Weapon
-    float cut_damage;
-    float blunt_damage;
-    float attack_speed;
-    float reach;
+    float cut_damage = 0.f;
+    float blunt_damage = 0.f;
+    float attack_speed = 0.f;
+    float reach = 0.f;
     // Armour
-    float cut_resist;
-    float blunt_resist;
-    float armour_grade;
+    float cut_resist = 0.f;
+    float blunt_resist = 0.f;
+    float armour_grade = 0.f;
     // A-1: per-limb coverage fraction [0..1]; index = limb (0=Head..5=RLeg).
     // Default 0.0 means "not defined" → treat as 1.0 (full coverage) at runtime.
-    float part_coverage[6];
+    float part_coverage[6] = {};
     // Food
-    float nutrition;
+    float nutrition = 0.f;
     // Prosthetic
-    float prosthetic_hp;
-    float prosthetic_grade;
-    bool  loaded;
-    uint8_t _pad2[3];
+    float prosthetic_hp = 0.f;
+    float prosthetic_grade = 0.f;
+    bool  loaded = false;
+    uint8_t _pad2[3] = {};
     // Kenshi RE: stackable bonus (kenshi_x64.exe.c +0x88/+0x8c)
     // bonus = max(stackable_bonus_min, stack_count * stackable_bonus_mult)
     int16_t stackable_bonus_min  = 0;    // minimum bonus regardless of stack size
