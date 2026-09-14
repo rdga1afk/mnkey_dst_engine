@@ -68,21 +68,27 @@ void ComponentReflect::Dump(const void* ptr, const ComponentDesc& d) {
         const FieldDesc& f = d.fields[i];
         const uint8_t*   p = (const uint8_t*)ptr + f.offset;
         fprintf(stdout, "  %-20s = ", f.name);
+        // memcpy, not a reinterpret cast through `p` -- debug-only path
+        // (called rarely, never per-frame), so the copy is free; avoids
+        // cppcheck's real dangerousTypeCast/invalidPointerCast concern
+        // (strict-aliasing UB reading a float/int through a uint8_t*)
+        // for zero behavior change.
         switch (f.type) {
-        case FieldType::F32:   fprintf(stdout, "%.4f",   *(const float*)p);    break;
-        case FieldType::I32:   fprintf(stdout, "%d",     *(const int32_t*)p);  break;
-        case FieldType::U32:   fprintf(stdout, "%u",     *(const uint32_t*)p); break;
+        case FieldType::F32:   { float v;    memcpy(&v, p, sizeof(v)); fprintf(stdout, "%.4f", v); break; }
+        case FieldType::I32:   { int32_t v;  memcpy(&v, p, sizeof(v)); fprintf(stdout, "%d",   v); break; }
+        case FieldType::U32:   { uint32_t v; memcpy(&v, p, sizeof(v)); fprintf(stdout, "%u",   v); break; }
         case FieldType::U8:    fprintf(stdout, "%u",     (unsigned)*p);        break;
-        case FieldType::U16:   fprintf(stdout, "%u",     *(const uint16_t*)p); break;
-        case FieldType::U64:   fprintf(stdout, "%llu",   (unsigned long long)*(const uint64_t*)p); break;
+        case FieldType::U16:   { uint16_t v; memcpy(&v, p, sizeof(v)); fprintf(stdout, "%u",   v); break; }
+        case FieldType::U64:   { uint64_t v; memcpy(&v, p, sizeof(v)); fprintf(stdout, "%llu", (unsigned long long)v); break; }
         case FieldType::Bool:  fprintf(stdout, "%s",     *p ? "true" : "false"); break;
         case FieldType::Vec3: {
-            const float* v = (const float*)p;
+            float v[3];
+            memcpy(v, p, sizeof(v));
             fprintf(stdout, "(%.3f, %.3f, %.3f)", v[0], v[1], v[2]);
             break;
         }
         case FieldType::Enum8:  fprintf(stdout, "%u (enum)",  (unsigned)*p); break;
-        case FieldType::Enum32: fprintf(stdout, "%u (enum)",  *(const uint32_t*)p); break;
+        case FieldType::Enum32: { uint32_t v; memcpy(&v, p, sizeof(v)); fprintf(stdout, "%u (enum)", v); break; }
         default: fprintf(stdout, "?"); break;
         }
         fprintf(stdout, "\n");
