@@ -5,7 +5,8 @@
 // - If GLB is missing / null, DrawRaw is a no-op.
 
 #include <monkey_dust/render/prop_mesh.h>
-#include <monkey_dust/render/gpu_hal.h>
+#include <monkey_dust/render/gpu_pipeline.h>
+#include <monkey_dust/render/gpu_sampler_texture.h>
 #include <cstdint>
 
 #ifdef MD_SDL_GPU

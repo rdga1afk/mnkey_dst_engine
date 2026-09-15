@@ -1,8 +1,7 @@
 #pragma once
 #ifdef MD_SDL_GPU
 #include <SDL3/SDL_gpu.h>
-#include <monkey_dust/render/gpu_hal.h>
-
+#include <monkey_dust/render/gpu_pipeline.h>
 // ── GBuffer ───────────────────────────────────────────────────────────────────
 // Compact 2-RT deferred G-Buffer (8 bytes/pixel at 720p = 7.4 MB).
 //

@@ -1,4 +1,5 @@
 #include <monkey_dust/render/particle_renderer.h>
+#include <monkey_dust/render/gpu_pass_view.h>
 
 
 void ParticleRenderer::Init() {

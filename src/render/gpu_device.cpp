@@ -1,7 +1,8 @@
 #ifdef MD_SDL_GPU
 #include <monkey_dust/render/gpu_device.h>
 #include <monkey_dust/render/gpu_frame_timeline.h>
-#include <monkey_dust/render/gpu_hal.h>  // MdPipeCache_Shutdown/MdSpvCache_Shutdown
+#include <monkey_dust/render/gpu_sampler_texture.h>
+#include <monkey_dust/render/gpu_hal_free_functions.h>
 #include <monkey_dust/platform/md_log.h>
 #include <SDL3/SDL_gpu.h>
 #include <SDL3/SDL_timer.h>  // SDL_GetPerformanceCounter/Frequency -- sync-timing path

@@ -1,4 +1,5 @@
 #include "gpu_hal_buffers_internal.h"
+#include <monkey_dust/render/gpu_hal_free_functions.h>
 
 // Single-texture DDS loader (2D, not array) — see gpu_hal.h's InitFromDDS
 // doc comment. Supports two pixelformats: uncompressed DDPF_RGB 32bpp

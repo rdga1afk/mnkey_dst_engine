@@ -3,7 +3,8 @@
 // Clamps frag_samplers and vert_storage_bufs to RdDevice::Caps() before creation.
 // Logs a warning for each clamped resource count.
 #ifdef MD_SDL_GPU
-#include <monkey_dust/render/gpu_hal.h>
+#include <monkey_dust/render/gpu_hal_types.h>
+#include <monkey_dust/render/gpu_pipeline.h>
 #include <SDL3/SDL_gpu.h>
 
 namespace md {

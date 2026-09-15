@@ -1,8 +1,8 @@
 #pragma once
 #ifdef MD_SDL_GPU
 #include <SDL3/SDL_gpu.h>
-#include <monkey_dust/render/gpu_hal.h>
-
+#include <monkey_dust/render/gpu_pipeline.h>
+#include <monkey_dust/render/gpu_sampler_texture.h>
 // ── MotionBlurSystem (VBfA-R8) ────────────────────────────────────────────────
 // 2-pass screen-space motion blur.
 //   Pass 1 (PrepPass)  — reconstruct world pos from depth, reproject with

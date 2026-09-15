@@ -2,8 +2,8 @@
 #ifdef MD_SDL_GPU
 #include <SDL3/SDL_gpu.h>
 #include <monkey_dust/render/gbuffer.h>
-#include <monkey_dust/render/gpu_hal.h>
-
+#include <monkey_dust/render/gpu_pipeline.h>
+#include <monkey_dust/render/gpu_sampler_texture.h>
 // ── DeferredLightingSystem (M57) ──────────────────────────────────────────────
 // Ambient + directional lighting pass for the deferred pipeline.
 // Draws a fullscreen triangle (no VBO) reading GBuffer RT0/RT1.

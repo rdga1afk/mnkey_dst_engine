@@ -1,8 +1,8 @@
 #pragma once
 #ifdef MD_SDL_GPU
 #include <SDL3/SDL_gpu.h>
-#include <monkey_dust/render/gpu_hal.h>
-
+#include <monkey_dust/render/gpu_device.h>
+#include <monkey_dust/render/gpu_sampler_texture.h>
 // Granite-style terrain migration, Phase 1 (plan at
 // /home/rdga1/.claude/plans/serene-pondering-teapot.md): ONE static,
 // always-resident GPU texture covering the WHOLE Kenshi world's height

@@ -15,8 +15,7 @@
 // Backed by AssetCache (ARCHITECTURE_IDEAS.md #2) — this class now only
 // holds the two GpuTexture* it looked up there; the actual load/dedup/
 // refcount logic lives in the general cache, not here.
-#include <monkey_dust/render/gpu_hal.h>
-
+#include <monkey_dust/render/gpu_sampler_texture.h>
 class PropTexShared {
 public:
     static PropTexShared& Get();

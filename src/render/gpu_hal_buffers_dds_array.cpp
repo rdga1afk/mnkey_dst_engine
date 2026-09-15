@@ -1,4 +1,5 @@
 #include "gpu_hal_buffers_internal.h"
+#include <monkey_dust/render/gpu_hal_free_functions.h>
 
 // Per-mip BC-compressed byte size (4×4 texel blocks) — declared in
 // gpu_hal_buffers_internal.h, shared with gpu_hal_buffers_dds.cpp's

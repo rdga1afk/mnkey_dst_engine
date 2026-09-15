@@ -3,7 +3,7 @@
 #include <monkey_dust/render/md_texture.h>
 
 #ifdef MD_SDL_GPU
-#include <monkey_dust/render/gpu_hal.h>
+#include <monkey_dust/render/gpu_pipeline.h>
 #include <SDL3/SDL_gpu.h>
 #endif
 

@@ -1,4 +1,7 @@
-#include <monkey_dust/render/gpu_hal.h>
+#include <monkey_dust/render/gpu_pipeline.h>
+#include <monkey_dust/render/gpu_compute.h>
+#include <monkey_dust/render/gpu_static_buffer.h>
+#include <monkey_dust/render/gpu_pass_view.h>
 #include <monkey_dust/platform/md_log.h>
 #include <cstdlib>
 #include <cstdio>

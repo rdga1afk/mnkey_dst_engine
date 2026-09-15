@@ -1,8 +1,9 @@
 #pragma once
 #ifdef MD_SDL_GPU
 #include <SDL3/SDL_gpu.h>
-#include <monkey_dust/render/gpu_hal.h>
-
+#include <monkey_dust/render/gpu_pipeline.h>
+#include <monkey_dust/render/gpu_sampler_texture.h>
+#include <monkey_dust/render/gpu_pass_view.h>
 // ── BloomSystem (VBfA-R4) ─────────────────────────────────────────────────────
 // HDR Bloom: 4×4 downsample with luma threshold + Gaussian5×5 separable blur.
 //

@@ -2,7 +2,8 @@
 #ifdef MD_SDL_GPU
 #include <monkey_dust/render/rd_device.h>
 #include <monkey_dust/render/gpu_device.h>
-#include <monkey_dust/render/gpu_hal.h>
+#include <monkey_dust/render/gpu_copy_pass.h>
+#include <monkey_dust/render/gpu_hal_free_functions.h>
 #include <cstdio>
 #include <cstring>
 #include "stb_image.h"

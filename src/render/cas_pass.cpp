@@ -1,7 +1,8 @@
 #include <monkey_dust/render/cas_pass.h>
 #ifdef MD_SDL_GPU
 #include <monkey_dust/render/gpu_device.h>
-#include <monkey_dust/render/gpu_hal.h>
+#include <monkey_dust/render/gpu_pipeline.h>
+#include <monkey_dust/render/gpu_hal_free_functions.h>
 #include <cstdio>
 
 namespace md {

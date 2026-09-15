@@ -1,5 +1,6 @@
 #include <monkey_dust/render/vegetation_renderer.h>
 #include <monkey_dust/render/light_system.h>
+#include <monkey_dust/render/gpu_pass_view.h>
 #include <cstring>
 
 bool VegetationRenderer::Init(const char* mesh_path) {

@@ -1,6 +1,7 @@
 // PropRenderer — per-instance rock prop draw (up to MAX_PROPS per frame, no malloc).
 #include <monkey_dust/render/prop_renderer.h>
 #include <monkey_dust/render/prop_tex_shared.h>
+#include <monkey_dust/render/gpu_pass_view.h>
 #include <cstring>
 #include <cstdio>
 

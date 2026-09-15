@@ -1,6 +1,9 @@
 #ifdef MD_SDL_GPU
 #include <monkey_dust/render/motion_blur.h>
-#include <monkey_dust/render/gpu_hal.h>
+#include <monkey_dust/render/gpu_pipeline.h>
+#include <monkey_dust/render/gpu_sampler_texture.h>
+#include <monkey_dust/render/gpu_pass_view.h>
+#include <monkey_dust/render/gpu_hal_free_functions.h>
 #include <monkey_dust/platform/md_log.h>
 #include <monkey_dust/platform/md_fs.h>
 #include <cstring>

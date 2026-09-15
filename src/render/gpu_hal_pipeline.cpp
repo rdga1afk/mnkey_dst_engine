@@ -1,4 +1,8 @@
-#include <monkey_dust/render/gpu_hal.h>
+#include <monkey_dust/render/gpu_hal_types.h>
+#include <monkey_dust/render/gpu_pipeline.h>
+#include <monkey_dust/render/gpu_compute.h>
+#include <monkey_dust/render/gpu_depth_texture.h>
+#include <monkey_dust/render/gpu_hal_free_functions.h>
 #include <monkey_dust/render/gpu_resource_tracker.h>
 #include <monkey_dust/platform/md_log.h>
 #include <cstdlib>

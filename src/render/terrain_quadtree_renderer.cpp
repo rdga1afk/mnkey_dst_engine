@@ -1,4 +1,7 @@
 #include <monkey_dust/render/terrain_quadtree_renderer.h>
+#include <monkey_dust/render/gpu_copy_pass.h>
+#include <monkey_dust/render/gpu_pass_view.h>
+#include <monkey_dust/render/gpu_hal_free_functions.h>
 #ifdef MD_SDL_GPU
 #include <monkey_dust/platform/md_log.h>
 #include <monkey_dust/world/terrain_quadtree_mesh.h>

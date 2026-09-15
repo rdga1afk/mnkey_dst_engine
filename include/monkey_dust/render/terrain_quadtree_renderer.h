@@ -1,7 +1,9 @@
 #pragma once
 #ifdef MD_SDL_GPU
 #include <SDL3/SDL_gpu.h>
-#include <monkey_dust/render/gpu_hal.h>
+#include <monkey_dust/render/gpu_hal_types.h>
+#include <monkey_dust/render/gpu_pipeline.h>
+#include <monkey_dust/render/gpu_static_buffer.h>
 #include <monkey_dust/render/terrain_world_heightmap.h>
 #include <monkey_dust/render/terrain_renderer.h>
 #include <monkey_dust/world/terrain_quadtree.h>

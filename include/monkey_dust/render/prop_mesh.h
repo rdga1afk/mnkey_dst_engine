@@ -3,7 +3,7 @@
 // Vertex layout: PropVertex { float x,y,z, nx,ny,nz, u,v, layer; } — stride=36 bytes.
 // Index format: uint16_t if vertex count <= 65535, else uint32_t.
 // Usage: Init once; Draw* calls reference vbo/ibo; Shutdown on exit.
-#include <monkey_dust/render/gpu_hal.h>
+#include <monkey_dust/render/gpu_static_buffer.h>
 #include <cstdint>
 
 struct PropVertex {

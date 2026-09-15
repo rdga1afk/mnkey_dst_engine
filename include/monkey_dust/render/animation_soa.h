@@ -1,7 +1,6 @@
 #pragma once
 #include <monkey_dust/platform/md_hints.h>
 #include <monkey_dust/render/ssbo.h>
-#include <monkey_dust/render/gpu_hal.h>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>

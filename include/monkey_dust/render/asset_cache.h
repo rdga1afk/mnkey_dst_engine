@@ -8,8 +8,7 @@
 //
 // Fixed array (MAX_ENTRIES), no std::map — matches project convention;
 // loads only happen at init time, never per-frame.
-#include <monkey_dust/render/gpu_hal.h>
-
+#include <monkey_dust/render/gpu_sampler_texture.h>
 class AssetCache {
 public:
     static AssetCache& Get();

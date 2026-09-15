@@ -1,7 +1,7 @@
 #pragma once
 #include <monkey_dust/platform/math_types.h>
 #include <monkey_dust/render/ssbo.h>
-#include <monkey_dust/render/gpu_hal.h>
+#include <monkey_dust/render/gpu_compute.h>
 #include <monkey_dust/render/md_camera.h>
 #include <monkey_dust/render/md_shader.h>
 #include <monkey_dust/render/md_mesh.h>

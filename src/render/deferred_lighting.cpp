@@ -3,7 +3,8 @@
 #include <monkey_dust/render/evsm_shadow.h>
 #include <monkey_dust/render/shadow_system.h>
 #include <monkey_dust/render/render_tier.h>
-#include <monkey_dust/render/gpu_hal.h>
+#include <monkey_dust/render/gpu_pipeline.h>
+#include <monkey_dust/render/gpu_sampler_texture.h>
 #include <monkey_dust/render/gpu_device.h>
 #include <monkey_dust/platform/md_log.h>
 #include <cstring>

@@ -26,8 +26,8 @@
 
 #ifdef MD_SDL_GPU
 #include <SDL3/SDL_gpu.h>
-#include <monkey_dust/render/gpu_hal.h>
-
+#include <monkey_dust/render/gpu_pipeline.h>
+#include <monkey_dust/render/gpu_depth_texture.h>
 namespace md {
 
 class EvsmShadow {

@@ -1,6 +1,6 @@
 #pragma once
 #include <monkey_dust/render/md_camera.h>
-#include <monkey_dust/render/gpu_hal.h>
+#include <monkey_dust/render/gpu_device.h>
 #include <monkey_dust/ecs/md_entity.h>
 
 // RENDER-BACKEND-STAGE-0 (docs/RENDER_BACKEND_ABSTRACTION.md, §3.2).

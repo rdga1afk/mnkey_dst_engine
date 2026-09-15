@@ -31,8 +31,8 @@ MdTexture MdLoadTexturePixelArt(const char* path);
 MdTexture MdLoadTextureFromMemory(const uint8_t* data, int w, int h);
 
 #ifdef MD_SDL_GPU
-#include <monkey_dust/render/gpu_hal.h>
-
+#include <monkey_dust/render/gpu_device.h>
+#include <monkey_dust/render/gpu_sampler_texture.h>
 // 2026-09-05 (simplification audit, dead-duplicate finding): upload a
 // square RGBA8 pixel buffer directly into a caller-owned GpuColorTexture
 // (not MdTexture -- callers that already keep a GpuColorTexture member,

@@ -1,4 +1,5 @@
 #include "gpu_hal_buffers_internal.h"
+#include <monkey_dust/render/gpu_hal_free_functions.h>
 
 // ── GpuStaticBuffer ───────────────────────────────────────────────────────────
 

@@ -1,5 +1,6 @@
 #pragma once
-#include <monkey_dust/render/gpu_hal.h>
+#include <monkey_dust/render/gpu_hal_types.h>
+#include <monkey_dust/render/gpu_pipeline.h>
 #include <cstdint>
 #include <cstring>
 

@@ -18,7 +18,7 @@
 #  include <cstdio>
 #ifdef MD_SDL_GPU
 #  include <monkey_dust/render/gpu_device.h>
-#  include <monkey_dust/render/gpu_hal.h>
+#  include <monkey_dust/render/gpu_hal_free_functions.h>
 #endif
 
    // Compat no-ops for Raylib calls that may still appear in non-migrated game code.

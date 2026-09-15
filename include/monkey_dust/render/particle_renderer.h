@@ -1,6 +1,6 @@
 #pragma once
 #include <monkey_dust/render/particle_soa.h>
-#include <monkey_dust/render/gpu_hal.h>
+#include <monkey_dust/render/gpu_pipeline.h>
 #include <monkey_dust/platform/math_types.h>
 
 

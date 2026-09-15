@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #ifdef MD_SDL_GPU
-#include <monkey_dust/render/gpu_hal.h>
+#include <monkey_dust/render/gpu_pipeline.h>
 #include <SDL3/SDL_gpu.h>
 #endif
 

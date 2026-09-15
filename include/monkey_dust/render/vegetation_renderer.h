@@ -6,7 +6,7 @@
 // SpeedTree lighting method 0: vertex-precomputed ambient+diffuse, no per-pixel wind.
 
 #include <monkey_dust/render/prop_renderer.h>
-#include <monkey_dust/render/gpu_hal.h>
+#include <monkey_dust/render/gpu_pipeline.h>
 #include <monkey_dust/render/ssbo.h>
 
 class VegetationRenderer {

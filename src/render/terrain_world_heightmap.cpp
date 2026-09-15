@@ -1,6 +1,9 @@
 #include <monkey_dust/render/terrain_world_heightmap.h>
 #ifdef MD_SDL_GPU
-#include <monkey_dust/render/gpu_hal.h>
+#include <monkey_dust/render/gpu_compute.h>
+#include <monkey_dust/render/gpu_copy_pass.h>
+#include <monkey_dust/render/gpu_sampler_texture.h>
+#include <monkey_dust/render/gpu_hal_free_functions.h>
 #include <monkey_dust/render/gpu_device.h>
 #include <monkey_dust/world/terrain_gen.h>
 #include <monkey_dust/world/chunk_def.h>

@@ -3,7 +3,7 @@
 // Vertex stride = 44: pos(12) + norm(12) + joints_u8x4(4) + weights_f4(16).
 // Animation clips are stored CPU-side; GetFinalBones() produces mat4[MAX_SKIN_BONES].
 
-#include <monkey_dust/render/gpu_hal.h>
+#include <monkey_dust/render/gpu_static_buffer.h>
 #include <cstdint>
 #include <cstring>
 #include <cmath>

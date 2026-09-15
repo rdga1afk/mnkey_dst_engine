@@ -1,4 +1,5 @@
 #include "gpu_hal_buffers_internal.h"
+#include <monkey_dust/render/gpu_hal_free_functions.h>
 
 #ifdef MD_SDL_GPU
 bool GpuTexture::InitRenderTarget(int w, int h, const GpuSamplerDesc& s, SDL_GPUTextureFormat format) {

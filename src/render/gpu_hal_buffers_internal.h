@@ -8,7 +8,10 @@
 // fragment can still call them, mirroring the pattern used for
 // LogicTickJobCtx's cross-TU declarations in game/src/logic_tick_internal.h.
 
-#include <monkey_dust/render/gpu_hal.h>
+#include <monkey_dust/render/gpu_pipeline.h>
+#include <monkey_dust/render/gpu_depth_texture.h>
+#include <monkey_dust/render/gpu_sampler_texture.h>
+#include <monkey_dust/render/gpu_static_buffer.h>
 #include <monkey_dust/render/gpu_resource_tracker.h>
 #include <monkey_dust/platform/md_log.h>
 #include <monkey_dust/platform/md_fs.h>

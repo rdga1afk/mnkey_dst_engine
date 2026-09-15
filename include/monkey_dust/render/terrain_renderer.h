@@ -1,5 +1,5 @@
 #pragma once
-#include <monkey_dust/render/gpu_hal.h>
+#include <monkey_dust/render/gpu_sampler_texture.h>
 #include <monkey_dust/world/terrain_chunk.h>
 
 // TerrainRenderer — shared ground-texturing RESOURCE MANAGER for

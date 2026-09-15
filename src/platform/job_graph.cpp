@@ -1,7 +1,6 @@
 #include <monkey_dust/platform/job_graph.h>
 #include <monkey_dust/platform/job_system.h>
 #include <monkey_dust/platform/md_log.h>
-#include <monkey_dust/ecs/md_registry.h>
 #include <cstring>
 
 namespace md {

@@ -1,6 +1,9 @@
 #pragma once
 #ifdef MD_SDL_GPU
-#include <monkey_dust/render/gpu_hal.h>
+#include <monkey_dust/render/gpu_pipeline.h>
+#include <monkey_dust/render/gpu_depth_texture.h>
+#include <monkey_dust/render/gpu_sampler_texture.h>
+#include <monkey_dust/render/gpu_pass_view.h>
 #include <monkey_dust/render/terrain_renderer.h>
 #include <SDL3/SDL_gpu.h>
 

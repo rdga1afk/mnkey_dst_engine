@@ -2,7 +2,11 @@
 #include <monkey_dust/render/bloom_system.h>
 #include <monkey_dust/render/render_tier.h>
 #include <monkey_dust/render/gpu_device.h>
-#include <monkey_dust/render/gpu_hal.h>
+#include <monkey_dust/render/gpu_hal_types.h>
+#include <monkey_dust/render/gpu_pipeline.h>
+#include <monkey_dust/render/gpu_sampler_texture.h>
+#include <monkey_dust/render/gpu_pass_view.h>
+#include <monkey_dust/render/gpu_hal_free_functions.h>
 #include <monkey_dust/platform/md_log.h>
 #include <cstring>
 

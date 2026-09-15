@@ -1,6 +1,6 @@
 #pragma once
 #include <cstdint>
-#include <monkey_dust/render/gpu_hal.h>
+#include <monkey_dust/render/gpu_static_buffer.h>
 #include <monkey_dust/nav/navmesh.h>
 #include <monkey_dust/world/chunk_def.h>
 

@@ -1,7 +1,8 @@
 #include <monkey_dust/render/evsm_shadow.h>
 #ifdef MD_SDL_GPU
 #include <monkey_dust/render/gpu_device.h>
-#include <monkey_dust/render/gpu_hal.h>
+#include <monkey_dust/render/gpu_pipeline.h>
+#include <monkey_dust/render/gpu_hal_free_functions.h>
 #include <monkey_dust/platform/md_fs.h>
 #include <cstdio>
 
