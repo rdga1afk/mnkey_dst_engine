@@ -3,6 +3,11 @@
 #include <monkey_dust/render/md_camera.h>
 #include <monkey_dust/render/md_texture.h>
 
+// Painter's-algorithm sort scratch entry -- fully defined at file scope in
+// tile_map_renderer.cpp (not exposed to other TUs). Forward-declared here
+// only so TileMapRenderer's private helpers can take pointers to it.
+struct VisibleTile;
+
 namespace md::flare {
 
 // Maximum tile instances submitted per Render() call.
@@ -87,6 +92,15 @@ public:
 
 private:
     TileMapRenderer() = default;
+
+    // Render() split (Phase 5, 2026-09-15): PASS 1+2 (collect+sort) and
+    // PASS 3 (UV/Y-extent instance-data build) factored out of the dirty-
+    // rebuild block. vbuf/ibuf/n are the same scratch state Render() always
+    // used locally -- passed by pointer/reference here, no new persistent
+    // state, same per-call scratch lifetime.
+    void CollectAndSortVisibleTiles(const FlareMap& map, VisibleTile* vbuf, int& n) const;
+    void BuildInstanceData(const FlareMap& map, const VisibleTile* vbuf, int n,
+                            float now_s, float tile_world_size, uint8_t* ibuf) const;
 
     uint32_t vao_      = 0;
     uint32_t quad_vbo_ = 0;

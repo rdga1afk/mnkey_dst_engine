@@ -7,6 +7,11 @@
 #include <SDL3/SDL_gpu.h>
 #endif
 
+// Collect+sort key for one screen tile -- fully defined at file scope in
+// tile_map_2d_renderer.cpp (not exposed to other TUs). Forward-declared
+// here only so TileMap2DRenderer's private helpers can take pointers to it.
+struct Tile2D;
+
 namespace md::flare {
 
 // Pixel-perfect 2D Flare renderer for md_flare_demo.
@@ -126,6 +131,29 @@ private:
                       float origin_x, float origin_y, float scale,
                       int vp_w, int vp_h, uint8_t layer_mask,
                       md::GpuCommandBufferHandle cmd, md::GpuTextureHandle swap_tex);
+
+    // RenderSDLGPU split (Phase 5, 2026-09-15): each phase of the frame
+    // building pipeline factored into its own helper. tiles/over_tiles/
+    // fade_tiles/n/n_over/n_fade/scratch/ni are the same scratch state
+    // RenderSDLGPU always used locally -- passed by pointer/reference here
+    // instead of being member state, to keep the split behavior-identical
+    // (no new persistent state, same per-call scratch lifetime).
+    static void CollectAndSortTiles2D(const FlareMap& map, uint8_t layer_mask,
+                                       int object_layer_idx,
+                                       int player_tile_col, int player_tile_row,
+                                       Tile2D* tiles, Tile2D* over_tiles, Tile2D* fade_tiles,
+                                       int& n, int& n_over, int& n_fade);
+    void BuildMainTileVertices2D(const FlareMap& map, float now_s,
+                                  float origin_x, float origin_y, float scale,
+                                  const Tile2D* tiles, int n,
+                                  uint8_t* scratch, int& ni) const;
+    void BuildNpcOverlayVertices2D(float origin_x, float origin_y, float scale,
+                                    uint8_t* scratch, int& ni) const;
+    // Shared by the FL-3 overhead batch and the FL-2 fade batch -- identical
+    // per-tile vertex math, only the source array/count differs.
+    void BuildTileBatchVertices2D(const FlareMap& map, float origin_x, float origin_y, float scale,
+                                   const Tile2D* batch, int count,
+                                   uint8_t* scratch, int& ni) const;
 #endif // MD_SDL_GPU
 
     static constexpr int MAX_ATLAS  = 4;

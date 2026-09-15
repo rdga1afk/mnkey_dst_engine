@@ -1,4 +1,5 @@
 #pragma once
+#include <monkey_dust/render/gpu_device.h>
 #include <monkey_dust/render/gpu_sampler_texture.h>
 #include <monkey_dust/world/terrain_chunk.h>
 

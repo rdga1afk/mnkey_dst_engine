@@ -157,17 +157,12 @@ void TileMapRenderer::SetAtlas(const char* png_path) {
         fprintf(stderr, "[TileMap] failed to load atlas: %s\n", png_path);
 }
 
-void TileMapRenderer::Render(const FlareMap& map, const MdCamera& cam,
-                              float aspect, float tile_world_size, float ortho_size, float now_s)
-{
-    if (!init_ || !prog_) return;
-    if (atlas_count_ == 0) {
-        static bool w = false;
-        if (!w) { MD_LOG(MD_LOG_WARNING, "[TileMap] Render() called with no atlases"); w = true; }
-        return;
-    }
-    if (map.layer_count == 0 || map.width <= 0 || map.height <= 0) return;
-
+// PASS 1: collect layers into vbuf, PASS 2: sort back-to-front (ascending
+// col+row = painter's order). layer_prio encodes render order within the
+// same (col+row) depth bucket: 0=BACKGROUND (ground), 1=FRINGE (ground-level
+// overlays), 2=OBJECT (tall). depth = (col+row)*3 + layer_prio ensures
+// bg < fringe < object at equal depth.
+void TileMapRenderer::CollectAndSortVisibleTiles(const FlareMap& map, VisibleTile* vbuf, int& n) const {
     // Pick background layer (first BACKGROUND, else layer 0).
     const TileMapLayer* bg = nullptr;
     for (int i = 0; i < map.layer_count; ++i)
@@ -179,7 +174,9 @@ void TileMapRenderer::Render(const FlareMap& map, const MdCamera& cam,
     for (int i = 0; i < map.tileset_count; ++i)
         if (map.tilesets[i].firstgid > 0) { txt_fmt = false; break; }
 
-    // Visual tileset for grid-based UV fallback (atlas[0] only).
+    // Visual tileset for grid-based UV fallback (atlas[0] only) -- only
+    // vis_max is needed here (local_idx bounds check); the rest of the
+    // visual-tileset grid math is BuildInstanceData's concern.
     int vis_ts_idx = (txt_fmt && map.tileset_count > 1) ? 1 : 0;
     if (!txt_fmt) {
         for (int i = 0; i < map.tileset_count; ++i)
@@ -187,36 +184,13 @@ void TileMapRenderer::Render(const FlareMap& map, const MdCamera& cam,
     }
     const TileSet& vis  = map.tilesets[vis_ts_idx];
     const MdTexture& a0 = atlases_[0];
-
     int vis_cols = vis.columns > 0 ? vis.columns :
                    (a0.w > 0 && vis.tile_w > 0) ? a0.w / vis.tile_w : 16;
     if (vis_cols < 1) vis_cols = 1;
-    float iaw = (a0.w > 0 && vis.tile_w > 0) ? (float)vis.tile_w / a0.w : 1.0f / vis_cols;
-    float iah = (a0.h > 0 && vis.tile_h > 0) ? (float)vis.tile_h / a0.h : iaw;
-    float ground_iah = (a0.h > 0 && map.tile_h > 0) ? (float)map.tile_h / (float)a0.h : iah;
     int vis_rows = (a0.h > 0 && vis.tile_h > 0) ? a0.h / vis.tile_h : 8;
     int vis_max  = vis_cols * vis_rows;
 
-    static VisibleTile vbuf[MAX_VISIBLE_TILES];
-    static uint8_t     ibuf[MAX_VISIBLE_TILES * TINST_STRIDE];
-    static int     n_cached   = 0;
-    static float   last_now_s = -1.0f;
-
-    if (last_map_ != &map) { dirty_ = true; last_map_ = &map; }
-
-    bool has_anims    = (map.meta.anim_count > 0);
-    bool anim_changed = has_anims && (now_s != last_now_s);
-    int  n            = n_cached;
-
-    if (dirty_ || anim_changed) {
     n = 0;
-    dirty_     = false;
-    last_now_s = now_s;
-
-    // PASS 1: collect layers into vbuf.
-    // layer_prio encodes render order within the same (col+row) depth bucket:
-    //   0 = BACKGROUND (ground), 1 = FRINGE (ground-level overlays), 2 = OBJECT (tall)
-    // depth = (col+row)*3 + layer_prio ensures bg < fringe < object at equal depth.
     auto CollectLayer = [&](const TileMapLayer& layer, int layer_prio) {
         for (int row = 0; row < map.height && row < MAX_MAP_HEIGHT && n < MAX_VISIBLE_TILES; ++row) {
             for (int col = 0; col < map.width && col < MAX_MAP_WIDTH && n < MAX_VISIBLE_TILES; ++col) {
@@ -267,22 +241,44 @@ void TileMapRenderer::Render(const FlareMap& map, const MdCamera& cam,
         if (map.layers[i].type == LayerType::OBJECT)
             CollectLayer(map.layers[i], 2);
 
-    // PASS 2: sort back-to-front (ascending col+row = painter's order).
     qsort(vbuf, (size_t)n, sizeof(VisibleTile), VisibleTileCmp);
+}
 
-    // PASS 3: compute UV and world Y extents for every tile into ibuf.
-    //
-    // UV CONVENTION (stbi flip active — see tile_map.h):
-    //   Flat:      v0 = 1-(src_y/H)      [north/top],   v1 = 1-((src_y+h)/H) [south/bottom]
-    //   Billboard: v0 = 1-((src_y+h)/H)  [base/anchor], v1 = 1-(src_y/H)     [tip/crown]
-    //
-    // BILLBOARD CLASSIFICATION (M7.24):
-    //   is_billboard = (TileMeta::offset_y > TileMeta::h / 2)
-    //   Anchor in lower half → billboard. Upper half (offset_y ≤ h/2) → flat XZ diamond.
-    //
-    // Y EXTENTS for billboards (96 atlas-px = 1 world unit):
-    //   y_top = offset_y / 96 * tsz           (tip, above ground)
-    //   y_bot = -(h - offset_y) / 96 * tsz    (root, clipped below ground by depth test)
+// PASS 3: compute UV and world Y extents for every tile into ibuf.
+//
+// UV CONVENTION (stbi flip active — see tile_map.h):
+//   Flat:      v0 = 1-(src_y/H)      [north/top],   v1 = 1-((src_y+h)/H) [south/bottom]
+//   Billboard: v0 = 1-((src_y+h)/H)  [base/anchor], v1 = 1-(src_y/H)     [tip/crown]
+//
+// BILLBOARD CLASSIFICATION (M7.24):
+//   is_billboard = (TileMeta::offset_y > TileMeta::h / 2)
+//   Anchor in lower half → billboard. Upper half (offset_y ≤ h/2) → flat XZ diamond.
+//
+// Y EXTENTS for billboards (96 atlas-px = 1 world unit):
+//   y_top = offset_y / 96 * tsz           (tip, above ground)
+//   y_bot = -(h - offset_y) / 96 * tsz    (root, clipped below ground by depth test)
+void TileMapRenderer::BuildInstanceData(const FlareMap& map, const VisibleTile* vbuf, int n,
+                                         float now_s, float tile_world_size, uint8_t* ibuf) const {
+    // Visual tileset grid params for the no-metadata fallback branch below
+    // (recomputed here rather than threaded from CollectAndSortVisibleTiles --
+    // cheap, and keeps the two passes independently callable/testable).
+    bool txt_fmt = true;
+    for (int i = 0; i < map.tileset_count; ++i)
+        if (map.tilesets[i].firstgid > 0) { txt_fmt = false; break; }
+    int vis_ts_idx = (txt_fmt && map.tileset_count > 1) ? 1 : 0;
+    if (!txt_fmt) {
+        for (int i = 0; i < map.tileset_count; ++i)
+            if (map.tilesets[i].firstgid >= 2) { vis_ts_idx = i; break; }
+    }
+    const TileSet& vis  = map.tilesets[vis_ts_idx];
+    const MdTexture& a0 = atlases_[0];
+    int vis_cols = vis.columns > 0 ? vis.columns :
+                   (a0.w > 0 && vis.tile_w > 0) ? a0.w / vis.tile_w : 16;
+    if (vis_cols < 1) vis_cols = 1;
+    float iaw = (a0.w > 0 && vis.tile_w > 0) ? (float)vis.tile_w / a0.w : 1.0f / vis_cols;
+    float iah = (a0.h > 0 && vis.tile_h > 0) ? (float)vis.tile_h / a0.h : iaw;
+    float ground_iah = (a0.h > 0 && map.tile_h > 0) ? (float)map.tile_h / (float)a0.h : iah;
+
     for (int i = 0; i < n; ++i) {
         const VisibleTile& vt = vbuf[i];
         float u0, v0, u1, v1;
@@ -370,9 +366,38 @@ void TileMapRenderer::Render(const FlareMap& map, const MdCamera& cam,
         memcpy(p + TINST_OFF_YTOP,     &y_top, 4);
         memcpy(p + TINST_OFF_XOFF,     &x_off, 4);
     }
+}
 
-    n_cached = n;
-    } // end rebuild block
+void TileMapRenderer::Render(const FlareMap& map, const MdCamera& cam,
+                              float aspect, float tile_world_size, float ortho_size, float now_s)
+{
+    if (!init_ || !prog_) return;
+    if (atlas_count_ == 0) {
+        static bool w = false;
+        if (!w) { MD_LOG(MD_LOG_WARNING, "[TileMap] Render() called with no atlases"); w = true; }
+        return;
+    }
+    if (map.layer_count == 0 || map.width <= 0 || map.height <= 0) return;
+
+    static VisibleTile vbuf[MAX_VISIBLE_TILES];
+    static uint8_t     ibuf[MAX_VISIBLE_TILES * TINST_STRIDE];
+    static int     n_cached   = 0;
+    static float   last_now_s = -1.0f;
+
+    if (last_map_ != &map) { dirty_ = true; last_map_ = &map; }
+
+    bool has_anims    = (map.meta.anim_count > 0);
+    bool anim_changed = has_anims && (now_s != last_now_s);
+    int  n            = n_cached;
+
+    if (dirty_ || anim_changed) {
+        n = 0;
+        dirty_     = false;
+        last_now_s = now_s;
+        CollectAndSortVisibleTiles(map, vbuf, n);
+        BuildInstanceData(map, vbuf, n, now_s, tile_world_size, ibuf);
+        n_cached = n;
+    }
 
     if (n == 0) return;
 

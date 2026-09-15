@@ -51,6 +51,39 @@ static int LayerPrio2D(md::flare::LayerType t) {
     }
 }
 
+#ifdef MD_SDL_GPU
+// Corners for 2 CCW triangles (TRIANGLE_LIST). Shared by every SDL_GPU
+// vertex-packing call site below (hoisted from RenderSDLGPU, Phase 5 split).
+static const float CORNERS[6][2] = {
+    {0.f,0.f}, {1.f,0.f}, {1.f,1.f},
+    {0.f,0.f}, {1.f,1.f}, {0.f,1.f}
+};
+
+// Pack one screen-space quad (6 verts × `stride` bytes) into scratch at
+// slot `ni`. Identical inner loop previously duplicated at 4 call sites in
+// RenderSDLGPU (main tiles, NPC overlay, overhead batch, fade batch).
+// `stride` is always TileMap2DRenderer::STRIDE_SDL -- passed explicitly
+// since this is a free function and STRIDE_SDL is private.
+static void PackTileQuad2D(uint8_t* scratch, int ni, int stride,
+                            float x_tl, float y_tl, float sw, float sh,
+                            float u0, float v0, float u1, float v1, float ai) {
+    for (int vi = 0; vi < 6; ++vi) {
+        float* v = (float*)(scratch + ((size_t)ni * 6 + (size_t)vi) * (size_t)stride);
+        v[0]  = CORNERS[vi][0];
+        v[1]  = CORNERS[vi][1];
+        v[2]  = x_tl;
+        v[3]  = y_tl;
+        v[4]  = sw;
+        v[5]  = sh;
+        v[6]  = u0;
+        v[7]  = v0;
+        v[8]  = u1;
+        v[9]  = v1;
+        v[10] = ai;
+    }
+}
+#endif // MD_SDL_GPU
+
 namespace md::flare {
 
 TileMap2DRenderer& TileMap2DRenderer::Get() {
@@ -422,21 +455,20 @@ int TileMap2DRenderer::GetAtlasCount() const { return atlas_count_; }
 // ── RenderSDLGPU ──────────────────────────────────────────────────────────────
 
 #ifdef MD_SDL_GPU
-void TileMap2DRenderer::RenderSDLGPU(const FlareMap& map, float now_s,
-                                      float origin_x, float origin_y, float scale,
-                                      int vp_w, int vp_h, uint8_t layer_mask,
-                                      md::GpuCommandBufferHandle cmd, md::GpuTextureHandle swap_tex)
+
+// Collect + sort tiles (SDL_GPU path owns its own scratch to avoid aliasing
+// with the static tiles[] in the GL path when both are compiled).
+// FL-2+FL-3: collect tiles into up to 3 groups:
+//   tiles[]      — main batch (back layers + fringe/object when no split)
+//   over_tiles[] — FL-3 overhead layers (rendered last, above entities)
+//   fade_tiles[] — FL-2 OBJECT tiles at player position (transparent, top)
+void TileMap2DRenderer::CollectAndSortTiles2D(
+        const FlareMap& map, uint8_t layer_mask,
+        int object_layer_idx, int player_tile_col, int player_tile_row,
+        Tile2D* tiles, Tile2D* over_tiles, Tile2D* fade_tiles,
+        int& n, int& n_over, int& n_fade)
 {
-    // Collect + sort tiles (SDL_GPU path owns its own scratch to avoid aliasing
-    // with the static tiles[] in the GL path when both are compiled).
-    // FL-2+FL-3: collect tiles into up to 3 groups:
-    //   tiles[]      — main batch (back layers + fringe/object when no split)
-    //   over_tiles[] — FL-3 overhead layers (rendered last, above entities)
-    //   fade_tiles[] — FL-2 OBJECT tiles at player position (transparent, top)
-    static Tile2D tiles     [MAX_TILES];
-    static Tile2D over_tiles[MAX_TILES];
-    static Tile2D fade_tiles[8];
-    int n = 0, n_over = 0, n_fade = 0;
+    n = n_over = n_fade = 0;
     for (int li = 0; li < map.layer_count && n < MAX_TILES; ++li) {
         if (!(layer_mask & (1u << li))) continue;
         const TileMapLayer& layer = map.layers[li];
@@ -445,14 +477,14 @@ void TileMap2DRenderer::RenderSDLGPU(const FlareMap& map, float now_s,
         if (layer.type != LT::BACKGROUND && layer.type != LT::FRINGE && layer.type != LT::OBJECT) continue;
         int prio = LayerPrio2D(layer.type);
         // FL-3: layers above object_layer_idx → overhead batch (phase 4)
-        const bool is_overhead = (object_layer_idx_ >= 0 && li > object_layer_idx_);
+        const bool is_overhead = (object_layer_idx >= 0 && li > object_layer_idx);
         for (int row = 0; row < map.height && n < MAX_TILES; ++row) {
             for (int col = 0; col < map.width && n < MAX_TILES; ++col) {
                 int tid = layer.tiles[row * MAX_MAP_WIDTH + col];
                 if (tid == 0 || !map.meta.Find(tid)) continue;
                 // FL-2: OBJECT tiles at player position → separate fade batch
                 if (layer.type == LT::OBJECT &&
-                    col == player_tile_col_ && row == player_tile_row_ &&
+                    col == player_tile_col && row == player_tile_row &&
                     n_fade < 8) {
                     fade_tiles[n_fade++] = { col, row, tid, prio, Tile2DPrio(col, row, prio) };
                 } else if (is_overhead && n_over < MAX_TILES) {
@@ -467,17 +499,15 @@ void TileMap2DRenderer::RenderSDLGPU(const FlareMap& map, float now_s,
     qsort(tiles,      (size_t)n,      sizeof(Tile2D), Tile2DCmp);
     qsort(over_tiles, (size_t)n_over, sizeof(Tile2D), Tile2DCmp);
     qsort(fade_tiles, (size_t)n_fade, sizeof(Tile2D), Tile2DCmp);
+}
 
-    // Corners for 2 CCW triangles (TRIANGLE_LIST).
-    static const float CORNERS[6][2] = {
-        {0.f,0.f}, {1.f,0.f}, {1.f,1.f},
-        {0.f,0.f}, {1.f,1.f}, {0.f,1.f}
-    };
-
-    // Build flat vertex buffer: 6 verts × STRIDE_SDL bytes per tile.
-    static uint8_t scratch[MAX_TILES * 6 * STRIDE_SDL];
-    int ni = 0;
-
+// Main tile batch: per-tile animation-frame lookup, then pack into scratch.
+void TileMap2DRenderer::BuildMainTileVertices2D(
+        const FlareMap& map, float now_s,
+        float origin_x, float origin_y, float scale,
+        const Tile2D* tiles, int n,
+        uint8_t* scratch, int& ni) const
+{
     for (int i = 0; i < n && ni < MAX_TILES; ++i) {
         const Tile2D& t    = tiles[i];
         const TileMeta* tm = map.meta.Find(t.tid);
@@ -515,79 +545,73 @@ void TileMap2DRenderer::RenderSDLGPU(const FlareMap& map, float now_s,
         float v1 = 1.0f - (float)(sy + tm->h) / (float)atl.h;
         float ai = (float)aidx;
 
-        for (int vi = 0; vi < 6; ++vi) {
-            float* v = (float*)(scratch + ((size_t)ni * 6 + (size_t)vi) * (size_t)STRIDE_SDL);
-            v[0]  = CORNERS[vi][0];  // a_corner.x
-            v[1]  = CORNERS[vi][1];  // a_corner.y
-            v[2]  = x_tl;           // a_screen_tl.x
-            v[3]  = y_tl;           // a_screen_tl.y
-            v[4]  = sw;             // a_screen_size.x
-            v[5]  = sh;             // a_screen_size.y
-            v[6]  = u0;             // a_uv_rect.x
-            v[7]  = v0;             // a_uv_rect.y
-            v[8]  = u1;             // a_uv_rect.z
-            v[9]  = v1;             // a_uv_rect.w
-            v[10] = ai;             // a_atlas_idx
-        }
+        PackTileQuad2D(scratch, ni, STRIDE_SDL, x_tl, y_tl, sw, sh, u0, v0, u1, v1, ai);
         ++ni;
     }
+}
 
-    // ── NPC overlay: animated goblin sprite or fallback white dot ────────────
-    if (npc_dot_count_ > 0 && ni < MAX_TILES) {
-        bool use_sprite = (npc_atlas_slot_ >= 0) && npc_sprite_tex_.sdl_tex;
-        float ai_sprite = (float)npc_atlas_slot_;
-        float ai_dot    = (float)atlas_count_;  // dummy white
+// NPC overlay: animated goblin sprite or fallback white dot.
+void TileMap2DRenderer::BuildNpcOverlayVertices2D(
+        float origin_x, float origin_y, float scale,
+        uint8_t* scratch, int& ni) const
+{
+    if (npc_dot_count_ <= 0 || ni >= MAX_TILES) return;
 
-        // Pre-compute animation frame indices from now_s.
-        // Run: 8 frames over 533ms. Stance: 4 frames ping-pong over 800ms.
-        float ms = npc_now_s_ * 1000.f;
-        int run_fi   = (int)(fmodf(ms, 533.f) / (533.f / 8.f)) & 7;
-        int stance_f = (int)(fmodf(ms, 800.f) / (800.f / 4.f));
-        if (stance_f > 3) stance_f = 3;
+    bool use_sprite = (npc_atlas_slot_ >= 0) && npc_sprite_tex_.sdl_tex;
+    float ai_sprite = (float)npc_atlas_slot_;
+    float ai_dot    = (float)atlas_count_;  // dummy white
 
-        for (int di = 0; di < npc_dot_count_ && ni < MAX_TILES; ++di) {
-            float col = npc_dot_x_[di], row = npc_dot_z_[di];
-            float ax  = (float)((col - row) * (float)TILE_W_HALF) * scale + origin_x;
-            float ay  = (float)((col + row) * (float)TILE_H_HALF) * scale + origin_y;
+    // Pre-compute animation frame indices from now_s.
+    // Run: 8 frames over 533ms. Stance: 4 frames ping-pong over 800ms.
+    float ms = npc_now_s_ * 1000.f;
+    int run_fi   = (int)(fmodf(ms, 533.f) / (533.f / 8.f)) & 7;
+    int stance_f = (int)(fmodf(ms, 800.f) / (800.f / 4.f));
+    if (stance_f > 3) stance_f = 3;
 
-            float x_tl, y_tl, sw, sh, u0, v0, u1, v1, ai;
+    for (int di = 0; di < npc_dot_count_ && ni < MAX_TILES; ++di) {
+        float col = npc_dot_x_[di], row = npc_dot_z_[di];
+        float ax  = (float)((col - row) * (float)TILE_W_HALF) * scale + origin_x;
+        float ay  = (float)((col + row) * (float)TILE_H_HALF) * scale + origin_y;
 
-            if (use_sprite) {
-                int dir = GoblinDir(npc_rot_y_[di]);
-                const GobFrame& f = npc_moving_[di]
-                                    ? RUN[run_fi][dir]
-                                    : STANCE[stance_f][dir];
-                sw   = (float)f.w * scale;
-                sh   = (float)f.h * scale;
-                x_tl = roundf(ax - (float)f.ox * scale);
-                y_tl = roundf(ay - (float)f.oy * scale);
-                u0   = (float)f.x / (float)NPC_SHEET_W;
-                u1   = (float)(f.x + f.w) / (float)NPC_SHEET_W;
-                v0   = 1.f - (float)f.y / (float)NPC_SHEET_H;
-                v1   = 1.f - (float)(f.y + f.h) / (float)NPC_SHEET_H;
-                ai   = ai_sprite;
-            } else {
-                float dpx = 10.f;
-                sw = sh = dpx;
-                x_tl = ax + (float)TILE_W_HALF * scale * 0.5f - dpx * 0.5f;
-                y_tl = ay + (float)TILE_H_HALF * scale * 0.5f - dpx * 0.5f;
-                u0 = 0.f; v0 = 0.f; u1 = 1.f; v1 = 1.f;
-                ai = ai_dot;
-            }
+        float x_tl, y_tl, sw, sh, u0, v0, u1, v1, ai;
 
-            for (int vi = 0; vi < 6; ++vi) {
-                float* v = (float*)(scratch + ((size_t)ni * 6 + (size_t)vi) * (size_t)STRIDE_SDL);
-                v[0]=CORNERS[vi][0]; v[1]=CORNERS[vi][1];
-                v[2]=x_tl; v[3]=y_tl; v[4]=sw; v[5]=sh;
-                v[6]=u0; v[7]=v0; v[8]=u1; v[9]=v1; v[10]=ai;
-            }
-            ++ni;
+        if (use_sprite) {
+            int dir = GoblinDir(npc_rot_y_[di]);
+            const GobFrame& f = npc_moving_[di]
+                                ? RUN[run_fi][dir]
+                                : STANCE[stance_f][dir];
+            sw   = (float)f.w * scale;
+            sh   = (float)f.h * scale;
+            x_tl = roundf(ax - (float)f.ox * scale);
+            y_tl = roundf(ay - (float)f.oy * scale);
+            u0   = (float)f.x / (float)NPC_SHEET_W;
+            u1   = (float)(f.x + f.w) / (float)NPC_SHEET_W;
+            v0   = 1.f - (float)f.y / (float)NPC_SHEET_H;
+            v1   = 1.f - (float)(f.y + f.h) / (float)NPC_SHEET_H;
+            ai   = ai_sprite;
+        } else {
+            float dpx = 10.f;
+            sw = sh = dpx;
+            x_tl = ax + (float)TILE_W_HALF * scale * 0.5f - dpx * 0.5f;
+            y_tl = ay + (float)TILE_H_HALF * scale * 0.5f - dpx * 0.5f;
+            u0 = 0.f; v0 = 0.f; u1 = 1.f; v1 = 1.f;
+            ai = ai_dot;
         }
-    }
 
-    // FL-3: append overhead tiles AFTER main tiles + NPC dots (phase 4 — above entities).
-    for (int fi = 0; fi < n_over && ni < MAX_TILES; ++fi) {
-        const Tile2D& t    = over_tiles[fi];
+        PackTileQuad2D(scratch, ni, STRIDE_SDL, x_tl, y_tl, sw, sh, u0, v0, u1, v1, ai);
+        ++ni;
+    }
+}
+
+// Shared by the FL-3 overhead batch and the FL-2 fade batch (identical
+// per-tile vertex math previously duplicated at both call sites).
+void TileMap2DRenderer::BuildTileBatchVertices2D(
+        const FlareMap& map, float origin_x, float origin_y, float scale,
+        const Tile2D* batch, int count,
+        uint8_t* scratch, int& ni) const
+{
+    for (int fi = 0; fi < count && ni < MAX_TILES; ++fi) {
+        const Tile2D& t    = batch[fi];
         const TileMeta* tm = map.meta.Find(t.tid);
         if (!tm) continue;
         const MdTexture& atl = atlases_[tm->atlas_idx < (uint8_t)atlas_count_ ? tm->atlas_idx : 0];
@@ -602,44 +626,35 @@ void TileMap2DRenderer::RenderSDLGPU(const FlareMap& map, float now_s,
         float v0 = 1.f - (float)tm->src_y / (float)atl.h;
         float v1 = 1.f - (float)(tm->src_y + tm->h) / (float)atl.h;
         float ai = (float)(tm->atlas_idx < (uint8_t)atlas_count_ ? tm->atlas_idx : 0);
-        for (int vi = 0; vi < 6; ++vi) {
-            float* v = (float*)(scratch + ((size_t)ni * 6 + (size_t)vi) * (size_t)STRIDE_SDL);
-            v[0]=CORNERS[vi][0]; v[1]=CORNERS[vi][1];
-            v[2]=x_tl; v[3]=y_tl; v[4]=sw; v[5]=sh;
-            v[6]=u0; v[7]=v0; v[8]=u1; v[9]=v1; v[10]=ai;
-        }
+        PackTileQuad2D(scratch, ni, STRIDE_SDL, x_tl, y_tl, sw, sh, u0, v0, u1, v1, ai);
         ++ni;
     }
-    const int ni_overhead_end = ni;  // vertex count after overhead tiles
+}
 
+void TileMap2DRenderer::RenderSDLGPU(const FlareMap& map, float now_s,
+                                      float origin_x, float origin_y, float scale,
+                                      int vp_w, int vp_h, uint8_t layer_mask,
+                                      md::GpuCommandBufferHandle cmd, md::GpuTextureHandle swap_tex)
+{
+    static Tile2D tiles     [MAX_TILES];
+    static Tile2D over_tiles[MAX_TILES];
+    static Tile2D fade_tiles[8];
+    int n, n_over, n_fade;
+    CollectAndSortTiles2D(map, layer_mask, object_layer_idx_,
+                          player_tile_col_, player_tile_row_,
+                          tiles, over_tiles, fade_tiles, n, n_over, n_fade);
+
+    // Build flat vertex buffer: 6 verts × STRIDE_SDL bytes per tile.
+    static uint8_t scratch[MAX_TILES * 6 * STRIDE_SDL];
+    int ni = 0;
+
+    BuildMainTileVertices2D(map, now_s, origin_x, origin_y, scale, tiles, n, scratch, ni);
+    BuildNpcOverlayVertices2D(origin_x, origin_y, scale, scratch, ni);
+    // FL-3: append overhead tiles AFTER main tiles + NPC dots (phase 4 — above entities).
+    BuildTileBatchVertices2D(map, origin_x, origin_y, scale, over_tiles, n_over, scratch, ni);
+    const int ni_overhead_end = ni;  // vertex count after overhead tiles
     // FL-2: append fade tiles to scratch AFTER main tiles + NPC dots + overhead.
-    // ni_main_end = vertex count before fade tiles (used for two-pass draw split).
-    const int ni_main_end = ni;
-    for (int fi = 0; fi < n_fade && ni < MAX_TILES; ++fi) {
-        const Tile2D& t    = fade_tiles[fi];
-        const TileMeta* tm = map.meta.Find(t.tid);
-        if (!tm) continue;
-        const MdTexture& atl = atlases_[tm->atlas_idx < (uint8_t)atlas_count_ ? tm->atlas_idx : 0];
-        if (!atl.sdl_tex || atl.w <= 0 || atl.h <= 0) continue;
-        float ax  = (float)((t.col - t.row) * TILE_W_HALF) * scale + origin_x;
-        float ay  = (float)((t.col + t.row) * TILE_H_HALF) * scale + origin_y;
-        float x_tl = roundf(ax - (float)tm->offset_x * scale);
-        float y_tl = roundf(ay - (float)tm->offset_y * scale);
-        float sw   = (float)tm->w * scale;
-        float sh   = (float)tm->h * scale;
-        float u0 = (float)tm->src_x / (float)atl.w;
-        float u1 = (float)(tm->src_x + tm->w) / (float)atl.w;
-        float v0 = 1.f - (float)tm->src_y / (float)atl.h;
-        float v1 = 1.f - (float)(tm->src_y + tm->h) / (float)atl.h;
-        float ai = (float)(tm->atlas_idx < (uint8_t)atlas_count_ ? tm->atlas_idx : 0);
-        for (int vi = 0; vi < 6; ++vi) {
-            float* v = (float*)(scratch + ((size_t)ni * 6 + (size_t)vi) * (size_t)STRIDE_SDL);
-            v[0]=CORNERS[vi][0]; v[1]=CORNERS[vi][1];
-            v[2]=x_tl; v[3]=y_tl; v[4]=sw; v[5]=sh;
-            v[6]=u0; v[7]=v0; v[8]=u1; v[9]=v1; v[10]=ai;
-        }
-        ++ni;
-    }
+    BuildTileBatchVertices2D(map, origin_x, origin_y, scale, fade_tiles, n_fade, scratch, ni);
 
     // ── Correct order: copy pass first, then render pass ─────────────────────
     // SDL_GPU requires the copy pass to precede the render pass on the same cmd.
