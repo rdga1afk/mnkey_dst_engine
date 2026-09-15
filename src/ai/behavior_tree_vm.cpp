@@ -1,5 +1,4 @@
 #include <monkey_dust/ai/behavior_tree.h>
-#include <monkey_dust/ecs/registry.h>
 #include <monkey_dust/ecs/md_registry.h>
 #include <monkey_dust/components/agent_state.h>
 #include <monkey_dust/components/bt_components.h>

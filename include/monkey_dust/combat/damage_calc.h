@@ -1,6 +1,5 @@
 #pragma once
 #include <cstdint>
-#include <monkey_dust/ecs/registry.h>
 
 // ── Kenshi combat constants (KEN_MIGRATION RE, CLAUDE_KEN_MECH_COMBAT.md) ────
 // CM-1: STUN_HP_THRESHOLD — limb HP fraction that fills GaugeType::StunDamage.

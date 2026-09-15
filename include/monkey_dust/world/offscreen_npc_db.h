@@ -1,6 +1,5 @@
 #pragma once
 #include <cstdint>
-#include <monkey_dust/ecs/registry.h>
 #include <monkey_dust/ecs/md_registry.h>
 #include <monkey_dust/world/world_transform.h>
 

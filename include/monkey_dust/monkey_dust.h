@@ -4,7 +4,6 @@
 // Individual subsystem headers preferred in source files.
 
 #include <monkey_dust/ecs/engine_context.h>
-#include <monkey_dust/ecs/registry.h>
 #include <monkey_dust/platform/math_types.h>
 #include <monkey_dust/ai/behavior_tree.h>
 #include <monkey_dust/ai/bt_action_registry.h>

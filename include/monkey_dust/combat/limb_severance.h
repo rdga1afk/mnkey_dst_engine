@@ -1,5 +1,4 @@
 #pragma once
-#include <monkey_dust/ecs/registry.h>
 #include <monkey_dust/ecs/md_entity.h>
 #include <monkey_dust/ecs/md_registry.h>
 #include <monkey_dust/components/health.h>
