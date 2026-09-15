@@ -3,7 +3,6 @@
 #include <monkey_dust/render/gpu_hal.h>
 #include <monkey_dust/nav/navmesh.h>
 #include <monkey_dust/world/chunk_def.h>
-#include <monkey_dust/world/terrain_pass_grid.h>
 
 // Geomorphing: blends vertex Y toward coarser-LOD target beyond 420m (ramp 420–600m).
 // morph_y filled by TerrainGen_Build; consumed by terrain_pom.vert.
@@ -302,15 +301,18 @@ struct TerrainChunk {
     // pipeline; TerrainPatchRenderer/Granite (the sole active renderer)
     // reads its own single world-wide heightmap texture instead, never
     // per-chunk GPU mesh buffers. What's still genuinely used below:
-    // heightmap (physics/TerrainQuery/SampleHeight), pass_grid (AI
-    // walkability), navmesh/props/coord/center. NOT investigated (separate,
-    // still-open question): BuildLodIboStitched above stays, since tests/
-    // test_md_terrain.cpp and md.scan_terrain_seam_tjunctions() (lua_
-    // scenario_api.cpp) call it directly as a pure geometry function,
-    // independent of chunk.ibo_lod's now-removed GPU upload.
+    // heightmap (physics/TerrainQuery/SampleHeight), navmesh/props/coord/
+    // center. `pass_grid` (TerrainPassGrid, L2-inspired passability
+    // bitmask) REMOVED (physical-design refactor Phase -1, 2026-09-17):
+    // TerrainQuery::IsWalkable() — the only reader — had zero external
+    // callers itself, confirmed by grep across engine/game/tools before
+    // deletion. NOT investigated (separate, still-open question):
+    // BuildLodIboStitched above stays, since tests/test_md_terrain.cpp
+    // and md.scan_terrain_seam_tjunctions() (lua_scenario_api.cpp) call
+    // it directly as a pure geometry function, independent of
+    // chunk.ibo_lod's now-removed GPU upload.
     NavMesh          navmesh;
     TerrainHeightmap heightmap;         // CPU copy for height queries
-    TerrainPassGrid  pass_grid;         // L2-inspired O(1) passability bitmask
     ChunkPropInstance props[CHUNK_MAX_PROPS];
     int              prop_count = 0;    // valid entries in props[]
     bool             loaded = false;

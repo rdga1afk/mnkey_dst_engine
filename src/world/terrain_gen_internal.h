@@ -11,7 +11,6 @@
 #include <monkey_dust/world/chunk_def.h>
 #include <monkey_dust/world/biome_system.h>
 #include <monkey_dust/world/biome_def.h>
-#include <monkey_dust/world/terrain_pass_grid.h>
 #include <monkey_dust/platform/md_fs.h>
 #include <cmath>
 #include <cstring>

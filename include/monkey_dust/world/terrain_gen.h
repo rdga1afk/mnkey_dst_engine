@@ -96,14 +96,6 @@ bool  TerrainAtlas_HasEdits();
 // data directly, at full atlas resolution.
 float TerrainAtlas_SampleWorld(float wx, float wz);
 
-// Quadtree-LOD terrain rewrite, Phase 9 (see plan at
-// /home/rdga1/.claude/plans/serene-pondering-teapot.md): world-space
-// walkability at (wx,wz), same slope-threshold rule TerrainGen_Build's own
-// per-chunk pass_grid uses (TerrainPassGrid — NOT built from a NavMesh
-// despite that struct's own doc comment/TerrainPassGrid_Build function,
-// which is dead code nothing calls; the REAL population is exactly this
-// three-sample slope check over TerrainAtlas height data, terrain_gen.cpp's
-// own "4. NavMesh (disabled) + PassGrid (lightweight, from heightmap
-// slope)" comment). Works anywhere in the real Kenshi world, same as
-// TerrainAtlas_SampleWorld — no per-chunk grid needed.
-bool TerrainAtlas_IsWalkableWorld(float wx, float wz);
+// TerrainAtlas_IsWalkableWorld REMOVED (physical-design refactor Phase -1,
+// 2026-09-17) -- its only caller, TerrainQuery::IsWalkable(), itself had
+// zero external callers anywhere in engine/game/tools.

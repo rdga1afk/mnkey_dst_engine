@@ -231,18 +231,6 @@ float TerrainAtlas_SampleWorld(float wx, float wz) {
          + (h01 * (1.f - tx) + h11 * tx) * tz;
 }
 
-bool TerrainAtlas_IsWalkableWorld(float wx, float wz) {
-    if (!s_atlas_loaded) return true; // no data yet — don't falsely block movement
-    // Same rule as TerrainGen_Build's per-chunk pass_grid population (see
-    // that function's own "4. NavMesh (disabled) + PassGrid" comment) —
-    // 100%-grade (45°) slope threshold over one PASS_CELL_SIZE step, just
-    // sampled from the world-wide atlas instead of one chunk's own
-    // heightmap copy.
-    const float max_slope_h = PASS_CELL_SIZE * 1.0f;
-    float h_c = TerrainAtlas_SampleWorld(wx, wz);
-    float h_e = TerrainAtlas_SampleWorld(wx + PASS_CELL_SIZE, wz);
-    float h_n = TerrainAtlas_SampleWorld(wx, wz + PASS_CELL_SIZE);
-    float dh  = fabsf(h_e - h_c);
-    float dhz = fabsf(h_n - h_c);
-    return dh < max_slope_h && dhz < max_slope_h;
-}
+// TerrainAtlas_IsWalkableWorld REMOVED (physical-design refactor Phase -1,
+// 2026-09-17) -- its only caller, TerrainQuery::IsWalkable(), itself had
+// zero external callers anywhere in engine/game/tools.

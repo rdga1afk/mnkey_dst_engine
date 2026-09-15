@@ -16,12 +16,10 @@
 // full-world source since long before this rewrite, just never used here.
 // Bonus: md.terrain_height/probe-height now work ANYWHERE in the world,
 // not only inside whichever 9x9 window happens to be streamed in.
-// Phase 9: IsWalkable ALSO now reads TerrainAtlas_IsWalkableWorld directly
-// — turns out TerrainChunk::pass_grid was never actually built from a
-// NavMesh despite its own doc comment (TerrainPassGrid_Build(NavMesh&) is
-// dead code nothing calls); the real population is a slope threshold over
-// heightmap data (terrain_gen.cpp's "PassGrid (lightweight, from heightmap
-// slope)" comment), just as atlas-derivable as height itself.
+// IsWalkable/TerrainPassGrid/TerrainAtlas_IsWalkableWorld REMOVED entirely
+// (physical-design refactor Phase -1, 2026-09-17) — zero external callers
+// anywhere, confirmed by grep before deletion. See the removal note where
+// IsWalkable() used to be, below.
 
 #include <monkey_dust/world/terrain_chunk.h>
 #include <monkey_dust/world/chunk_def.h>
@@ -44,10 +42,13 @@ public:
     // absolute-metres space (zone_ox/z, in zone units 0..63, e.g.
     // SceneRender::zone_ox/z).
     //
-    // chunks/tnkn/cx_base/cz_base: still needed for IsWalkable only (see
-    // class doc comment) — pass zone_ox/zone_oz = -1 (default) to disable
-    // the atlas-based height path and fall back to the old chunk-sampled
-    // one, e.g. for a caller with no real Kenshi zone mapping.
+    // chunks/tnkn/cx_base/cz_base: still needed for GetHeight's own
+    // chunk-sampled fallback (below) — pass zone_ox/zone_oz = -1 (default)
+    // to disable the atlas-based height path and fall back to the old
+    // chunk-sampled one, e.g. for a caller with no real Kenshi zone
+    // mapping. (IsWalkable(), the other former reader, was removed —
+    // physical-design refactor Phase -1, 2026-09-17 — zero external
+    // callers.)
     void Init(TerrainChunk* chunks,  // [tnkn][tnkn] row-major
               int    tnkn,           // chunks per side
               float  chunk_size,
@@ -128,37 +129,14 @@ public:
         else             { nx = 0.f; ny = 1.f; nz = 0.f; }
     }
 
-    // L2-style geodata passability: O(1) slope-threshold walkability check.
-    // Returns true if world position (wx,wz) is walkable (or unready/
-    // unmapped — safe default, never falsely blocks movement).
-    //
-    // Phase 9 (quadtree-LOD rewrite, see plan at
-    // /home/rdga1/.claude/plans/serene-pondering-teapot.md): now reads
-    // TerrainAtlas_IsWalkableWorld directly, same as GetHeight's Phase 5
-    // atlas path — works anywhere in the real Kenshi world, not only inside
-    // whichever 9x9 chunk window happens to be streamed in. Falls back to
-    // the old per-chunk TerrainPassGrid when Init() didn't get a real
-    // zone_ox/zone_oz (TerrainChunk::pass_grid itself is unchanged, still
-    // populated by TerrainGen_Build using the exact same slope rule).
-    bool IsWalkable(float wx, float wz) const {
-        if (!ready_) return true;
-        if (has_atlas_mapping_ && TerrainAtlas_Loaded()) {
-            float ax = wx - world_off_x_ + (float)zone_ox_ * chunk_size_;
-            float az = wz - world_off_z_ + (float)zone_oz_ * chunk_size_;
-            return TerrainAtlas_IsWalkableWorld(ax, az);
-        }
-        float rel_x = wx - world_off_x_;
-        float rel_z = wz - world_off_z_;
-        int cx = (int)(rel_x / chunk_size_);
-        int cz = (int)(rel_z / chunk_size_);
-        if (cx < 0 || cx >= tnkn_ || cz < 0 || cz >= tnkn_) return true;
-        int px = (cx + cx_base_) % tnkn_;
-        int pz = (cz + cz_base_) % tnkn_;
-        const TerrainChunk& c = chunks_[pz * tnkn_ + px];
-        float lx = rel_x - cx * chunk_size_;
-        float lz = rel_z - cz * chunk_size_;
-        return c.pass_grid.IsWalkableLocal(lx, lz);
-    }
+    // IsWalkable(wx, wz) REMOVED (physical-design refactor Phase -1,
+    // 2026-09-17): zero external callers found anywhere in engine/game/
+    // tools (grep-confirmed before deletion) — the L2-style passability
+    // subsystem it depended on (TerrainAtlas_IsWalkableWorld, TerrainChunk
+    // ::pass_grid/TerrainPassGrid) was never actually wired into any real
+    // AI/pathfinding call site; NavSystem's Detour navmesh is the real
+    // walkability source. Removed together in the same commit, not left
+    // as orphaned dead code behind this one.
 
     // G-3: water level constant and query.
     // Returns true if terrain height at (wx,wz) is below the water plane.
