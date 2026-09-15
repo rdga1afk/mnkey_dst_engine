@@ -2,7 +2,6 @@
 #include <monkey_dust/ai/utility_scorer.h>
 #include <monkey_dust/ai/fnv.h>
 #include <monkey_dust/platform/md_hints.h>
-#include <monkey_dust/ecs/registry.h>
 #include <monkey_dust/ecs/md_registry.h>
 #include <monkey_dust/components/agent_state.h>
 #include <monkey_dust/components/sense_component.h>

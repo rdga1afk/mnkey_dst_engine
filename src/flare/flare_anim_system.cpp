@@ -6,7 +6,6 @@
 #include <monkey_dust/components/flare_sprite_anim.h>
 #include <monkey_dust/components/nav_agent.h>
 #include <monkey_dust/world/world_transform.h>
-#include <monkey_dust/ecs/registry.h>
 #include <monkey_dust/ecs/md_registry.h>
 #include <monkey_dust/platform/md_log.h>
 #include <cstring>

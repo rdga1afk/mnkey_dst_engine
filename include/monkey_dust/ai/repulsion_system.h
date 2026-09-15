@@ -21,7 +21,6 @@
 //   - O(n × k) where k = average neighbours in QUERY_RADIUS (~2-4)
 //   - Called once per logic tick, BEFORE JoltWorld::Step
 
-#include <monkey_dust/ecs/registry.h>
 #include <monkey_dust/ecs/md_registry.h>
 #include <monkey_dust/world/world_transform.h>
 #include <monkey_dust/world/spatial_grid.h>

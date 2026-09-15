@@ -2,7 +2,6 @@
 // VBfA-R: AoE damage helpers.
 // Include this AFTER damage_calc.h, combat.h, health.h are resolved.
 #include <monkey_dust/combat/damage_calc.h>
-#include <monkey_dust/ecs/registry.h>
 #include <monkey_dust/ecs/md_registry.h>
 #include <monkey_dust/world/world_transform.h>
 #include <monkey_dust/components/health.h>

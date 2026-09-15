@@ -8,7 +8,6 @@
 // Condition evaluation uses: FactionSystem (relations/bounty), StatSheet (skills),
 // Inventory (items). Effects emit to LuaEventBus or apply inline.
 
-#include <monkey_dust/ecs/registry.h>
 #include <monkey_dust/ecs/md_registry.h>
 #include <monkey_dust/world/faction_system.h>
 #include <monkey_dust/components/stat_sheet.h>

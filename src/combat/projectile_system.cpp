@@ -2,7 +2,6 @@
 #include <monkey_dust/components/projectile.h>
 #include <monkey_dust/components/health.h>
 #include <monkey_dust/world/world_transform.h>
-#include <monkey_dust/ecs/registry.h>
 #include <monkey_dust/ecs/md_registry.h>
 #include <array>
 #include <cmath>

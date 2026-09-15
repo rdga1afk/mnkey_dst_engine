@@ -24,7 +24,6 @@
 // Creating squads from world_init.cpp:
 //   SquadSystem::CreateSquad(members, count, home_x, home_z, faction_id)
 
-#include <monkey_dust/ecs/registry.h>
 #include <monkey_dust/ecs/md_registry.h>
 #include <monkey_dust/components/nav_agent.h>
 #include <monkey_dust/components/agent_state.h>

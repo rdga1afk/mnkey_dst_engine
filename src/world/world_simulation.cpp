@@ -3,7 +3,6 @@
 #include <monkey_dust/world/shop_inventory.h>
 #include <monkey_dust/world/faction_system.h>
 #include <monkey_dust/building/power_grid.h>
-#include <monkey_dust/ecs/registry.h>
 #include <monkey_dust/ecs/md_registry.h>
 #include <monkey_dust/platform/md_log.h>
 

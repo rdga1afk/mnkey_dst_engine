@@ -1,6 +1,5 @@
 #include <monkey_dust/ecs/hierarchy_utils.h>
 #include <monkey_dust/components/hierarchy.h>
-#include <monkey_dust/ecs/registry.h>
 #include <monkey_dust/ecs/md_registry.h>
 
 namespace Hierarchy {

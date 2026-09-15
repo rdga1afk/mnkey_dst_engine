@@ -1,7 +1,6 @@
 #include <monkey_dust/world/transform_soa.h>
 #include <monkey_dust/world/transform_soa_simd.h>
 #include <monkey_dust/world/world_transform.h>
-#include <monkey_dust/ecs/registry.h>
 #include <monkey_dust/platform/md_log.h>
 #include <monkey_dust/platform/md_hints.h>
 #include <cstring>
