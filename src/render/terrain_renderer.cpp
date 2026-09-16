@@ -104,6 +104,91 @@ bool TerrainRenderer::Init() {
         si.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
         zone_layers_sampler_ = GpuCreateSampler(dev, &si);
     }
+
+    // task #141: zone-corner cliff bake atlas + LUT -- see terrain_
+    // renderer.h's accessor doc comment. LUT filled with -1 (int32) here,
+    // synchronously, so the shading pipeline is safe to draw with BEFORE
+    // the real bake (SceneRender's load sequence, once implemented) ever
+    // runs -- the TS_HAS_CORNER_BAKE runtime branch reads this LUT and
+    // takes the live per-pixel path whenever it sees -1, identical output
+    // to before this feature existed.
+    {
+        md::GpuDeviceHandle dev = md::GpuDevice::Get().SDLDevice();
+        SDL_GPUTextureCreateInfo lut_ti{};
+        lut_ti.type                 = SDL_GPU_TEXTURETYPE_2D;
+        lut_ti.format               = SDL_GPU_TEXTUREFORMAT_R32_INT;
+        lut_ti.width                = 65;
+        lut_ti.height               = 65;
+        lut_ti.layer_count_or_depth = 1;
+        lut_ti.num_levels           = 1;
+        lut_ti.usage                = SDL_GPU_TEXTUREUSAGE_SAMPLER;
+        corner_bake_lut_tex_ = GpuCreateTexture(dev, &lut_ti);
+
+        SDL_GPUSamplerCreateInfo lut_si{};
+        lut_si.min_filter     = SDL_GPU_FILTER_NEAREST;
+        lut_si.mag_filter     = SDL_GPU_FILTER_NEAREST;
+        lut_si.mipmap_mode    = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST;
+        lut_si.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+        lut_si.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+        lut_si.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+        corner_bake_lut_sampler_ = GpuCreateSampler(dev, &lut_si);
+
+        // 1x1 placeholder atlases -- never actually sampled while the LUT
+        // above reads -1 everywhere, but must be real, correctly-typed
+        // bound textures (SDL_GPU has no "unbound sampler" concept for a
+        // declared shader binding). Real bake (terrain_zone_corner_bake.
+        // comp) replaces both via a compute-storage-write usage texture,
+        // recreated at real size once the flagged-corner count is known.
+        SDL_GPUTextureCreateInfo atlas_ti{};
+        atlas_ti.type                 = SDL_GPU_TEXTURETYPE_2D;
+        atlas_ti.format               = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+        atlas_ti.width                = 1;
+        atlas_ti.height               = 1;
+        atlas_ti.layer_count_or_depth = 1;
+        atlas_ti.num_levels           = 1;
+        atlas_ti.usage                = SDL_GPU_TEXTUREUSAGE_SAMPLER
+                                       | SDL_GPU_TEXTUREUSAGE_COMPUTE_STORAGE_WRITE;
+        corner_bake_color_tex_  = GpuCreateTexture(dev, &atlas_ti);
+        corner_bake_normal_tex_ = GpuCreateTexture(dev, &atlas_ti);
+
+        SDL_GPUSamplerCreateInfo atlas_si{};
+        atlas_si.min_filter     = SDL_GPU_FILTER_LINEAR;
+        atlas_si.mag_filter     = SDL_GPU_FILTER_LINEAR;
+        atlas_si.mipmap_mode    = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST;
+        atlas_si.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+        atlas_si.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+        atlas_si.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+        corner_bake_color_sampler_  = GpuCreateSampler(dev, &atlas_si);
+        corner_bake_normal_sampler_ = GpuCreateSampler(dev, &atlas_si);
+
+        if (corner_bake_lut_tex_) {
+            std::vector<int32_t> lut_init((size_t)65 * 65, -1);
+            SDL_GPUTransferBufferCreateInfo tbi{};
+            tbi.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+            tbi.size  = (Uint32)(lut_init.size() * sizeof(int32_t));
+            SDL_GPUTransferBuffer* tb = GpuCreateTransferBuffer(dev, &tbi);
+            if (tb) {
+                void* map = GpuMapTransfer(tb, false);
+                if (map) memcpy(map, lut_init.data(), tbi.size);
+                GpuUnmapTransfer(tb);
+
+                md::GpuCommandBufferHandle cmd = md::GpuDevice::Get().AcquireCommandBuffer();
+                GpuCopyPass cp;
+                cp.Begin(cmd);
+                SDL_GPUTextureTransferInfo src{};
+                src.transfer_buffer = tb;
+                src.pixels_per_row  = 65;
+                src.rows_per_layer  = 65;
+                SDL_GPUTextureRegion dst{};
+                dst.texture = corner_bake_lut_tex_;
+                dst.w = 65; dst.h = 65; dst.d = 1;
+                cp.UploadTexture(src, dst, false);
+                cp.End();
+                md::GpuDevice::Get().Submit(cmd);
+                GpuReleaseTransferBuffer(dev, tb);
+            }
+        }
+    }
 #endif
     return true;
 }

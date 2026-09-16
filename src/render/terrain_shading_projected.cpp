@@ -59,7 +59,7 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
     rd.vert_uniform_bufs  = 0;
     rd.vert_samplers      = 0;
     rd.frag_uniform_bufs  = 2;  // set=3 binding=0 ProjFragUBO, binding=1 ProjCamUBO
-    rd.frag_samplers      = 8;  // set=2: tex_colour,tex_ground,tex_ground_baked,tex_overlay_mask,tex_ground_nml (task #12); gbufPacked,gbufDepth; zoneGroundLayersTex (texture, not SSBO, since 2026-08-09). БОРГ-TERRAIN-2 (2026-09-13): was 10 -- vtIndirection/vtAtlas removed, dead VT cache-hit path never called
+    rd.frag_samplers      = 11; // set=2: tex_colour,tex_ground,tex_ground_baked,tex_overlay_mask,tex_ground_nml (task #12); gbufPacked,gbufDepth; zoneGroundLayersTex (texture, not SSBO, since 2026-08-09). БОРГ-TERRAIN-2 (2026-09-13): was 10 -- vtIndirection/vtAtlas removed, dead VT cache-hit path never called. task #141 (2026-09-16): +3 (zoneCornerBakeColorAtlas/NormalAtlas/LutTex), was 8
     rd.frag_storage_bufs  = 0;  // БОРГ-TERRAIN-2 (2026-09-13): was 1 (vtPageMeta) -- removed with the rest of TerrainVtPageCache
     if (!resolve_pipeline_.Create(rd)) {
         MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] resolve pipeline create failed");
@@ -192,6 +192,17 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
         { ground.ZoneGroundLayersTexture(), ground.ZoneGroundLayersSampler() },
     };
     pv.BindFragmentSamplers(7, zone_binding, 1);
+
+    // task #141: zone-corner cliff bake atlas + LUT, binding=8/9/10 --
+    // continues the same contiguous sampler run. Safe even before the
+    // real bake has run (TerrainRenderer::Init leaves the LUT filled
+    // with -1 and the atlases as valid 1x1 placeholders).
+    SDL_GPUTextureSamplerBinding corner_bake_bindings[3] = {
+        { ground.CornerBakeColorAtlasTexture(),  ground.CornerBakeColorAtlasSampler() },
+        { ground.CornerBakeNormalAtlasTexture(), ground.CornerBakeNormalAtlasSampler() },
+        { ground.CornerBakeLutTexture(),         ground.CornerBakeLutSampler() },
+    };
+    pv.BindFragmentSamplers(8, corner_bake_bindings, 3);
 
     pv.Draw(3, 1, 0, 0);
 }

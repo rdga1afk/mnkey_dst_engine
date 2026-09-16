@@ -130,6 +130,24 @@ public:
     // internally -- callers keep building the same flat array.
     void UploadZoneGroundLayers(const uint32_t* data, int count_uints);
 
+    // task #141 (docs/research/TERRAIN_ZONE_CORNER_BAKE_PLAN.md,
+    // 2026-09-16): load-time zone-corner cliff bake -- see terrain_
+    // shading_common.glsl's TS_HAS_CORNER_BAKE branch (terrain_cliff_
+    // blend.glsl) for the runtime lookup, terrain_zone_corner_bake.comp
+    // for the bake itself. Created with a SAFE fallback state in Init()
+    // (LUT filled entirely with -1 = "no flagged corner", tiny placeholder
+    // atlases never actually sampled while the LUT says so) so the
+    // shading pipeline's sampler count is always correct even before
+    // UploadCornerBakeAtlas below has run -- a missing/wrong-sized
+    // binding here is a silent-garbage class of bug on this hardware
+    // (CLAUDE.md Hardware Checklist), not something to leave unbound.
+    md::GpuTextureHandle CornerBakeColorAtlasTexture()  const { return corner_bake_color_tex_; }
+    md::GpuTextureHandle CornerBakeNormalAtlasTexture() const { return corner_bake_normal_tex_; }
+    md::GpuTextureHandle CornerBakeLutTexture()         const { return corner_bake_lut_tex_; }
+    SDL_GPUSampler* CornerBakeColorAtlasSampler()  const { return corner_bake_color_sampler_; }
+    SDL_GPUSampler* CornerBakeNormalAtlasSampler() const { return corner_bake_normal_sampler_; }
+    SDL_GPUSampler* CornerBakeLutSampler()         const { return corner_bake_lut_sampler_; }
+
 private:
     GpuTexture  tex_colour_;        // Kenshi colour overlay
     GpuTexture  tex_ground_array_;  // 24-layer BC3 DDS array — the actual per-vertex-indexed ground textures
@@ -147,6 +165,14 @@ private:
     // Per-zone ground-layer lookup texture (see UploadZoneGroundLayers).
     md::GpuTextureHandle zone_layers_tex_     = nullptr;
     SDL_GPUSampler* zone_layers_sampler_ = nullptr;
+
+    // task #141: zone-corner cliff bake atlas + LUT (see accessors above).
+    md::GpuTextureHandle corner_bake_color_tex_     = nullptr;
+    md::GpuTextureHandle corner_bake_normal_tex_    = nullptr;
+    md::GpuTextureHandle corner_bake_lut_tex_       = nullptr;
+    SDL_GPUSampler* corner_bake_color_sampler_  = nullptr;
+    SDL_GPUSampler* corner_bake_normal_sampler_ = nullptr;
+    SDL_GPUSampler* corner_bake_lut_sampler_    = nullptr;
 
 #ifdef MD_SDL_GPU
     md::GpuTextureHandle fallback_tex_            = nullptr;
