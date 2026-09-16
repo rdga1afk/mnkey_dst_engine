@@ -378,9 +378,21 @@ void TerrainRenderer::Shutdown() {
         if (fallback_blend_tex_)     GpuReleaseTexture(dev, fallback_blend_tex_);
         if (zone_layers_sampler_)    GpuReleaseSampler(dev, zone_layers_sampler_);
         if (zone_layers_tex_)        GpuReleaseTexture(dev, zone_layers_tex_);
+        if (corner_bake_color_sampler_)  GpuReleaseSampler(dev, corner_bake_color_sampler_);
+        if (corner_bake_color_tex_)      GpuReleaseTexture(dev, corner_bake_color_tex_);
+        if (corner_bake_normal_sampler_) GpuReleaseSampler(dev, corner_bake_normal_sampler_);
+        if (corner_bake_normal_tex_)     GpuReleaseTexture(dev, corner_bake_normal_tex_);
+        if (corner_bake_lut_sampler_)    GpuReleaseSampler(dev, corner_bake_lut_sampler_);
+        if (corner_bake_lut_tex_)        GpuReleaseTexture(dev, corner_bake_lut_tex_);
     }
     zone_layers_tex_     = nullptr;
     zone_layers_sampler_ = nullptr;
+    corner_bake_color_tex_      = nullptr;
+    corner_bake_color_sampler_  = nullptr;
+    corner_bake_normal_tex_     = nullptr;
+    corner_bake_normal_sampler_ = nullptr;
+    corner_bake_lut_tex_        = nullptr;
+    corner_bake_lut_sampler_    = nullptr;
     fallback_tex_            = nullptr;
     fallback_sampler_        = nullptr;
     fallback_mask_tex_       = nullptr;
@@ -527,5 +539,83 @@ void TerrainRenderer::UploadZoneGroundLayers(const uint32_t* data, int count_uin
     GpuReleaseTransferBuffer(dev, tb);
 #else
     (void)data; (void)count_uints;
+#endif
+}
+
+bool TerrainRenderer::RebuildCornerBakeAtlas(int corner_count) {
+#ifdef MD_SDL_GPU
+    if (corner_count <= 0) return false;
+    md::GpuDeviceHandle dev = md::GpuDevice::Get().SDLDevice();
+    if (!dev) return false;
+
+    int tiles_per_row = (int)std::ceil(std::sqrt((double)corner_count));
+    if (tiles_per_row < 1) tiles_per_row = 1;
+    const int TILE_RES = 128;
+    const int atlas_dim = tiles_per_row * TILE_RES;
+
+    SDL_GPUTextureCreateInfo ti{};
+    ti.type                 = SDL_GPU_TEXTURETYPE_2D;
+    ti.format                = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+    ti.width                 = (Uint32)atlas_dim;
+    ti.height                = (Uint32)atlas_dim;
+    ti.layer_count_or_depth = 1;
+    ti.num_levels            = 1;
+    ti.usage                 = SDL_GPU_TEXTUREUSAGE_SAMPLER
+                              | SDL_GPU_TEXTUREUSAGE_COMPUTE_STORAGE_WRITE;
+    md::GpuTextureHandle new_color  = GpuCreateTexture(dev, &ti);
+    md::GpuTextureHandle new_normal = GpuCreateTexture(dev, &ti);
+    if (!new_color || !new_normal) {
+        if (new_color)  GpuReleaseTexture(dev, new_color);
+        if (new_normal) GpuReleaseTexture(dev, new_normal);
+        fprintf(stderr, "[TerrainRenderer] RebuildCornerBakeAtlas: texture create failed (%dx%d)\n",
+                atlas_dim, atlas_dim);
+        return false;
+    }
+
+    if (corner_bake_color_tex_)  GpuReleaseTexture(dev, corner_bake_color_tex_);
+    if (corner_bake_normal_tex_) GpuReleaseTexture(dev, corner_bake_normal_tex_);
+    corner_bake_color_tex_     = new_color;
+    corner_bake_normal_tex_    = new_normal;
+    corner_bake_tiles_per_row_ = tiles_per_row;
+    fprintf(stderr, "[TerrainRenderer] RebuildCornerBakeAtlas: %d corners, %dx%d tiles, atlas %dx%d\n",
+            corner_count, tiles_per_row, tiles_per_row, atlas_dim, atlas_dim);
+    return true;
+#else
+    (void)corner_count;
+    return false;
+#endif
+}
+
+void TerrainRenderer::UploadCornerBakeLut(const int32_t* data65x65) {
+#ifdef MD_SDL_GPU
+    if (!corner_bake_lut_tex_) return;
+    md::GpuDeviceHandle dev = md::GpuDevice::Get().SDLDevice();
+    if (!dev) return;
+
+    SDL_GPUTransferBufferCreateInfo tbi{};
+    tbi.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+    tbi.size  = (Uint32)(65 * 65 * sizeof(int32_t));
+    SDL_GPUTransferBuffer* tb = GpuCreateTransferBuffer(dev, &tbi);
+    if (!tb) return;
+    void* map = GpuMapTransfer(tb, false);
+    if (map) memcpy(map, data65x65, tbi.size);
+    GpuUnmapTransfer(tb);
+
+    md::GpuCommandBufferHandle cmd = md::GpuDevice::Get().AcquireCommandBuffer();
+    GpuCopyPass cp;
+    cp.Begin(cmd);
+    SDL_GPUTextureTransferInfo src{};
+    src.transfer_buffer = tb;
+    src.pixels_per_row  = 65;
+    src.rows_per_layer  = 65;
+    SDL_GPUTextureRegion dst{};
+    dst.texture = corner_bake_lut_tex_;
+    dst.w = 65; dst.h = 65; dst.d = 1;
+    cp.UploadTexture(src, dst, false);
+    cp.End();
+    md::GpuDevice::Get().Submit(cmd);
+    GpuReleaseTransferBuffer(dev, tb);
+#else
+    (void)data65x65;
 #endif
 }

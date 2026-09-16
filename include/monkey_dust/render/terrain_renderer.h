@@ -147,6 +147,19 @@ public:
     SDL_GPUSampler* CornerBakeColorAtlasSampler()  const { return corner_bake_color_sampler_; }
     SDL_GPUSampler* CornerBakeNormalAtlasSampler() const { return corner_bake_normal_sampler_; }
     SDL_GPUSampler* CornerBakeLutSampler()         const { return corner_bake_lut_sampler_; }
+    int CornerBakeTilesPerRow() const { return corner_bake_tiles_per_row_; }
+
+    // Recreates the color/normal atlas textures at real size for
+    // `corner_count` flagged corners (tilesPerRow = ceil(sqrt(corner_
+    // count)), tile_res fixed at 128 -- see docs/research/TERRAIN_ZONE_
+    // CORNER_BAKE_PLAN.md). Caller (SceneRender::Init) runs the actual
+    // compute bake afterward, writing into these via GpuComputePass's
+    // rw_textures. Returns false (leaves existing placeholder textures
+    // untouched) if corner_count<=0 or texture creation fails.
+    bool RebuildCornerBakeAtlas(int corner_count);
+    // Uploads the 65x65 grid-vertex -> atlas-tile-index LUT (-1 = not
+    // flagged) -- same GpuCopyPass upload pattern as UploadZoneGroundLayers.
+    void UploadCornerBakeLut(const int32_t* data65x65);
 
 private:
     GpuTexture  tex_colour_;        // Kenshi colour overlay
@@ -173,6 +186,7 @@ private:
     SDL_GPUSampler* corner_bake_color_sampler_  = nullptr;
     SDL_GPUSampler* corner_bake_normal_sampler_ = nullptr;
     SDL_GPUSampler* corner_bake_lut_sampler_    = nullptr;
+    int corner_bake_tiles_per_row_ = 1;
 
 #ifdef MD_SDL_GPU
     md::GpuTextureHandle fallback_tex_            = nullptr;
