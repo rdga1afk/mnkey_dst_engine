@@ -28,15 +28,23 @@ SSBO) послідовно від 0, без розривів між катего
   `rm -rf ~/.cache/mesa_shader_cache/`.
 
 ## Термейн-рендер (Ogre-quadtree geomorph+skirts, з 2026-08-19)
-`TerrainQuadtree`/`TerrainQuadtreeRenderer` — єдиний геометричний шлях
-(гра й редактор), замінив GEOCLIPMAP (`TerrainClipmapCache/Renderer`,
-видалено) і non-indexed patch-grid (`TerrainPatchGrid/Renderer`,
-видалено) після dual-run A/B. Indexed (спільний index buffer, PTC-reuse),
-без персистентного tree-стану — `SelectVisible` рахує видимі вузли з
-камери+frustum щокадру. `TerrainWorldHeightmap` — незмінне джерело висот
-(окремо від quadtree). `TerrainShadingProjected` (Варіант A, screen-space
-G-buffer resolve) — незмінна незалежно від геометрії. Формула ground-layer
-шейдингу: `shaders/terrain_shading_common.glsl`. Деталі: `CLAUDE_STATE.md`
+`TerrainQuadtree`/`TerrainQuadtreeRenderer` — ПОТОЧНИЙ дефолтний
+геометричний шлях (гра й редактор, `terrain_projected_grid_=false`),
+замінив GEOCLIPMAP (`TerrainClipmapCache/Renderer`, видалено) і
+non-indexed patch-grid (`TerrainPatchGrid/Renderer`, видалено) після
+dual-run A/B. **НЕ фінальний стан:** `TerrainProjectedGrid` (TPG,
+`engine/src/render/terrain_projected_grid.cpp`, з 2026-09-12) — НОВА,
+активно розроблювана заміна, тимчасово OFF через знайдені й ще не
+виправлені регресії (не легасі — власник 2026-09-13 явно вирішив
+ЛИШИТИ й редизайнити TPG, а Quadtree — довгостроковий кандидат на
+ВИДАЛЕННЯ після успішного TPG-редизайну, `project_tpg_stage1_status.md`
+пам'ять). Indexed (спільний index buffer, PTC-reuse), без персистентного
+tree-стану — `SelectVisible` рахує видимі вузли з камери+frustum
+щокадру. `TerrainWorldHeightmap` — незмінне джерело висот (окремо від
+quadtree). `TerrainShadingProjected` (Варіант A, screen-space
+G-buffer resolve) — незмінна незалежно від геометрії (спільна і для
+Quadtree, і для TPG). Формула ground-layer шейдингу:
+`shaders/terrain_shading_common.glsl`. Деталі: `CLAUDE_STATE.md`
 (корінь репо), `docs/CLAUDE_RENDER.md`, `docs/CLAUDE_TERRAIN_SEAM.md`.
 
 ## GPU Debug — обов'язковий порядок перед фіксом шейдера
