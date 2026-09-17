@@ -235,6 +235,63 @@ bool TerrainRenderer::InitGroundTextureArray()
 #endif
 }
 
+bool TerrainRenderer::InitDetailArray(const char* dir)
+{
+#ifdef MD_SDL_GPU
+    // tools/md_bake_detail_array.py's output -- see this class's header
+    // doc comment for the exact layer count / naming convention. Layer
+    // count matches BiomeRegistry::GroundTexCount() (124 real layers,
+    // biome_table.txt) exactly -- the bake script iterates the SAME file,
+    // so a stale bake (biome_table.txt changed, bake not re-run) shows up
+    // here as a path-not-found failure per layer, not a silent mismatch.
+    GpuSamplerDesc sd;
+    sd.min_filter = GpuSamplerDesc::Filter::LINEAR_MIPMAP;
+    sd.mag_filter = GpuSamplerDesc::Filter::LINEAR;
+    sd.wrap_s     = GpuSamplerDesc::Wrap::REPEAT;
+    sd.wrap_t     = GpuSamplerDesc::Wrap::REPEAT;
+    sd.gen_mipmap = false;
+
+    const BiomeRegistry& biomes = BiomeRegistry::Get();
+    const int tex_count = biomes.GroundTexCount();
+    char path_buf[BiomeRegistry::MAX_TEXTURES][160];
+    const char* path_ptrs[BiomeRegistry::MAX_TEXTURES];
+    for (int i = 0; i < tex_count; ++i) {
+        snprintf(path_buf[i], sizeof(path_buf[i]), "%s/detail_%d.dds", dir, i);
+        path_ptrs[i] = path_buf[i];
+    }
+
+    tex_detail_array_.Shutdown();
+    if (!tex_detail_array_.InitFromDDSArray(path_ptrs, tex_count, sd)) {
+        fprintf(stderr, "[TerrainRenderer] KROK3 detail array failed (dir=%s) -- "
+                "run tools/md_bake_detail_array.py first\n", dir);
+        detail_array_ready_ = false;
+        return false;
+    }
+
+    GpuSamplerDesc tint_sd;
+    tint_sd.min_filter = GpuSamplerDesc::Filter::NEAREST;
+    tint_sd.mag_filter = GpuSamplerDesc::Filter::NEAREST;
+    tint_sd.wrap_s     = GpuSamplerDesc::Wrap::CLAMP_TO_EDGE;
+    tint_sd.wrap_t     = GpuSamplerDesc::Wrap::CLAMP_TO_EDGE;
+    tint_sd.gen_mipmap = false;
+    char tint_path[192];
+    snprintf(tint_path, sizeof(tint_path), "%s/tint_table.png", dir);
+    tex_detail_tint_.Shutdown();
+    if (!tex_detail_tint_.InitFromFile(tint_path, tint_sd)) {
+        fprintf(stderr, "[TerrainRenderer] KROK3 tint table failed (%s)\n", tint_path);
+        detail_array_ready_ = false;
+        return false;
+    }
+
+    detail_array_ready_ = true;
+    fprintf(stderr, "[TerrainRenderer] KROK3 detail array ready (%d layers)\n", tex_count);
+    return true;
+#else
+    (void)dir;
+    return false;
+#endif
+}
+
 bool TerrainRenderer::InitGroundBaked(const char* path)
 {
 #ifdef MD_SDL_GPU
@@ -474,16 +531,30 @@ void TerrainRenderer::FillSamplerBindings(SDL_GPUTextureSamplerBinding out[6]) c
               && tex_ground_nml_array_.SDLTexture() && tex_ground_nml_array_.SDLSampler();
     out[5].texture = na ? tex_ground_nml_array_.SDLTexture() : nullptr;
     out[5].sampler = na ? tex_ground_nml_array_.SDLSampler() : nullptr;
+    // b6/b7: КРОК 3 packed detail array + tint lookup (see InitDetailArray's
+    // doc comment). nullptr when not loaded -- callers that don't need
+    // these (corner-bake compute, which only reads b1/b5 for the cliff
+    // layer) simply never look at these two slots.
+    bool da = detail_array_ready_ && tex_detail_array_.Valid()
+              && tex_detail_array_.SDLTexture() && tex_detail_array_.SDLSampler();
+    out[6].texture = da ? tex_detail_array_.SDLTexture() : nullptr;
+    out[6].sampler = da ? tex_detail_array_.SDLSampler() : nullptr;
+    bool dt = detail_array_ready_ && tex_detail_tint_.Valid()
+              && tex_detail_tint_.SDLTexture() && tex_detail_tint_.SDLSampler();
+    out[7].texture = dt ? tex_detail_tint_.SDLTexture() : nullptr;
+    out[7].sampler = dt ? tex_detail_tint_.SDLSampler() : nullptr;
 }
 
-void TerrainRenderer::GetSharedGroundSamplers(SDL_GPUTextureSamplerBinding out[5]) const {
-    SDL_GPUTextureSamplerBinding all[6];
+void TerrainRenderer::GetSharedGroundSamplers(SDL_GPUTextureSamplerBinding out[7]) const {
+    SDL_GPUTextureSamplerBinding all[8];
     FillSamplerBindings(all);
     out[0] = all[0];  // tex_colour
     out[1] = all[1];  // tex_ground_array
     out[2] = all[2];  // tex_ground_baked
     out[3] = all[4];  // tex_overlay_mask
     out[4] = all[5];  // tex_ground_nml_array
+    out[5] = all[6];  // КРОК 3 tex_detail_array
+    out[6] = all[7];  // КРОК 3 tex_detail_tint
 }
 #endif
 

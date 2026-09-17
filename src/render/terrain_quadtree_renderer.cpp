@@ -84,7 +84,7 @@ bool TerrainQuadtreeRenderer::InitForward(md::GpuDeviceHandle /*dev*/) {
     pd.vert_path = "shaders/terrain_quadtree.vert"; // shared, unmodified -- see that file's own doc comment
     pd.frag_path = "shaders/terrain_quadtree_forward.frag";
     pd.frag_uniform_bufs = 2; // set=3 binding=0 PatchFrag, binding=1 ForwardCam
-    pd.frag_samplers     = 6; // set=2: tex_colour,tex_ground,tex_ground_baked,tex_overlay_mask,tex_ground_nml(task #12),zoneGroundLayersTex
+    pd.frag_samplers     = 8; // set=2: tex_colour,tex_ground,tex_ground_baked,tex_overlay_mask,tex_ground_nml(task #12),tex_detail_array,tex_detail_tint(КРОК3),zoneGroundLayersTex
     pd.frag_storage_bufs = 0;
     // color_format left INVALID -- draws into the caller's real swapchain-
     // format main color target, not an isolated G-buffer (the whole point
@@ -331,23 +331,29 @@ void TerrainQuadtreeRenderer::BeginForward(SDL_GPURenderPass* rp, md::GpuCommand
     cubo.cam_pos_ws[2] = cam_z; cubo.cam_pos_ws[3] = 0.f;
     pv.PushFragmentUniforms(1, &cubo, sizeof(cubo));
 
-    // set=2: same 5 shared ground samplers (task #12: +tex_ground_nml) +
-    // zoneGroundLayersTex the resolve path binds -- contiguous 0..5, no VT
+    // set=2: same 7 shared ground samplers (task #12: +tex_ground_nml;
+    // КРОК 3 2026-09-17: +tex_detail_array/+tex_detail_tint, required
+    // structurally even on this dormant path -- terrain_shading_common.
+    // glsl's TS_ComputeGroundAlbedo/TS_SampleZoneFlatDetail is ONE shared
+    // GLSL source textually included here too, so its sampler
+    // declarations must resolve in every including file regardless of
+    // whether that file's draw path is reachable at runtime) +
+    // zoneGroundLayersTex the resolve path binds -- contiguous 0..7, no VT
     // bindings needed (VT sampling is dead code on the live
     // ShadeTerrainGround path, see terrain_quadtree_forward.frag's own doc
     // comment). This whole draw path (Variant B, forward/inline shading) is
     // itself dormant -- use_forward_terrain_shading_ defaults false -- but
     // kept binding-correct in case it's ever revisited.
-    SDL_GPUTextureSamplerBinding ground_bindings[5];
+    SDL_GPUTextureSamplerBinding ground_bindings[7];
     ground.GetSharedGroundSamplers(ground_bindings);
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < 7; ++i) {
         if (!ground_bindings[i].texture || !ground_bindings[i].sampler) return;
     }
-    pv.BindFragmentSamplers(0, ground_bindings, 5);
+    pv.BindFragmentSamplers(0, ground_bindings, 7);
     SDL_GPUTextureSamplerBinding zone_binding[1] = {
         { ground.ZoneGroundLayersTexture(), ground.ZoneGroundLayersSampler() },
     };
-    pv.BindFragmentSamplers(5, zone_binding, 1);
+    pv.BindFragmentSamplers(7, zone_binding, 1);
 }
 
 void TerrainQuadtreeRenderer::DrawNodeForward(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd,

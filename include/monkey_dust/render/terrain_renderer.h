@@ -84,19 +84,33 @@ public:
     // silently overwrote baked-in roads with pure base texture.
     bool InitOverlayMask(const char* path);
 
+    // КРОК 3 (docs/DAGOR_IMPLEMENTATION_PROMPT.md, docs/KROK3_DECOMPOSE_
+    // SPIKE_RESULT.md, GO-verdict spike): loads tools/md_bake_detail_
+    // array.py's output -- 124-layer packed BC3 array (R=brightness*0.5,
+    // G=normal.x, B=normal.y; per-layer flat colour tint kept OUT of this
+    // texture) + a 128x1 tint-lookup texture (nearest, index=layer/128).
+    // ADDITIONAL to tex_ground_array_/tex_ground_nml_array_, not a
+    // replacement -- consumed ONLY by TS_SampleZoneFlatDetail (base/slope/
+    // grass/dirt/road); the cliff-triplanar path keeps sampling the
+    // original full-chromatic arrays unchanged (see the bake script's own
+    // "SCOPE NOTE" doc comment for why). Must be called after Init().
+    bool InitDetailArray(const char* dir);
+
     bool IsReady() const;
 
-    // Exposes 5 of the already-loaded ground-shading textures (colour
+    // Exposes 7 of the already-loaded ground-shading textures (colour
     // overlay, per-biome ground DDS array, offline-baked flat-ground colour,
-    // grass/dirt/road paint mask, per-biome ground NORMAL DDS array, in that
-    // order) — TerrainPatchRenderer/Granite's DrawBatch is the sole consumer
+    // grass/dirt/road paint mask, per-biome ground NORMAL DDS array, КРОК 3
+    // packed detail array, КРОК 3 tint-lookup, in that order) —
+    // TerrainPatchRenderer/Granite's DrawBatch is the sole consumer
     // now, avoiding a second, wasteful ~1GB+ reload of the same data.
     // tex_biome_blend deliberately excluded: no caller of this needs it.
     // out[4] (normal array) added task #12 (2026-09-03, "ground-texture
     // realism") -- was loaded (InitGroundTextureArray) but never exposed to
     // any shading pass, so ground detail was always lit from the flat
-    // geometry normal only, never the real per-pixel normal map.
-    void GetSharedGroundSamplers(SDL_GPUTextureSamplerBinding out[5]) const;
+    // geometry normal only, never the real per-pixel normal map. out[5]/
+    // out[6] (КРОК 3 detail array + tint) added 2026-09-17.
+    void GetSharedGroundSamplers(SDL_GPUTextureSamplerBinding out[7]) const;
     // Per-zone (64x64=4096) ground-layer lookup — same data
     // UploadZoneGroundLayers populates, exposed for the same reuse reason.
     // A texture (R32G32B32A32_UINT, 448x64 -- 7 texels per zone, 4 uint32
@@ -175,6 +189,13 @@ private:
     GpuTexture  tex_overlay_mask_;      // R=grass, G=grass2, B=dirt, A=road (see InitOverlayMask)
     bool        overlay_mask_ready_ = false;
 
+    // КРОК 3 (see InitDetailArray's doc comment) -- 124-layer packed
+    // brightness+normal BC3 array + 128x1 tint lookup, flat-ground-role
+    // only (TS_SampleZoneFlatDetail).
+    GpuTexture  tex_detail_array_;
+    GpuTexture  tex_detail_tint_;
+    bool        detail_array_ready_ = false;
+
     // Per-zone ground-layer lookup texture (see UploadZoneGroundLayers).
     md::GpuTextureHandle zone_layers_tex_     = nullptr;
     SDL_GPUSampler* zone_layers_sampler_ = nullptr;
@@ -195,6 +216,6 @@ private:
     SDL_GPUSampler* fallback_mask_sampler_   = nullptr;
     md::GpuTextureHandle fallback_blend_tex_      = nullptr;
     SDL_GPUSampler* fallback_blend_sampler_  = nullptr;
-    void FillSamplerBindings(SDL_GPUTextureSamplerBinding out[6]) const;
+    void FillSamplerBindings(SDL_GPUTextureSamplerBinding out[8]) const;
 #endif
 };

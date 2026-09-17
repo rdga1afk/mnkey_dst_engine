@@ -59,7 +59,7 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
     rd.vert_uniform_bufs  = 0;
     rd.vert_samplers      = 0;
     rd.frag_uniform_bufs  = 2;  // set=3 binding=0 ProjFragUBO, binding=1 ProjCamUBO
-    rd.frag_samplers      = 11; // set=2: tex_colour,tex_ground,tex_ground_baked,tex_overlay_mask,tex_ground_nml (task #12); gbufPacked,gbufDepth; zoneGroundLayersTex (texture, not SSBO, since 2026-08-09). БОРГ-TERRAIN-2 (2026-09-13): was 10 -- vtIndirection/vtAtlas removed, dead VT cache-hit path never called. task #141 (2026-09-16): +3 (zoneCornerBakeColorAtlas/NormalAtlas/LutTex), was 8
+    rd.frag_samplers      = 13; // set=2: tex_colour,tex_ground,tex_ground_baked,tex_overlay_mask,tex_ground_nml (task #12), tex_detail_array,tex_detail_tint (КРОК3 2026-09-17); gbufPacked,gbufDepth; zoneGroundLayersTex (texture, not SSBO, since 2026-08-09); zoneCornerBakeColorAtlas/NormalAtlas/LutTex (task #141 2026-09-16). БОРГ-TERRAIN-2 (2026-09-13): was 10 -- vtIndirection/vtAtlas removed, dead VT cache-hit path never called.
     rd.frag_storage_bufs  = 0;  // БОРГ-TERRAIN-2 (2026-09-13): was 1 (vtPageMeta) -- removed with the rest of TerrainVtPageCache
     if (!resolve_pipeline_.Create(rd)) {
         MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] resolve pipeline create failed");
@@ -157,21 +157,22 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
     cubo.cam_pos_ws[2] = cam_z; cubo.cam_pos_ws[3] = 0.f;
     GpuPushFragmentUniforms(cmd, 1, &cubo, sizeof(cubo));
 
-    // set=2: same 5 shared ground samplers the normal forward terrain draw
+    // set=2: same 7 shared ground samplers the normal forward terrain draw
     // binds (TerrainPatchRenderer::DrawBatch) -- index 4 (tex_ground_nml)
-    // added task #12 (2026-09-03).
-    SDL_GPUTextureSamplerBinding ground_bindings[5];
+    // added task #12 (2026-09-03); index 5/6 (КРОК 3 packed detail array +
+    // tint) added 2026-09-17.
+    SDL_GPUTextureSamplerBinding ground_bindings[7];
     ground.GetSharedGroundSamplers(ground_bindings);
-    // All 5 must be checked, not just index 0 -- unlike slots 0/2/3 (plain
-    // sampler2D, always backed by a same-typed 1x1 fallback texture even
-    // when their real asset fails to load), slots 1/4 (tex_ground_array,
-    // tex_ground_nml_array, both sampler2DArray in the shader) have no
-    // fallback of a matching image type in FillSamplerBindings and fall
-    // back to nullptr/nullptr.
-    for (int i = 0; i < 5; ++i) {
+    // All 7 must be checked, not just index 0 -- unlike slots 0/2/3/6
+    // (plain sampler2D, always backed by a same-typed 1x1 fallback texture
+    // even when their real asset fails to load), slots 1/4/5
+    // (tex_ground_array, tex_ground_nml_array, tex_detail_array, all
+    // sampler2DArray in the shader) have no fallback of a matching image
+    // type in FillSamplerBindings and fall back to nullptr/nullptr.
+    for (int i = 0; i < 7; ++i) {
         if (!ground_bindings[i].texture || !ground_bindings[i].sampler) return;
     }
-    pv.BindFragmentSamplers(0, ground_bindings, 5);
+    pv.BindFragmentSamplers(0, ground_bindings, 7);
     // No SSBO left in this set (БОРГ-TERRAIN-2, 2026-09-13: vtPageMeta
     // removed with the rest of TerrainVtPageCache) -- zoneGroundLayers is
     // a texture, not an SSBO, since 2026-08-09.
@@ -181,28 +182,29 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
         { gbuf_color_.SDLTexture(), gbuf_color_.SDLSampler() },
         { gbuf_depth_.SDLTexture(), gbuf_depth_.SDLSampler() },
     };
-    pv.BindFragmentSamplers(5, gbuf_bindings, 2);
+    pv.BindFragmentSamplers(7, gbuf_bindings, 2);
 
-    // Zone ground-layer lookup -- binding=7 (БОРГ-TERRAIN-2, 2026-09-13:
-    // was 9, shifted down 2 after removing vtIndirection/vtAtlas at 7/8),
+    // Zone ground-layer lookup -- binding=9 (КРОК 3, 2026-09-17: was 7,
+    // shifted +2 after inserting tex_detail_array/tex_detail_tint above),
     // texture not SSBO since 2026-08-09 (Filament-blocker reduction, see
     // ZoneGroundLayersTexture's header doc comment). Continues the same
     // contiguous sampler run.
     SDL_GPUTextureSamplerBinding zone_binding[1] = {
         { ground.ZoneGroundLayersTexture(), ground.ZoneGroundLayersSampler() },
     };
-    pv.BindFragmentSamplers(7, zone_binding, 1);
+    pv.BindFragmentSamplers(9, zone_binding, 1);
 
-    // task #141: zone-corner cliff bake atlas + LUT, binding=8/9/10 --
-    // continues the same contiguous sampler run. Safe even before the
-    // real bake has run (TerrainRenderer::Init leaves the LUT filled
-    // with -1 and the atlases as valid 1x1 placeholders).
+    // task #141: zone-corner cliff bake atlas + LUT, binding=10/11/12
+    // (КРОК 3, 2026-09-17: was 8/9/10, shifted +2) -- continues the same
+    // contiguous sampler run. Safe even before the real bake has run
+    // (TerrainRenderer::Init leaves the LUT filled with -1 and the
+    // atlases as valid 1x1 placeholders).
     SDL_GPUTextureSamplerBinding corner_bake_bindings[3] = {
         { ground.CornerBakeColorAtlasTexture(),  ground.CornerBakeColorAtlasSampler() },
         { ground.CornerBakeNormalAtlasTexture(), ground.CornerBakeNormalAtlasSampler() },
         { ground.CornerBakeLutTexture(),         ground.CornerBakeLutSampler() },
     };
-    pv.BindFragmentSamplers(8, corner_bake_bindings, 3);
+    pv.BindFragmentSamplers(10, corner_bake_bindings, 3);
 
     pv.Draw(3, 1, 0, 0);
 }
