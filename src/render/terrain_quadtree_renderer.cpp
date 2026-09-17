@@ -251,6 +251,8 @@ void TerrainQuadtreeRenderer::DrawBatched(SDL_GPURenderPass* rp, md::GpuCommandB
 void TerrainQuadtreeRenderer::Shutdown(md::GpuDeviceHandle dev) {
     gbuffer_pipeline_.Destroy();
     if (forward_ready_) forward_pipeline_.Destroy();
+    if (wireframe_ready_) wireframe_pipeline_.Destroy();
+    if (batched_wireframe_ready_) batched_wireframe_pipeline_.Destroy();
     if (batched_ready_) {
         batched_pipeline_.Destroy();
         if (dev && node_data_tex_) GpuReleaseTexture(dev, node_data_tex_);
@@ -261,7 +263,9 @@ void TerrainQuadtreeRenderer::Shutdown(md::GpuDeviceHandle dev) {
     filled_ibo_.Shutdown();
     ready_ = false;
     forward_ready_ = false;
+    wireframe_ready_ = false;
     batched_ready_ = false;
+    batched_wireframe_ready_ = false;
 }
 
 void TerrainQuadtreeRenderer::DrawNode(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd,
@@ -453,5 +457,86 @@ void TerrainQuadtreeRenderer::DrawNodeWireframe(SDL_GPURenderPass* rp, md::GpuCo
 
     pv.BindIndexBuffer(&filled_ibo_, SDL_GPU_INDEXELEMENTSIZE_32BIT);
     pv.DrawIndexed(filled_index_count_, 1, 0, 0, 0);
+}
+
+bool TerrainQuadtreeRenderer::InitBatchedWireframe(md::GpuDeviceHandle dev) {
+    if (!dev || !batched_ready_) return false; // reuses InitBatched's node_data_tex_/sampler
+    GpuPipeline::Desc pd;
+    pd.layout.count       = 0; // vertex-buffer-less, same technique as batched_pipeline_
+    pd.raster.topology    = GpuTopology::LINES; // real LINELIST, not FILLMODE_LINE over triangles
+    pd.raster.depth_test  = true;
+    // depth_write=true (unlike wireframe_pipeline_'s debug-overlay use):
+    // this pipeline is PRIMARY content here (no shaded pass runs first to
+    // populate depth), so tiles must write real depth or farther tiles can
+    // overdraw nearer ones regardless of draw order.
+    pd.raster.depth_write = true;
+    pd.raster.cull_back   = false;
+    pd.has_depth_target   = true;
+    pd.vert_uniform_bufs  = 1;
+    pd.vert_samplers      = 3; // heightTex, normalTex, nodeDataTex -- same as batched_pipeline_
+    pd.vert_path = "shaders/terrain_quadtree_boundary.vert"; // tile outline only, NOT the internal grid
+    pd.frag_path = "shaders/terrain_wireframe.frag";
+    pd.frag_uniform_bufs = 0;
+    pd.frag_samplers     = 0;
+    pd.frag_storage_bufs = 0;
+    // color_format explicit (UNLIKE wireframe_pipeline_'s "leave INVALID,
+    // falls back to SDL_GetGPUSwapchainTextureFormat" -- correct for that
+    // pipeline's game/editor MAIN swapchain-backed pass, real live-verified
+    // there). This method is editor-only (no game call site) and the
+    // editor's 3D World tab draws into an OFF-SCREEN RTT (s_color,
+    // editor_world_3d_sdlgpu.cpp's ensure_rtt), NOT the swapchain -- the
+    // INVALID fallback silently created a pipeline incompatible with that
+    // render pass (VUID-vkCmdDraw-renderPass-02684, confirmed via
+    // VK_LAYER_KHRONOS_validation), which the driver tolerated for cheap
+    // draws but hard-hung (VK_ERROR_DEVICE_LOST) once this pipeline's much
+    // heavier batched-instanced LINE-mode draw ran. Must match ensure_rtt's
+    // ci.format exactly.
+    pd.color_format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+    if (!batched_wireframe_pipeline_.Create(pd)) {
+        MD_LOG(MD_LOG_WARNING, "[TerrainQuadtreeRenderer] batched wireframe pipeline create failed");
+        return false;
+    }
+    batched_wireframe_ready_ = true;
+    return true;
+}
+
+void TerrainQuadtreeRenderer::BeginBatchedWireframe(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd,
+                                                     const TerrainWorldHeightmap& hmap, const float* vp16,
+                                                     float cam_x, float cam_y, float cam_z) {
+    if (!batched_wireframe_ready_) return;
+    GpuPassView pv = GpuPassView::FromRaw(rp, cmd);
+    pv.BindPipeline(&batched_wireframe_pipeline_);
+
+    struct TerrainBatchUBO {
+        float vp[16];
+        float height_range[4];
+        float cam_pos_pad[4];
+    } ubo{};
+    std::memcpy(ubo.vp, vp16, 64);
+    ubo.height_range[0] = hmap.HeightMin();
+    ubo.height_range[1] = hmap.HeightMax();
+    ubo.height_range[2] = hmap.WorldExtent();
+    ubo.height_range[3] = (float)hmap.Resolution();
+    ubo.cam_pos_pad[0] = cam_x;
+    ubo.cam_pos_pad[1] = cam_y;
+    ubo.cam_pos_pad[2] = cam_z;
+    ubo.cam_pos_pad[3] = 0.f;
+    pv.PushVertexUniforms(0, &ubo, sizeof(ubo));
+
+    SDL_GPUTextureSamplerBinding samp[3] = {
+        { hmap.Texture(), hmap.Sampler() },
+        { hmap.NormalTexture(), hmap.NormalSampler() },
+        { node_data_tex_, node_data_sampler_ },
+    };
+    pv.BindVertexSamplers(0, samp, 3);
+}
+
+void TerrainQuadtreeRenderer::DrawBatchedBoundary(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, int count) {
+    if (!batched_wireframe_ready_ || count <= 0) return;
+    if (count > kMaxBatchedNodes) count = kMaxBatchedNodes;
+    GpuPassView pv = GpuPassView::FromRaw(rp, cmd);
+    // No index buffer -- terrain_quadtree_boundary.vert generates all 8
+    // corner vertices/instance from gl_VertexIndex + nodeDataTex directly.
+    pv.Draw(8, (uint32_t)count, 0, 0);
 }
 #endif // MD_SDL_GPU

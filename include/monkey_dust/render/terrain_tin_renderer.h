@@ -30,8 +30,22 @@ public:
                   float zone_origin_x, float zone_origin_z,
                   float cam_x, float cam_y, float cam_z);
 
+    // 2026-09-17 (owner decision): editor's "3D World" tab wireframe-only
+    // default -- mirrors TerrainQuadtreeRenderer::InitWireframe/
+    // DrawNodeWireframe exactly (shares terrain_tin.vert with DrawMesh, only
+    // the fragment stage + SDL_GPU_FILLMODE_LINE differ). Draws into the
+    // caller's already-open MAIN colour+depth pass, depth_write=false.
+    bool InitWireframe(md::GpuDeviceHandle dev);
+    bool IsWireframeReady() const { return wireframe_ready_; }
+    void DrawMeshWireframe(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd,
+                            const TerrainTinMesh& mesh, const float* vp16,
+                            float zone_origin_x, float zone_origin_z,
+                            float cam_x, float cam_y, float cam_z);
+
 private:
     GpuPipeline gbuffer_pipeline_;
+    GpuPipeline wireframe_pipeline_;
     bool ready_ = false;
+    bool wireframe_ready_ = false;
 };
 #endif

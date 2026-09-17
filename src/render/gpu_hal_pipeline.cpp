@@ -467,7 +467,9 @@ bool GpuPipeline::Create(const Desc& desc) {
     ci.fragment_shader        = frag_sh;
     ci.vertex_input_state     = vertex_input;
     ci.primitive_type         = ToSDLPrim(desc.raster.topology);
-    ci.rasterizer_state.fill_mode  = SDL_GPU_FILLMODE_FILL;
+    ci.rasterizer_state.fill_mode  = desc.raster.wireframe
+                                     ? SDL_GPU_FILLMODE_LINE
+                                     : SDL_GPU_FILLMODE_FILL;
     ci.rasterizer_state.cull_mode  = desc.raster.cull_back
                                      ? SDL_GPU_CULLMODE_BACK
                                      : SDL_GPU_CULLMODE_NONE;
@@ -489,6 +491,7 @@ bool GpuPipeline::Create(const Desc& desc) {
     raster_bits |= (uint32_t)desc.raster.cull_back     << 2;
     raster_bits |= (uint32_t)desc.raster.blend_enable   << 3;
     raster_bits |= (uint32_t)desc.raster.depth_compare_op << 4;
+    raster_bits |= (uint32_t)desc.raster.wireframe      << 12; // leaves room below compare_op's multi-bit range
     const uint32_t pipe_hash = PipeHash(desc.vert_path, desc.frag_path,
                                          desc.shader_features, raster_bits);
     SDL_GPUGraphicsPipeline* cached = PipeCache_Get(pipe_hash);

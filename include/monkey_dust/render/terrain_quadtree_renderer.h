@@ -142,17 +142,43 @@ public:
                             const TerrainQuadtree::VisibleNode& node,
                             float cam_x, float cam_y, float cam_z);
 
+    // 2026-09-17 (owner decision): editor's "3D World" tab textures aren't
+    // needed for editing work. FIRST attempt promoted the debug wireframe
+    // overlay above (full 16x16 internal grid, LINE fillmode) to the tab's
+    // real default visual -- live-verified BOTH visually "огидно" (dense
+    // mesh reads as solid fill at aerial altitude, line density exceeds
+    // screen resolution) AND a real 2 FPS interactive regression (LINE-mode
+    // rasterization of ~512 triangle edges/tile times dozens of visible
+    // tiles). Replaced with a tile-BOUNDARY-only draw (shaders/
+    // terrain_quadtree_boundary.vert, 8 vertices/instance, real LINELIST
+    // topology -- not FILLMODE_LINE over a triangle mesh) -- ~64x fewer
+    // line segments per tile, reads as a clean grid of tile edges. Same
+    // instanced-batched shape as BeginBatched (reuses its node_data_tex_/
+    // sampler, InitBatched must run first) so a full 64x64 aerial view
+    // draws in ONE instanced call, same reasoning as the shaded path's own
+    // БОРГ-VISUAL-3 batching fix. Call BeginBatchedWireframe then
+    // DrawBatchedBoundary (NOT DrawBatched -- this pipeline has no index
+    // buffer, plain non-indexed instanced draw).
+    bool InitBatchedWireframe(md::GpuDeviceHandle dev);
+    bool IsBatchedWireframeReady() const { return batched_wireframe_ready_; }
+    void BeginBatchedWireframe(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd,
+                                const TerrainWorldHeightmap& hmap, const float* vp16,
+                                float cam_x, float cam_y, float cam_z);
+    void DrawBatchedBoundary(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, int count);
+
 private:
     GpuPipeline gbuffer_pipeline_;
     GpuPipeline forward_pipeline_;
     GpuPipeline wireframe_pipeline_;
     GpuPipeline batched_pipeline_;
+    GpuPipeline batched_wireframe_pipeline_;
     GpuStaticBuffer filled_ibo_;
     uint32_t filled_index_count_ = 0;
     bool ready_ = false;
     bool forward_ready_ = false;
     bool batched_ready_ = false;
     bool wireframe_ready_ = false;
+    bool batched_wireframe_ready_ = false;
     md::GpuTextureHandle node_data_tex_     = nullptr;
     SDL_GPUSampler* node_data_sampler_ = nullptr;
 };
