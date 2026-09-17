@@ -64,6 +64,17 @@ public:
     SDL_GPUSampler* PointSampler()    const { return point_sampler_;  }
 
     bool IsEnabled() const { return enabled_; }
+    // КРОК 2 (2026-09-17, docs/DAGOR_IMPLEMENTATION_PROMPT.md): runtime
+    // override for the md.set_quality_tier("ssao", 0|1|2) Lua hook --
+    // separate from Init()'s own RenderTierSystem::HasSSAO() gate (tier
+    // < Deferred_Med means Init() never allocated the pipelines/textures
+    // this class needs, so forcing enabled_=true on such hardware would
+    // just make PrepPass/MainPass/etc. silently no-op on their own null
+    // checks, not crash -- but it also wouldn't actually turn SSAO on,
+    // so callers on low-tier hardware won't see an effect here; this is
+    // for tier>=Deferred_Med hardware where Init() already succeeded and
+    // the user/quality-setting wants to toggle it off/on live).
+    void SetEnabled(bool on) { enabled_ = on; }
     int  HalfW()     const { return half_w_; }
     int  HalfH()     const { return half_h_; }
 
