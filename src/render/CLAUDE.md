@@ -39,19 +39,17 @@ SSBO) послідовно від 0, без розривів між катего
 незмінна незалежно від геометрії. Формула ground-layer шейдингу:
 `shaders/terrain_shading_common.glsl`.
 
-**Стратегічний напрямок (2026-09-17, рішення власника):**
-`TerrainProjectedGrid` (TPG) — ВИДАЛЕНО повністю (2 непочинені
-регресії — капання кутів, одна `y_base`-площина погано моделює
-рельєф; `docs/TERRAIN_PROJECTED_GRID.md` лишається як історичний
-журнал дослідження, task #109/#110/#116 закриті без реалізації).
-`TerrainTinMesh`/`TerrainTinRenderer` (TIN, запечений Delaunay-меш,
-`docs/TIN_ETAP2_PLAN.md`) — ЦІЛЬОВИЙ дефолт, Stage 1 (одна debug-зона)
-пройдено частково: інтер'єр рендериться коректно, боковий шов на межі
-зони — відкрита, непочата проблема, блокує Stage 2/3 (кілька/усі
-зони) і фактичну зміну дефолту. `TerrainQuadtree` лишається production
-на час переходу — довгостроковий кандидат на видалення ПІСЛЯ
-успішного TIN Stage 3. Деталі: `CLAUDE_STATE.md` (корінь репо),
-`docs/CLAUDE_RENDER.md`, `docs/CLAUDE_TERRAIN_SEAM.md`.
+**Стратегічний напрямок (2026-09-18, рішення власника):**
+`TerrainProjectedGrid` (TPG) і `TerrainTinMesh`/`TerrainTinRenderer`
+(TIN) — ОБИДВА ВИДАЛЕНІ повністю (TPG 2026-09-17: 2 непочинені
+регресії; TIN 2026-09-18: обидва шви зрештою виправлені, але FPS-
+паритет з `TerrainQuadtree`, не виграш, означав, що 4-кроковий
+bake→stitch→load→draw pipeline не окупав себе проти `TerrainQuadtree`'s
+1-кроку — `docs/TIN_ETAP2_PLAN.md` Stage 5/6). `TerrainQuadtree` —
+ЄДИНА термейн-система, історичні журнали обох спроб лишаються
+(`docs/TERRAIN_PROJECTED_GRID.md`, `docs/TIN_ETAP2_PLAN.md`). Деталі:
+`CLAUDE_STATE.md` (корінь репо), `docs/CLAUDE_RENDER.md`,
+`docs/CLAUDE_TERRAIN_SEAM.md`.
 
 ## GPU Debug — обов'язковий порядок перед фіксом шейдера
 ```
