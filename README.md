@@ -19,7 +19,7 @@ and **[Jolt Physics](https://github.com/jrouwe/JoltPhysics)**.
 
 > **Render backend: SDL3/SDL_GPU, permanently.**
 
-> **Full documentation →** [rdga1bot.github.io/monkey\_dust\_engine/monkey\_dust\_docs.html](https://rdga1bot.github.io/monkey_dust_engine/monkey_dust_docs.html)
+> **Full documentation →** [rdga1bot.github.io/mnkey\_dst\_engine/monkey\_dust\_docs.html](https://rdga1bot.github.io/mnkey_dst_engine/monkey_dust_docs.html)
 
 ---
 
@@ -176,7 +176,7 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DUSE_SDL3=ON
 ninja -C build monkey_dust_engine
 ```
 
-> **Shaders** live in the parent [`monkey_dust`](https://github.com/rdga1bot/monkey_dust) game repository (`shaders/` + `scripts/compile_shaders.sh`).
+> **Shaders** live in the parent [`monkey_dust`](https://github.com/rdga1bot/mnkey_dst) game repository (`shaders/` + `scripts/compile_shaders.sh`).
 > The engine library itself is shader-agnostic — it loads pre-compiled SPIR-V at runtime via `GpuPipeline::Create(desc)`.
 
 **Dependencies** (bring your own or via CMake FetchContent):
@@ -199,7 +199,7 @@ ninja -C build md_tests          # meta-target, depends on flare_ini_parser + fl
 > The large GTest suite (1830 tests: 1651 gtest + 179 behavior, gaia-ecs backend — FNV · AgentBlackboard · FlowGraph ·
 > DirectorSystem · BT VM · Batch 3–31 · M47–M59 · O3DE-1–4 · ZLD-1–2 · FL-3–4 · KEN-1–8 ·
 > VBfA-R1–9 · VBfA-AI1–6, etc.) lives in the private parent
-> [`monkey_dust`](https://github.com/rdga1bot/monkey_dust) game repo's `tests/` directory, not in
+> [`monkey_dust`](https://github.com/rdga1bot/mnkey_dst) game repo's `tests/` directory, not in
 > this engine submodule.
 
 ---

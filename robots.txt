@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://rdga1bot.github.io/monkey_dust_engine/sitemap.xml
+Sitemap: https://rdga1bot.github.io/mnkey_dst_engine/sitemap.xml
