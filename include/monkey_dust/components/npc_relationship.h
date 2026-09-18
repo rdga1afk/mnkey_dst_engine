@@ -1,7 +1,6 @@
 #pragma once
 #include <cstdint>
 #include <monkey_dust/ecs/md_entity.h>
-#include <monkey_dust/ecs/registry.h>
 #include <monkey_dust/ecs/md_registry.h>
 #include <monkey_dust/platform/md_log.h>
 #include <gaia.h>
@@ -74,8 +73,14 @@ private:
     // remove<T>(target) (md_registry.h) implement exactly this file's needs
     // -- reused directly rather than re-deriving the ecs::Pair(relEntity,
     // target) composition here a second time.
+    //
+    // ECS_CLOSEOUT.md §0.3: was `GaiaEntityHandle(Registry::Get(), e.Raw())`
+    // -- a literal duplicate of MdRegistry::Get().Handle(e) that happened to
+    // bypass the facade instead of calling it. Same object either way
+    // (MdRegistry::Raw() IS Registry::Get()); routing through the facade is
+    // the only externally-visible change.
     static GaiaEntityHandle Handle(MdEntity e) noexcept {
-        return GaiaEntityHandle(Registry::Get(), e.Raw());
+        return MdRegistry::Get().Handle(e);
     }
 
     // Fixed-8 FIFO eviction bookkeeping — bounds flecs's otherwise-
