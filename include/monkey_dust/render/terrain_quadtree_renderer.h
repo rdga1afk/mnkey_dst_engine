@@ -28,10 +28,15 @@ public:
     // pass. hmap supplies the world-wide height+normal textures directly
     // (2026-08-24: #398's TerrainHeightClipmap reverted -- see
     // terrain_quadtree.vert's own doc comment for why).
+    // ground: RESOLVE_OPT spatial-split plan, Крок 4 (docs/RESOLVE_OPT.md,
+    // 2026-09-19) -- terrain_gbuffer_mini.frag now computes the
+    // boundary-mask bit (TS_NeedsCornerBlend), which needs tex_ground/
+    // tex_ground_nml/zoneGroundLayersTex bound as fragment samplers.
     void DrawNode(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd,
                   const TerrainWorldHeightmap& hmap, const float* vp16,
                   const TerrainQuadtree::VisibleNode& node,
-                  float cam_x, float cam_y, float cam_z);
+                  float cam_x, float cam_y, float cam_z,
+                  const TerrainRenderer& ground);
 
     // Forward (inline) shading revival -- draws node geometry directly into
     // the caller's already-open MAIN color+depth render pass (not an
@@ -96,10 +101,15 @@ public:
                         const TerrainQuadtree::VisibleNode* nodes, int count);
 
     // Binds the batched pipeline + per-frame-constant vertex resources
-    // (height/normal/nodeData samplers, vp/height_range/cam_pos UBO).
+    // (height/normal/nodeData samplers, vp/height_range/cam_pos UBO) AND
+    // (Крок 4, see DrawNode's own doc comment above) the fragment
+    // samplers terrain_gbuffer_mini.frag's boundary-mask computation
+    // needs -- DrawBatched itself binds nothing per-call, so this is
+    // where they must land.
     void BeginBatched(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd,
                       const TerrainWorldHeightmap& hmap, const float* vp16,
-                      float cam_x, float cam_y, float cam_z);
+                      float cam_x, float cam_y, float cam_z,
+                      const TerrainRenderer& ground);
 
     // Issues ONE instanced draw_indexed for the filled grid, covering the
     // `count` nodes uploaded via UploadNodeData this frame (count must

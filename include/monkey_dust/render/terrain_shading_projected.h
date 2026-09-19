@@ -104,6 +104,10 @@ private:
     GpuTexture       gbuf_color_;
     GpuDepthTexture   gbuf_depth_;
     GpuPipeline       resolve_pipeline_;
+    // RESOLVE_OPT spatial-split plan, Крок 4 (docs/RESOLVE_OPT.md,
+    // 2026-09-19): second pipeline, terrain_shading_screenspace_cheap.
+    // frag -- see DrawShadingResolve's own doc comment.
+    GpuPipeline       resolve_pipeline_cheap_;
     int  w_ = 0, h_ = 0;
     bool ready_ = false;
 };

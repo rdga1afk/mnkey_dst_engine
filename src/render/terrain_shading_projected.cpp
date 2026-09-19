@@ -67,6 +67,22 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
         return false;
     }
 
+    // RESOLVE_OPT spatial-split plan, Крок 4 (docs/RESOLVE_OPT.md,
+    // 2026-09-19): second pipeline, IDENTICAL desc except frag_path --
+    // terrain_shading_screenspace_cheap.frag skips both corner-blend
+    // subsystems (TS_CHEAP_RESOLVE), a genuinely separate compiled SPIR-V
+    // (not a runtime branch -- see that shader's own doc comment for why
+    // that distinction matters on Gen9). Same 13 frag_samplers: the cheap
+    // shader declares the identical resource set (GLSL compiles every
+    // function body in the shared #included files regardless of which
+    // branch calls it), even though most go unused/DCE'd there.
+    GpuPipeline::Desc rdCheap = rd;
+    rdCheap.frag_path = "shaders/terrain_shading_screenspace_cheap.frag";
+    if (!resolve_pipeline_cheap_.Create(rdCheap)) {
+        MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] cheap resolve pipeline create failed");
+        return false;
+    }
+
     ready_ = true;
     MD_LOG(MD_LOG_INFO, "[TerrainShadingProjected] ready %dx%d (RGBA32F gbuffer + isolated D32_FLOAT)", w, h);
     return true;
@@ -90,6 +106,7 @@ void TerrainShadingProjected::EnsureSize(md::GpuDeviceHandle dev, int w, int h) 
 
 void TerrainShadingProjected::Shutdown() {
     resolve_pipeline_.Destroy();
+    resolve_pipeline_cheap_.Destroy();
     gbuf_depth_.Shutdown();
     gbuf_color_.Shutdown();
     ready_ = false;
@@ -137,76 +154,90 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
                                                    bool shade_constant_debug) {
     if (!ready_) return;
 
-    GpuPassView pv = GpuPassView::FromRaw(rp, cmd);
-    pv.BindPipeline(&resolve_pipeline_);
+    // RESOLVE_OPT spatial-split plan, Крок 4 (docs/RESOLVE_OPT.md,
+    // 2026-09-19): two fullscreen draws instead of one -- cheap pipeline
+    // for boundary-mask==0 pixels (discards mask==1 itself), full
+    // pipeline for mask==1 (discards mask==0 itself). Resource bindings
+    // (UBOs, samplers) are IDENTICAL for both -- only the bound pipeline
+    // differs -- but rebound per-draw rather than assumed to persist
+    // across BindPipeline, since that persistence isn't verified for
+    // this HAL wrapper and the cost of rebinding is negligible next to
+    // the fragment-shader win this split exists for.
+    auto drawOne = [&](GpuPipeline& pipeline) {
+        GpuPassView pv = GpuPassView::FromRaw(rp, cmd);
+        pv.BindPipeline(&pipeline);
 
-    ProjFragUBO fubo{};
-    fubo.sun_dir_str[0] = sun.dir[0]; fubo.sun_dir_str[1] = sun.dir[1];
-    fubo.sun_dir_str[2] = sun.dir[2]; fubo.sun_dir_str[3] = sun.strength;
-    fubo.ambient[0]     = sun.ambient[0]; fubo.ambient[1] = sun.ambient[1];
-    fubo.ambient[2]     = sun.ambient[2]; fubo.ambient[3] = 0.f;
-    fubo.world_params[0] = world_origin_x; fubo.world_params[1] = world_origin_z;
-    fubo.world_params[2] = world_to_uv;
-    fubo.world_params[3] = shade_constant_debug ? 1.f : 0.f;  // Крок 0 ablation, see header doc comment
-    fubo.fog_color_near[0] = fog_color[0]; fubo.fog_color_near[1] = fog_color[1];
-    fubo.fog_color_near[2] = fog_color[2]; fubo.fog_color_near[3] = fog_near;
-    fubo.fog_far = fog_far;
-    GpuPushFragmentUniforms(cmd, 0, &fubo, sizeof(fubo));
+        ProjFragUBO fubo{};
+        fubo.sun_dir_str[0] = sun.dir[0]; fubo.sun_dir_str[1] = sun.dir[1];
+        fubo.sun_dir_str[2] = sun.dir[2]; fubo.sun_dir_str[3] = sun.strength;
+        fubo.ambient[0]     = sun.ambient[0]; fubo.ambient[1] = sun.ambient[1];
+        fubo.ambient[2]     = sun.ambient[2]; fubo.ambient[3] = 0.f;
+        fubo.world_params[0] = world_origin_x; fubo.world_params[1] = world_origin_z;
+        fubo.world_params[2] = world_to_uv;
+        fubo.world_params[3] = shade_constant_debug ? 1.f : 0.f;  // Крок 0 ablation, see header doc comment
+        fubo.fog_color_near[0] = fog_color[0]; fubo.fog_color_near[1] = fog_color[1];
+        fubo.fog_color_near[2] = fog_color[2]; fubo.fog_color_near[3] = fog_near;
+        fubo.fog_far = fog_far;
+        GpuPushFragmentUniforms(cmd, 0, &fubo, sizeof(fubo));
 
-    ProjCamUBO cubo{};
-    cubo.cam_pos_ws[0] = cam_x; cubo.cam_pos_ws[1] = cam_y;
-    cubo.cam_pos_ws[2] = cam_z; cubo.cam_pos_ws[3] = 0.f;
-    GpuPushFragmentUniforms(cmd, 1, &cubo, sizeof(cubo));
+        ProjCamUBO cubo{};
+        cubo.cam_pos_ws[0] = cam_x; cubo.cam_pos_ws[1] = cam_y;
+        cubo.cam_pos_ws[2] = cam_z; cubo.cam_pos_ws[3] = 0.f;
+        GpuPushFragmentUniforms(cmd, 1, &cubo, sizeof(cubo));
 
-    // set=2: same 7 shared ground samplers the normal forward terrain draw
-    // binds (TerrainPatchRenderer::DrawBatch) -- index 4 (tex_ground_nml)
-    // added task #12 (2026-09-03); index 5/6 (КРОК 3 packed detail array +
-    // tint) added 2026-09-17.
-    SDL_GPUTextureSamplerBinding ground_bindings[7];
-    ground.GetSharedGroundSamplers(ground_bindings);
-    // All 7 must be checked, not just index 0 -- unlike slots 0/2/3/6
-    // (plain sampler2D, always backed by a same-typed 1x1 fallback texture
-    // even when their real asset fails to load), slots 1/4/5
-    // (tex_ground_array, tex_ground_nml_array, tex_detail_array, all
-    // sampler2DArray in the shader) have no fallback of a matching image
-    // type in FillSamplerBindings and fall back to nullptr/nullptr.
-    for (int i = 0; i < 7; ++i) {
-        if (!ground_bindings[i].texture || !ground_bindings[i].sampler) return;
-    }
-    pv.BindFragmentSamplers(0, ground_bindings, 7);
-    // No SSBO left in this set (БОРГ-TERRAIN-2, 2026-09-13: vtPageMeta
-    // removed with the rest of TerrainVtPageCache) -- zoneGroundLayers is
-    // a texture, not an SSBO, since 2026-08-09.
+        // set=2: same 7 shared ground samplers the normal forward terrain draw
+        // binds (TerrainPatchRenderer::DrawBatch) -- index 4 (tex_ground_nml)
+        // added task #12 (2026-09-03); index 5/6 (КРОК 3 packed detail array +
+        // tint) added 2026-09-17.
+        SDL_GPUTextureSamplerBinding ground_bindings[7];
+        ground.GetSharedGroundSamplers(ground_bindings);
+        // All 7 must be checked, not just index 0 -- unlike slots 0/2/3/6
+        // (plain sampler2D, always backed by a same-typed 1x1 fallback texture
+        // even when their real asset fails to load), slots 1/4/5
+        // (tex_ground_array, tex_ground_nml_array, tex_detail_array, all
+        // sampler2DArray in the shader) have no fallback of a matching image
+        // type in FillSamplerBindings and fall back to nullptr/nullptr.
+        for (int i = 0; i < 7; ++i) {
+            if (!ground_bindings[i].texture || !ground_bindings[i].sampler) return;
+        }
+        pv.BindFragmentSamplers(0, ground_bindings, 7);
+        // No SSBO left in this set (БОРГ-TERRAIN-2, 2026-09-13: vtPageMeta
+        // removed with the rest of TerrainVtPageCache) -- zoneGroundLayers is
+        // a texture, not an SSBO, since 2026-08-09.
 
-    // set=1: this class's own G-buffer (packed world-pos/normal + dedicated depth).
-    SDL_GPUTextureSamplerBinding gbuf_bindings[2] = {
-        { gbuf_color_.SDLTexture(), gbuf_color_.SDLSampler() },
-        { gbuf_depth_.SDLTexture(), gbuf_depth_.SDLSampler() },
+        // set=1: this class's own G-buffer (packed world-pos/normal + dedicated depth).
+        SDL_GPUTextureSamplerBinding gbuf_bindings[2] = {
+            { gbuf_color_.SDLTexture(), gbuf_color_.SDLSampler() },
+            { gbuf_depth_.SDLTexture(), gbuf_depth_.SDLSampler() },
+        };
+        pv.BindFragmentSamplers(7, gbuf_bindings, 2);
+
+        // Zone ground-layer lookup -- binding=9 (КРОК 3, 2026-09-17: was 7,
+        // shifted +2 after inserting tex_detail_array/tex_detail_tint above),
+        // texture not SSBO since 2026-08-09 (Filament-blocker reduction, see
+        // ZoneGroundLayersTexture's header doc comment). Continues the same
+        // contiguous sampler run.
+        SDL_GPUTextureSamplerBinding zone_binding[1] = {
+            { ground.ZoneGroundLayersTexture(), ground.ZoneGroundLayersSampler() },
+        };
+        pv.BindFragmentSamplers(9, zone_binding, 1);
+
+        // task #141: zone-corner cliff bake atlas + LUT, binding=10/11/12
+        // (КРОК 3, 2026-09-17: was 8/9/10, shifted +2) -- continues the same
+        // contiguous sampler run. Safe even before the real bake has run
+        // (TerrainRenderer::Init leaves the LUT filled with -1 and the
+        // atlases as valid 1x1 placeholders).
+        SDL_GPUTextureSamplerBinding corner_bake_bindings[3] = {
+            { ground.CornerBakeColorAtlasTexture(),  ground.CornerBakeColorAtlasSampler() },
+            { ground.CornerBakeNormalAtlasTexture(), ground.CornerBakeNormalAtlasSampler() },
+            { ground.CornerBakeLutTexture(),         ground.CornerBakeLutSampler() },
+        };
+        pv.BindFragmentSamplers(10, corner_bake_bindings, 3);
+
+        pv.Draw(3, 1, 0, 0);
     };
-    pv.BindFragmentSamplers(7, gbuf_bindings, 2);
 
-    // Zone ground-layer lookup -- binding=9 (КРОК 3, 2026-09-17: was 7,
-    // shifted +2 after inserting tex_detail_array/tex_detail_tint above),
-    // texture not SSBO since 2026-08-09 (Filament-blocker reduction, see
-    // ZoneGroundLayersTexture's header doc comment). Continues the same
-    // contiguous sampler run.
-    SDL_GPUTextureSamplerBinding zone_binding[1] = {
-        { ground.ZoneGroundLayersTexture(), ground.ZoneGroundLayersSampler() },
-    };
-    pv.BindFragmentSamplers(9, zone_binding, 1);
-
-    // task #141: zone-corner cliff bake atlas + LUT, binding=10/11/12
-    // (КРОК 3, 2026-09-17: was 8/9/10, shifted +2) -- continues the same
-    // contiguous sampler run. Safe even before the real bake has run
-    // (TerrainRenderer::Init leaves the LUT filled with -1 and the
-    // atlases as valid 1x1 placeholders).
-    SDL_GPUTextureSamplerBinding corner_bake_bindings[3] = {
-        { ground.CornerBakeColorAtlasTexture(),  ground.CornerBakeColorAtlasSampler() },
-        { ground.CornerBakeNormalAtlasTexture(), ground.CornerBakeNormalAtlasSampler() },
-        { ground.CornerBakeLutTexture(),         ground.CornerBakeLutSampler() },
-    };
-    pv.BindFragmentSamplers(10, corner_bake_bindings, 3);
-
-    pv.Draw(3, 1, 0, 0);
+    drawOne(resolve_pipeline_cheap_);
+    drawOne(resolve_pipeline_);
 }
 #endif
