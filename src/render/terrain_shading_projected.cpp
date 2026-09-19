@@ -2,6 +2,7 @@
 #include <monkey_dust/render/terrain_shading_projected.h>
 #include <monkey_dust/render/gpu_device.h>
 #include <monkey_dust/render/gpu_hal_free_functions.h>
+#include <monkey_dust/render/ambient_probe.h>
 #include <monkey_dust/platform/md_log.h>
 #include <cstring>
 
@@ -61,7 +62,11 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
     rd.vert_samplers      = 0;
     rd.frag_uniform_bufs  = 2;  // set=3 binding=0 ProjFragUBO, binding=1 ProjCamUBO
     rd.frag_samplers      = 13; // set=2: tex_colour,tex_ground,tex_ground_baked,tex_overlay_mask,tex_ground_nml (task #12), tex_detail_array,tex_detail_tint (КРОК3 2026-09-17); gbufPacked,gbufDepth; zoneGroundLayersTex (texture, not SSBO, since 2026-08-09); zoneCornerBakeColorAtlas/NormalAtlas/LutTex (task #141 2026-09-16). БОРГ-TERRAIN-2 (2026-09-13): was 10 -- vtIndirection/vtAtlas removed, dead VT cache-hit path never called.
-    rd.frag_storage_bufs  = 0;  // БОРГ-TERRAIN-2 (2026-09-13): was 1 (vtPageMeta) -- removed with the rest of TerrainVtPageCache
+    // 2026-09-19 (docs/RESOLVE_OPT.md session finding): AmbientProbeBuf,
+    // binding=13 (after the 13 samplers 0-12 above) -- see terrain_
+    // shading_common.glsl's TS_HAS_AMBIENT_PROBE doc comment. Was 0 since
+    // БОРГ-TERRAIN-2 (2026-09-13, vtPageMeta removed with TerrainVtPageCache).
+    rd.frag_storage_bufs  = 1;
     if (!resolve_pipeline_.Create(rd)) {
         MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] resolve pipeline create failed");
         return false;
@@ -254,6 +259,13 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
             { ground.CornerBakeLutTexture(),         ground.CornerBakeLutSampler() },
         };
         pv.BindFragmentSamplers(10, corner_bake_bindings, 3);
+
+        // 2026-09-19 (docs/RESOLVE_OPT.md session finding): directional
+        // ambient via AmbientProbeSystem, binding=13 (after the 13
+        // samplers above) -- see terrain_shading_common.glsl's own
+        // TS_HAS_AMBIENT_PROBE doc comment.
+        SDL_GPUBuffer* ambient_probe_buf = AmbientProbeSystem::Get().GetSSBO().SDLBuffer();
+        pv.BindFragmentStorageBuffers(0, &ambient_probe_buf, 1);
 
         pv.Draw(3, 1, 0, 0);
     };
