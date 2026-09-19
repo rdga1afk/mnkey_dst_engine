@@ -83,6 +83,25 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
         return false;
     }
 
+    // Крок 6 (docs/RESOLVE_OPT.md, 2026-09-19): two more pipelines, same
+    // IDENTICAL desc pattern as rdCheap above -- terrain_shading_
+    // screenspace_zone.frag / _cliff.frag, the +zone-only / +cliff-only
+    // twins. resolve_pipeline_ (rd, unchanged) now only ever draws
+    // category==3 ("both") pixels -- see DrawShadingResolve's own doc
+    // comment for the 4-draw dispatch.
+    GpuPipeline::Desc rdZone = rd;
+    rdZone.frag_path = "shaders/terrain_shading_screenspace_zone.frag";
+    if (!resolve_pipeline_zone_.Create(rdZone)) {
+        MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] zone resolve pipeline create failed");
+        return false;
+    }
+    GpuPipeline::Desc rdCliff = rd;
+    rdCliff.frag_path = "shaders/terrain_shading_screenspace_cliff.frag";
+    if (!resolve_pipeline_cliff_.Create(rdCliff)) {
+        MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] cliff resolve pipeline create failed");
+        return false;
+    }
+
     ready_ = true;
     MD_LOG(MD_LOG_INFO, "[TerrainShadingProjected] ready %dx%d (RGBA32F gbuffer + isolated D32_FLOAT)", w, h);
     return true;
@@ -107,6 +126,8 @@ void TerrainShadingProjected::EnsureSize(md::GpuDeviceHandle dev, int w, int h) 
 void TerrainShadingProjected::Shutdown() {
     resolve_pipeline_.Destroy();
     resolve_pipeline_cheap_.Destroy();
+    resolve_pipeline_zone_.Destroy();
+    resolve_pipeline_cliff_.Destroy();
     gbuf_depth_.Shutdown();
     gbuf_color_.Shutdown();
     ready_ = false;
@@ -154,15 +175,15 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
                                                    bool shade_constant_debug) {
     if (!ready_) return;
 
-    // RESOLVE_OPT spatial-split plan, Крок 4 (docs/RESOLVE_OPT.md,
-    // 2026-09-19): two fullscreen draws instead of one -- cheap pipeline
-    // for boundary-mask==0 pixels (discards mask==1 itself), full
-    // pipeline for mask==1 (discards mask==0 itself). Resource bindings
-    // (UBOs, samplers) are IDENTICAL for both -- only the bound pipeline
-    // differs -- but rebound per-draw rather than assumed to persist
-    // across BindPipeline, since that persistence isn't verified for
-    // this HAL wrapper and the cost of rebinding is negligible next to
-    // the fragment-shader win this split exists for.
+    // RESOLVE_OPT spatial-split plan, Крок 4/6 (docs/RESOLVE_OPT.md,
+    // 2026-09-19): four fullscreen draws instead of one -- each pipeline
+    // discards every category except its own (cheap=0, zone=1, cliff=2,
+    // full=3). Resource bindings (UBOs, samplers) are IDENTICAL for all
+    // four -- only the bound pipeline differs -- but rebound per-draw
+    // rather than assumed to persist across BindPipeline, since that
+    // persistence isn't verified for this HAL wrapper and the cost of
+    // rebinding is negligible next to the fragment-shader win this split
+    // exists for.
     auto drawOne = [&](GpuPipeline& pipeline) {
         GpuPassView pv = GpuPassView::FromRaw(rp, cmd);
         pv.BindPipeline(&pipeline);
@@ -238,6 +259,8 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
     };
 
     drawOne(resolve_pipeline_cheap_);
+    drawOne(resolve_pipeline_zone_);
+    drawOne(resolve_pipeline_cliff_);
     drawOne(resolve_pipeline_);
 }
 #endif

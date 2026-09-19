@@ -108,6 +108,11 @@ private:
     // 2026-09-19): second pipeline, terrain_shading_screenspace_cheap.
     // frag -- see DrawShadingResolve's own doc comment.
     GpuPipeline       resolve_pipeline_cheap_;
+    // Крок 6 (2026-09-19): two more pipelines for the 3-way category
+    // split (terrain_shading_screenspace_zone.frag / _cliff.frag) --
+    // resolve_pipeline_ above now only handles category==3 ("both").
+    GpuPipeline       resolve_pipeline_zone_;
+    GpuPipeline       resolve_pipeline_cliff_;
     int  w_ = 0, h_ = 0;
     bool ready_ = false;
 };
