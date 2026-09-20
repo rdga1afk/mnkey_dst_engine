@@ -352,8 +352,7 @@ cd mnkey_dst</code></pre>
         <pre><code># Основна збірка:
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DUSE_SDL3=ON
 ninja -C build monkey_dust                  # гра       → build/game/monkey_dust
-ninja -C build monkey_dust_editor          # редактор  → build/tools/monkey_dust_editor
-ninja -C build monkey_dust_editor_panels   # hot-reload .so → build/hot/libeditor_panels.so
+ninja -C build monkey_dust_editor          # редактор  → build/tools/monkey_dust_editor (єдиний бінарник, hot-reload видалено 2026-09-17)
 ninja -C build md_flare_demo               # viewer    → build/tools/md_flare_demo
 ninja -C build md_flare_convert            # конвертер → build/tools/md_flare_convert
 
@@ -493,8 +492,7 @@ bash scripts/compile_shaders.sh</code></pre>
     <tr><th>Target</th><th>Команда</th><th>Результат</th></tr>
     <tr><td>Основна гра</td><td><code>ninja -C build monkey_dust</code></td><td><code>build/game/monkey_dust</code></td></tr>
     <tr><td>Flare viewer</td><td><code>ninja -C build md_flare_demo</code></td><td><code>build/tools/md_flare_demo</code></td></tr>
-    <tr><td>Standalone editor</td><td><code>ninja -C build monkey_dust_editor</code></td><td><code>build/tools/monkey_dust_editor</code></td></tr>
-    <tr><td>Editor hot-reload .so</td><td><code>ninja -C build monkey_dust_editor_panels</code></td><td><code>build/hot/libeditor_panels.so</code> — F5 reload без рестарту</td></tr>
+    <tr><td>Standalone editor</td><td><code>ninja -C build monkey_dust_editor</code></td><td><code>build/tools/monkey_dust_editor</code> — єдиний бінарник, hot-reload видалено 2026-09-17</td></tr>
     <tr><td>Flare конвертер</td><td><code>ninja -C build md_flare_convert</code></td><td><code>build/tools/md_flare_convert</code></td></tr>
     <tr><td>Test suite</td><td><code>ninja -C build md_tests</code></td><td><code>build/tests/md_tests</code></td></tr>
     <tr><td>SPIR-V шейдери</td><td><code>bash scripts/compile_shaders.sh</code></td><td><code>shaders/spirv/*.spv</code></td></tr>
@@ -525,8 +523,7 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DUSE_SDL3=ON</code></pre>
     <tr><td>monkey_dust_engine</td><td><code>USE_SDL3 USE_GLM MD_LOG_NO_RAYLIB MD_SDL_GPU</code></td><td>PUBLIC → propagate до всіх consumers</td></tr>
     <tr><td>monkey_dust (game)</td><td>inherits engine PUBLIC</td><td>+ <code>DEBUG</code> у Debug build</td></tr>
     <tr><td>md_flare_demo</td><td><code>MD_SDL_GPU USE_SDL3 USE_GLM</code></td><td>SDL_GPU Vulkan рендер</td></tr>
-    <tr><td>monkey_dust_editor</td><td><code>MONKEY_DUST_STANDALONE_EDITOR MONKEY_DUST_EDITOR MD_SDL_GPU USE_SDL3</code></td><td>SDL_GPU Vulkan (той самий бекенд що й гра)</td></tr>
-    <tr><td>monkey_dust_editor_panels</td><td><code>MONKEY_DUST_STANDALONE_EDITOR MONKEY_DUST_EDITOR MD_SDL_GPU USE_SDL3</code></td><td>hot-reload .so; символи резолвяться із хост-бінарі</td></tr>
+    <tr><td>monkey_dust_editor</td><td><code>MONKEY_DUST_STANDALONE_EDITOR MONKEY_DUST_EDITOR MD_SDL_GPU USE_SDL3</code></td><td>SDL_GPU Vulkan (той самий бекенд що й гра); єдиний бінарник, hot-reload видалено 2026-09-17</td></tr>
     <tr><td>md_tests</td><td>inherits engine PUBLIC</td><td>Google Test runner</td></tr>
   </table>
 </section>
@@ -1444,12 +1441,13 @@ python3 tools/md_extract_terrain.py pack_atlas  # → game/data/terrain/world_hm
   <h2>🖥️ Wicked-style Editor (M34 + M38–M41 + Extension Panels, MONKEY_DUST_EDITOR=ON)</h2>
 
   <p>Компілюється у <code>monkey_dust</code> з <code>-DMONKEY_DUST_EDITOR=ON</code>. Toggle: <span class="key">F3</span>. Physics пауза активна за замовчуванням при відкритті.</p>
-  <div class="callout tip">
-    <div class="callout-title">Hot-reload панелей (DECOUPLE milestone)</div>
-    <code>build/hot/libeditor_panels.so</code> — dlopen hot-swap без закриття редактора.<br>
-    <strong>Rebuild панелі:</strong> <code>ninja monkey_dust_editor_panels</code> (~5-10s), потім <span class="key">F5</span> у редакторі.<br>
-    <strong>Rebuild бінарі:</strong> <code>ninja monkey_dust_editor</code> — тільки якщо змінився <code>main.cpp</code> або CMakeLists.<br>
-    Символи резолвяться із хост-бінарі через <code>--allow-shlib-undefined</code> + <code>--export-dynamic</code>.
+  <div class="callout warn">
+    <div class="callout-title">Єдиний бінарник (hot-reload видалено 2026-09-17)</div>
+    Раніше панелі жили в окремому <code>build/hot/libeditor_panels.so</code> з dlopen hot-swap
+    (F5 без рестарту). Повторний стан "панелі .so застаріле відносно engine .a" (ninja
+    dependency tracking для link-кроку shared lib не бачив зміни в .a) спричиняв постійну
+    плутанину під час діагностики — механізм видалено. <code>ninja -C build monkey_dust_editor</code>
+    — єдина ціль, звичайний рестарт після ребілду.
   </div>
 
   <h3>Клавіатурні скорочення</h3>
@@ -1651,7 +1649,7 @@ while (running) {
     TransformSoA::Get().UploadSDL();
     AnimationSoA::Get().DispatchSkinning(skin_bindings);
     ShadowSystem::Get().RenderShadowPass(...);
-    // ... cull compute → NPC draw → lights → SSAO → SMAA ...
+    // ... cull compute → NPC draw → SSAO → deferred ambient pass ...
     HudRenderer::Draw(reg, gs, camera);
     GpuDevice::Get().Submit(cmd);
 

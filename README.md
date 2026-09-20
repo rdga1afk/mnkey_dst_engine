@@ -30,11 +30,9 @@ and **[Jolt Physics](https://github.com/jrouwe/JoltPhysics)**.
 |--------|---------|
 | Tile map renderer | FLARE-inspired isometric tiles; TINST stride=36; `uint64_t` depth sort (eliminates Z-fight at tile edges); billboard + flat-XZ; fringe layers; `fadeOverlapTile` (player under roof = 35 % alpha); 4-phase pipeline (`SetObjectLayerIdx`) |
 | OIT | 2-MRT weighted blended OIT: RGBA16F accum + R8G8B8A8 revealage; **compute composite** (avoids Intel HD 520 driver crash with 2+ fragment samplers); depth test against opaque scene |
-| Deferred lighting | GBuffer 2-RT (RT0=albedo+rough, RT1=oct-normal+metallic+flags); ambient pass `DeferredLightingSystem` → RGBA16F hdr\_color; point volumes; strip lights; ACES tonemapping |
+| Deferred lighting | GBuffer 2-RT (RT0=albedo+rough, RT1=oct-normal+metallic+flags); single fullscreen `DeferredLightingSystem::DrawAmbientPass` → RGBA16F hdr\_color (M57; replaced the earlier separate PointLightSystem/StripLightSystem icosphere/capsule-SDF passes, both removed as dead code); ACES tonemapping |
 | Cascaded Shadow Maps | 3-cascade **EVSM** soft shadows; texel-snap (eliminates shimmer); 10 % cascade blend overlap; GPU compute culling (`shadow_cull.comp`) |
 | SSAO | Half-res R8 compute pass; 16-tap hemisphere kernel |
-| SMAA | 3-pass fullscreen triangle (edge → blend → final) |
-| Point / strip lights | Icosphere additive pass; capsule-SDF strip lights |
 | GPU skinning | AnimationSoA; SSBO skeletal bones (MAX\_BONES=64, reference rig uses 30 of 64); compute dispatch |
 | Particles | ParticleSoA CPU-sim; SMOKE/SPARK/BLOOD types |
 | Material system | O3DE-inspired: JSON → `GpuPipeline::Desc`; **parent inheritance** (`"parent": "base_pbr"`); `shader_features` bitmask; `MaterialTypeRegistry` (MAX=32) |
@@ -76,8 +74,10 @@ arrays/matrices. 41 engine-side components in `engine/include/monkey_dust/compon
 
 gaia-ecs is the engine's sole ECS backend, replacing flecs entirely on 2026-09-10 after a
 6-phase strangler-fig migration (relations, sorting, the JobGraph scheduler adapter
-`gaia_sched_adapter.h`, and the standalone editor's `EcsReflectBridge` — hot-reload-safe
-by-name component resolution across `dlopen`/`dlclose`) and full verification: 1629/1629
+`gaia_sched_adapter.h`, and the standalone editor's `EcsReflectBridge` — by-name component
+resolution, originally verified safe across the editor-panel `dlopen`/`dlclose` hot-reload
+cycle that existed at the time; that hot-reload mechanism was removed entirely 2026-09-17,
+so the by-name resolution now just runs once at startup) and full verification: 1629/1629
 gtest, 3/3 `scenario_*`, live 40 s smoke (game+editor), ASan+UBSan clean through a real
 `--exec` scenario, `.mdsave` v11 confirmed cross-backend compatible in both directions.
 Measured: logic tick ~2.4× faster and far less noisy than flecs (0.7 ms stdev=0 vs
@@ -217,7 +217,7 @@ engine/
     ecs/                   ← Registry (gaia::ecs::World singleton)
     editor/                ← EditorPanelRegistry (MAX_PANELS=16)
     flare/                 ← tile map, sprite animation, renderer
-    hot/                   ← hot-reloadable module interfaces (editor_module.h, gameplay_module.h)
+    hot/                   ← gameplay_module.h (libgameplay.so BT-binding hot-reload; the separate editor-panel .so hot-reload was removed 2026-09-17)
     math/                  ← md_fast_math.h, sin_lut.h (rsqrtps fast-math helpers)
     platform/math_types.h  ← Vec3/Mat4 (GLM switch -DUSE_GLM)
     nav/                   ← PathCache, CrowdSystem
@@ -225,7 +225,7 @@ engine/
     nodegraph/             ← PCG node graph (noise/scatter/terrain tile gen)
     physics/               ← JoltWorld, Ragdoll
     platform/              ← input/audio/window/md_fs/md_log/md_hints/timing_system
-    render/                ← GPU HAL, ring buffer, shadow, SSAO, SMAA …
+    render/                ← GPU HAL, ring buffer, shadow, SSAO …
     save/                  ← SaveSystem v10 · SaveVersionChain
     scripting/             ← LuaSystem, LuaEventBus, FlowGraph
     spatial/               ← world_bvh.h
