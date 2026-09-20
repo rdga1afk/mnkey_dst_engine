@@ -253,7 +253,7 @@
 
     <div class="nav-section">Системи</div>
     <a href="#combat"       class="nav-link"><span class="nav-icon">⚔️</span> Combat + Powers</a>
-    <a href="#ken-migration" class="nav-link"><span class="nav-icon">🌐</span> KEN-MIGRATION (Kenshi P1–P6)</a>
+    <a href="#ref-migration" class="nav-link"><span class="nav-icon">🌐</span> REF-MIGRATION (Survival-Sim P1–P6)</a>
     <a href="#building"     class="nav-link"><span class="nav-icon">🏗️</span> Building</a>
     <a href="#save"         class="nav-link"><span class="nav-icon">💾</span> Save / Load (v10)</a>
     <a href="#quests"       class="nav-link"><span class="nav-icon">📜</span> Quests</a>
@@ -280,7 +280,7 @@
     <div class="version-badge">v27.2 · C++17 · SDL3 + SDL_GPU (Vulkan, постійний бекенд) · gaia-ecs (єдиний бекенд, flecs видалено) · Jolt · Recast · 1630 тестів · 2026-09-10</div>
     <h1>monkey_dust</h1>
     <p style="font-size:17px;color:var(--text);margin-bottom:0;">
-      Ізометричний RPG-sandbox з відкритим світом. C++17 без ігрового рушія — тільки бібліотеки. Рендер-пайплайн натхненний Flare Engine. Бекенд: SDL3 + SDL_GPU (Vulkan), OpenGL/Raylib повністю видалено (FIX-8), постійний рендер-шлях. AI архітектура натхненна механіками Alien: Isolation. Kenshi asset pipeline (KEN-1–8): cgltf GLB, ozz-animation, Jolt CharacterVirtual, DetourCrowd. Terrain atlas <code>world_hmap.r32</code> (67 MB, 4096 зон). Цільове залізо: Intel HD 520 (AVX2).
+      Ізометричний RPG-sandbox з відкритим світом. C++17 без ігрового рушія — тільки бібліотеки. Рендер-пайплайн натхненний Flare Engine. Бекенд: SDL3 + SDL_GPU (Vulkan), OpenGL/Raylib повністю видалено (FIX-8), постійний рендер-шлях. AI-архітектура натхненна класичними stealth-horror патернами одного адаптивного переслідувача. Asset-імпорт пайплайн оригінальної RPG-гри (REF-1–8): cgltf GLB, ozz-animation, Jolt CharacterVirtual, DetourCrowd. Terrain atlas <code>world_hmap.r32</code> (67 MB, 4096 зон). Цільове залізо: Intel HD 520 (AVX2).
     </p>
     <div class="hero-meta">
       <div class="hero-meta-item"><span class="dot">●</span> C++17, без C++20</div>
@@ -296,8 +296,8 @@
     <div class="card"><div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></div><div class="card-title">Isometric Flare</div><div class="card-desc">Flare-сумісні мапи: TileMapRenderer (3D ізометрія) + TileMap2DRenderer (2D SDL_GPU). Multi-atlas, billboard, FRINGE.</div></div>
     <div class="card"><div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><line x1="12" y1="7" x2="12" y2="12"/><line x1="12" y1="12" x2="6" y2="17"/><line x1="12" y1="12" x2="18" y2="17"/></svg></div><div class="card-title">ECS (gaia-ecs)</div><div class="card-desc">500+ NPC, всі компоненти — чистий POD. Collect→apply патерн. Split-ready engine/include/monkey_dust/.</div></div>
     <div class="card"><div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="7" r="2"/><circle cx="19" cy="7" r="2"/><circle cx="5" cy="17" r="2"/><circle cx="19" cy="17" r="2"/><circle cx="12" cy="12" r="2"/><line x1="7" y1="7" x2="10" y2="12"/><line x1="17" y1="7" x2="14" y2="12"/><line x1="7" y1="17" x2="10" y2="12"/><line x1="17" y1="17" x2="14" y2="12"/></svg></div><div class="card-title">AI Systems</div><div class="card-desc">Stackless BT VM + BTSystem + BTJsonLoader + DirectorSystem + FlowGraph + SenseSystem. Extended AI patterns (C1–C20).</div></div>
-    <div class="card"><div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="3"/><path d="M12 8v6"/><path d="M8 11h8"/><path d="M10 14l-2 7"/><path d="M14 14l2 7"/></svg></div><div class="card-title">Kenshi Character Editor</div><div class="card-desc">Posture · Shoulder set · Neck pos — повні 3D кватерніонні дельти з GLB-анімацій. 29 morph targets. Hair/skin/eye.</div></div>
-    <div class="card"><div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div><div class="card-title">FCS Binary Parser</div><div class="card-desc">Kenshi gamedata.base + .mod: 137 фракцій, 348 міст, leveldata.level 20 world coords. python3 private/md_mod_import.py.</div></div>
+    <div class="card"><div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="3"/><path d="M12 8v6"/><path d="M8 11h8"/><path d="M10 14l-2 7"/><path d="M14 14l2 7"/></svg></div><div class="card-title">Character Editor</div><div class="card-desc">Posture · Shoulder set · Neck pos — повні 3D кватерніонні дельти з GLB-анімацій. 29 morph targets. Hair/skin/eye.</div></div>
+    <div class="card"><div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div><div class="card-title">FCS Binary Parser</div><div class="card-desc">Proprietary gamedata.base + .mod: 137 фракцій, 348 міст, leveldata.level 20 world coords. python3 private/md_mod_import.py.</div></div>
     <div class="card"><div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="3" r="2"/><circle cx="4" cy="21" r="2"/><circle cx="12" cy="21" r="2"/><circle cx="20" cy="21" r="2"/><line x1="12" y1="5" x2="12" y2="19"/><line x1="12" y1="10" x2="5" y2="19"/><line x1="12" y1="10" x2="19" y2="19"/></svg></div><div class="card-title">BT VM повний</div><div class="card-desc">BTNodePool 32KB arena · BTSystem ECS driver · BTJsonLoader strstr parser · 30+ node types · data/bt/ JSON trees.</div></div>
     <div class="card"><div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 7.76a6 6 0 0 0 0 8.49"/></svg></div><div class="card-title">9 Improvements</div><div class="card-desc">ACES tonemapping · Live BT reload · NpcMemory · Dirty TINST · Dirty SSBO · WorldSim 1Hz · MaterialDesc · UtilityScorer · md::fs</div></div>
   </div>
@@ -388,7 +388,7 @@ bash scripts/compile_shaders.sh</code></pre>
 
 <!-- ═══ STRUCTURE ═══ -->
 <section class="doc-section" id="structure">
-  <h2>📁 Monorepo структура (M46–M59 + KEN-1–8 + VBfA + Atlas)</h2>
+  <h2>📁 Monorepo структура (M46–M59 + REF-1–8 + FX + Atlas)</h2>
 
   <div class="file-tree">
 <span class="dir">monkey_dust/</span>
@@ -450,7 +450,7 @@ bash scripts/compile_shaders.sh</code></pre>
 │   │   ├── <span class="note">editor_core · editor_hierarchy · editor_inspector · editor_map_view</span>
 │   │   ├── <span class="hl">editor_world_3d_sdlgpu.h/.cpp</span> <span class="note">3D terrain viewport — 64×64 світ, per-chunk LOD 0–3, RTT (DECOUPLE-2: tools/ only)</span>
 │   │   ├── <span class="hl">settings_editor.h</span>       <span class="note">Settings tab — camera params, font sizes (DECOUPLE-2)</span>
-│   │   ├── <span class="hl">editor_world_panel.h</span>    <span class="note">World tab: Zone/Faction/Town + map preview (KEN-5)</span>
+│   │   ├── <span class="hl">editor_world_panel.h</span>    <span class="note">World tab: Zone/Faction/Town + map preview (REF-5)</span>
 │   │   ├── <span class="hl">editor_viewcone_panel.h</span>  <span class="note">SenseComponent activation bars (M38)</span>
 │   │   ├── <span class="hl">editor_flowgraph_panel.h</span> <span class="note">FlowGraph nodes/vars/pending (M39)</span>
 │   │   ├── <span class="hl">editor_director_panel.h</span>  <span class="note">menace + stage + manual override (M40)</span>
@@ -787,13 +787,13 @@ ScheduleSystem::Get().Tick(reg, game_time);  // day/night switch</code></pre>
     <tr><td>actSenseCheck</td><td>bt_extensions.h</td><td>Перевірка SenseActivation (M21)</td></tr>
     <tr><td>actFlagCheck/Set</td><td>bt_extensions.h</td><td>LogicCharacterFlags uint64 bit-index (C4)</td></tr>
     <tr><td>actTimerStart/Check</td><td>bt_extensions.h</td><td>AgentTimerSlot[26] (C5)</td></tr>
-    <tr><td>actSeekFood</td><td>ai_goal.h</td><td>KEN-P6: hunger≥thresh → їжа з інвентарю або навігація до NPC з їжею (ItemType::Food)</td></tr>
-    <tr><td>actSeekBed</td><td>ai_goal.h</td><td>KEN-P6: fatigue≥thresh → NavTo будівлі, відновлення втоми; is_sleeping гістерезис до 0.10</td></tr>
-    <tr><td>actSurgery</td><td>ai_goal.h</td><td>KEN-P6: FieldMedic≥10 → лікує союзника (2× у клініці), XP</td></tr>
-    <tr><td>actRepairSkeleton</td><td>ai_goal.h</td><td>KEN-P6: Engineering≥1 → відновлює hp кінцівок (2× біля станції)</td></tr>
-    <tr><td>actVendorTend</td><td>ai_goal.h</td><td>KEN-P6: ShopInventory→TickRestock(dt), завжди Running для вендора</td></tr>
-    <tr><td>actBuyFromVendor</td><td>ai_goal.h</td><td>KEN-P6: потрібна їжа, є faction_wealth → NavTo вендора, ModWealth, Add item</td></tr>
-    <tr><td>actRepairItem</td><td>ai_goal.h</td><td>KEN-P6: condition&lt;1000, Engineering≥1 → відновлює condition (2× біля станції)</td></tr>
+    <tr><td>actSeekFood</td><td>ai_goal.h</td><td>REF-P6: hunger≥thresh → їжа з інвентарю або навігація до NPC з їжею (ItemType::Food)</td></tr>
+    <tr><td>actSeekBed</td><td>ai_goal.h</td><td>REF-P6: fatigue≥thresh → NavTo будівлі, відновлення втоми; is_sleeping гістерезис до 0.10</td></tr>
+    <tr><td>actSurgery</td><td>ai_goal.h</td><td>REF-P6: FieldMedic≥10 → лікує союзника (2× у клініці), XP</td></tr>
+    <tr><td>actRepairSkeleton</td><td>ai_goal.h</td><td>REF-P6: Engineering≥1 → відновлює hp кінцівок (2× біля станції)</td></tr>
+    <tr><td>actVendorTend</td><td>ai_goal.h</td><td>REF-P6: ShopInventory→TickRestock(dt), завжди Running для вендора</td></tr>
+    <tr><td>actBuyFromVendor</td><td>ai_goal.h</td><td>REF-P6: потрібна їжа, є faction_wealth → NavTo вендора, ModWealth, Add item</td></tr>
+    <tr><td>actRepairItem</td><td>ai_goal.h</td><td>REF-P6: condition&lt;1000, Engineering≥1 → відновлює condition (2× біля станції)</td></tr>
   </table>
 
   <h3>BT Node Types (behavior_tree.h)</h3>
@@ -1282,7 +1282,7 @@ TerrainAtlas_SetHeight(zx, zy, col, row, h + g_brush_str * dt);
   <h3>Zone Seam Fix (RD-4, 2026-05-22)</h3>
   <div class="callout ok">
     <div class="callout-title">TerrainAtlas_SmoothBoundaries() — виклик обов'язковий після Load()</div>
-    Kenshi <code>fullmap.tif</code> має стрибки висот до 22.9 m на першій внутрішній вершині зони (71° cliff → NdotL=0 → чорний сектор). <code>SmoothBoundaries()</code> з N=15 усуває це: кожний крок ≤10°, NdotL≥0.65.
+    Оригінальний <code>fullmap.tif</code> має стрибки висот до 22.9 m на першій внутрішній вершині зони (71° cliff → NdotL=0 → чорний сектор). <code>SmoothBoundaries()</code> з N=15 усуває це: кожний крок ≤10°, NdotL≥0.65.
   </div>
   <pre><code>// main.cpp та scene_render.cpp:
 TerrainAtlas_Load("game/data/terrain/world_hmap");  // raw uint16 .r16 (2026-07-19, was .r32)
@@ -1305,13 +1305,13 @@ float ndl = max(dot(N, sun_dir), 0.57);  // 0.57 = dot((0,1,0),(0.57,0.57,0.57))
   </div>
 
   <h3>Генерація atlas</h3>
-  <pre><code># Повний Kenshi terrain pipeline (tools/tif_to_r32.py замінив видалений md_extract_terrain.py):
+  <pre><code># Повний terrain pipeline (tools/tif_to_r32.py замінив видалений md_extract_terrain.py):
 python3 tools/tif_to_r32.py       # fullmap.tif → world_hmap.r16 (raw uint16, seam=0.0m)
 python3 tools/md_worldmap_gen.py  # regen world_map.png</code></pre>
 
   <div class="callout warn">
     <div class="callout-title">Процедурної генерації немає (видалено 2026-07-19)</div>
-    Реальний Kenshi теж не має процедурної генерації термейну — увесь ландшафт авторський. <code>TerrainMaster</code>/<code>md_master_hmap</code> (макро-геометрія для колишнього noise-fallback) видалені повністю разом з недосяжною fallback-гілкою в <code>TerrainGen_Build</code>. <code>SimplexNoise2</code>/<code>FBM2</code> лишились як прості noise-примітиви (тестові фікстури), нічого реального не підпирають.
+    Оригінальна гра теж не має процедурної генерації термейну — увесь ландшафт авторський. <code>TerrainMaster</code>/<code>md_master_hmap</code> (макро-геометрія для колишнього noise-fallback) видалені повністю разом з недосяжною fallback-гілкою в <code>TerrainGen_Build</code>. <code>SimplexNoise2</code>/<code>FBM2</code> лишились як прості noise-примітиви (тестові фікстури), нічого реального не підпирають.
   </div>
 </section>
 
@@ -1321,7 +1321,7 @@ python3 tools/md_worldmap_gen.py  # regen world_map.png</code></pre>
 
   <div class="callout tip">
     <div class="callout-title">Всі публічні інструменти мають префікс md_</div>
-    Приставка <code>kenshi_</code> замінена на <code>md_</code> в усіх публічних репозиторіях (<code>tools/</code>, <code>engine/</code>) для відповідності EULA. RE-дані залишаються виключно у приватному репо.
+    Оригінальні префікси інструментів замінено на <code>md_</code> в усіх публічних репозиторіях (<code>tools/</code>, <code>engine/</code>) для відповідності EULA. RE-дані залишаються виключно у приватному репо.
   </div>
 
   <h3>Python скрипти у tools/</h3>
@@ -1342,17 +1342,17 @@ python3 tools/md_worldmap_gen.py  # regen world_map.png</code></pre>
   <table>
     <tr><th>Файл</th><th>Вміст</th></tr>
     <tr><td><code>game/data/terrain/world_hmap.r32</code></td><td>Terrain atlas 67 MB (4096 зон, 65×65 float кожна)</td></tr>
-    <tr><td><code>game/data/md_world.json</code></td><td>World registry: 34 Kenshi-зони, biome, danger, factions</td></tr>
-    <tr><td><code>game/data/props/md_human.glb</code></td><td>Kenshi human male mesh (15504 verts, 30 bones, 6 clips)</td></tr>
-    <tr><td><code>game/data/props/md_human_f.glb</code></td><td>Kenshi human female mesh</td></tr>
-    <tr><td><code>game/data/props/md_skeleton.glb</code></td><td>Kenshi skeleton mesh</td></tr>
+    <tr><td><code>game/data/md_world.json</code></td><td>World registry: 34 зони, biome, danger, factions</td></tr>
+    <tr><td><code>game/data/props/md_human.glb</code></td><td>Human male mesh (15504 verts, 30 bones, 6 clips)</td></tr>
+    <tr><td><code>game/data/props/md_human_f.glb</code></td><td>Human female mesh</td></tr>
+    <tr><td><code>game/data/props/md_skeleton.glb</code></td><td>Skeleton mesh</td></tr>
     <tr><td><code>game/data/anim/md_human.ozz</code></td><td>ozz skeleton + animation clips (idle, walk, run, breathing)</td></tr>
     <tr><td><code>game/data/textures/md_terrain.png</code></td><td>Terrain atlas texture</td></tr>
     <tr><td><code>game/data/textures/md_human_body.png</code></td><td>Human body diffuse texture</td></tr>
     <tr><td><code>game/data/textures/md_human_female_body.png</code></td><td>Human female body diffuse texture</td></tr>
   </table>
 
-  <h3>Kenshi Asset Pipeline (KEN-1–8)</h3>
+  <h3>Asset Pipeline (REF-1–8)</h3>
   <pre><code># 1. Конвертація OGRE → GLB:
 OgreXMLConverter data/character/meshes/human/human_male.mesh /tmp/md_mesh/human_male.mesh.xml
 python3 tools/md_convert.py   # → game/data/props/md_human.glb (30 bones, 6 clips)
@@ -1375,7 +1375,7 @@ python3 tools/md_extract_terrain.py pack_atlas  # → game/data/terrain/world_hm
     <tr><td><strong>Items</strong></td><td>CRUD для <code>data/items/items.json</code>: назва, вага, вартість, категорія</td></tr>
     <tr><td><strong>Factions</strong></td><td>CRUD + матриця відносин для <code>data/factions/factions.json</code></td></tr>
     <tr><td><strong>Map</strong></td><td>Ізометричний Map Editor (M9): FBO viewport + palette + paint tools</td></tr>
-    <tr><td><strong>World</strong></td><td>Zone/Faction/Town + map preview (KEN-5)</td></tr>
+    <tr><td><strong>World</strong></td><td>Zone/Faction/Town + map preview (REF-5)</td></tr>
     <tr><td><strong>Heightmap</strong></td><td>F7 terrain brush, undo/redo 32 кроки (PROC-3)</td></tr>
     <tr><td><strong>3D World</strong></td><td>Terrain viewport — 64×64 світ, per-chunk LOD 0–3, RTT→ImGui (RD-5); <code>tools/editor/editor_world_3d_sdlgpu.h</code></td></tr>
     <tr><td><strong>NPCs</strong></td><td>NPC + settlement management (PROC-4)</td></tr>
@@ -1799,13 +1799,13 @@ float cd = PowerSlotManager::Get().GetCooldown(entity, slot=0);
 ProjectileSystem::Get().Tick(reg, dt);  // move → hit check → expire</code></pre>
 </section>
 
-<!-- ═══ KEN-MIGRATION ═══ -->
-<section class="doc-section" id="ken-migration">
-  <h2>🌐 KEN-MIGRATION — Kenshi Mechanics (P1–P6)</h2>
+<!-- ═══ REF-MIGRATION ═══ -->
+<section class="doc-section" id="ref-migration">
+  <h2>🌐 REF-MIGRATION — Survival-Sim Mechanics (P1–P6)</h2>
 
   <div class="callout ok">
-    <div class="callout-title">6-фазова інтеграція Kenshi-механік (2026-05-23–24)</div>
-    6 фаз додають повну Kenshi-подібну симуляцію виживання: 25 навичок, 6-зонне здоров'я, economy/торгівля, AI-потреби, хірургія, деградація спорядження.
+    <div class="callout-title">6-фазова інтеграція survival-sim механік (2026-05-23–24)</div>
+    6 фаз додають повну survival-sim симуляцію виживання: 25 навичок, 6-зонне здоров'я, economy/торгівля, AI-потреби, хірургія, деградація спорядження.
   </div>
 
   <h3>Phase 1 — Combat Parity</h3>
@@ -2133,7 +2133,7 @@ MD_LOG_INFO("frame %llu dt=%.3f", g_logic_ctx.frame_index, g_logic_ctx.dt);</cod
 <section class="doc-section" id="roadmap">
   <h2>🗓️ Roadmap — стан на 2026-06-03</h2>
 
-  <h3>Завершено (M0–M59 + FIX-1–10 + AI-Ext-1–20 + BT VM + IMP-1–9 + Batch 3–31 + KEN-1–8 + VBfA-R1–9 + VBfA-AI1–6 + KEN-MIGRATION P1–P6)</h3>
+  <h3>Завершено (M0–M59 + FIX-1–10 + AI-Ext-1–20 + BT VM + IMP-1–9 + Batch 3–31 + REF-1–8 + FX-R1–9 + FX-AI1–6 + REF-MIGRATION P1–P6)</h3>
   <table>
     <tr><th>Milestone</th><th>Зміст</th><th>Статус</th></tr>
     <tr><td>M0–M34</td><td>Core gameplay: ECS, AI, Nav, Combat, Build, Save, Dialog, Quest, Editor, Chunk, GPU</td><td><span class="badge done">✓</span></td></tr>
@@ -2176,32 +2176,32 @@ MD_LOG_INFO("frame %llu dt=%.3f", g_logic_ctx.frame_index, g_logic_ctx.dt);</cod
     <tr><td><strong>M58</strong></td><td>DialogCondType::QuestActive=4+QuestComplete=5; "quest_active:N"/"quest_complete:N" JSON; NpcInteractionComponent(20B, range 2.5m, cooldown 5s); dialogs.json expanded (nodes 4+5 quest-gated); 32 tests</td><td><span class="badge done">✓ 2026-05-16 · 1252 tests</span></td></tr>
     <tr><td><strong>Batch 3–27</strong></td><td>77 BT node types, SenseType×9, SquadSignalBus, NpcDevelopment, AlienConfig, VentLock, NpcRelationship, ActionAdjustMenace, lcf::IS_SUSPENDED/IS_PLAYER, ConditionTargetDist/RoutingDist, ShaderFeature, TileCullBounds, NamedBranchRegistry, NpcSoundBus</td><td><span class="badge done">✓ 2026-05-16</span></td></tr>
     <tr><td><strong>Batch 28–31</strong></td><td>O3DE-1–4 (MaterialDesc, MdPrefabRegistry, SaveVersionChain, MdModuleRegistry); ZLD-1–2 (MdIniReader, MdFeature); FL-3–4 (MdStatusRegistry, MdEventScheduler)</td><td><span class="badge done">✓ 2026-05-16 · 1305 tests</span></td></tr>
-    <tr><td><strong>KEN-1</strong></td><td>OGRE v1.100 mesh/skeleton parsing → <code>tools/md_convert.py</code> → <code>md_human.glb</code> (30 bones)</td><td><span class="badge done">✓ 2026-05-18</span></td></tr>
-    <tr><td><strong>KEN-2</strong></td><td>SkinMesh — cgltf GLB loader; SkinVertex stride=52; GPU LBS via <code>animated.vert</code></td><td><span class="badge done">✓ 2026-05-18</span></td></tr>
-    <tr><td><strong>KEN-3</strong></td><td>Body texture DDS→PNG→GPU sampler (set=2 binding=3)</td><td><span class="badge done">✓ 2026-05-18</span></td></tr>
-    <tr><td><strong>KEN-4</strong></td><td>WorldMapUI aspect ratio fix; player crosshair pin (state=2); Kenshi-artistic world map</td><td><span class="badge done">✓ 2026-05-18</span></td></tr>
-    <tr><td><strong>KEN-5</strong></td><td><code>editor_world_panel.h</code> — World tab у editor (Zone/Faction/Town editing + map preview)</td><td><span class="badge done">✓ 2026-05-18</span></td></tr>
-    <tr><td><strong>KEN-6</strong></td><td>NavMesh spam fix — silent <code>npolys==0</code> early-return; per-chunk navmesh disabled</td><td><span class="badge done">✓ 2026-05-18</span></td></tr>
-    <tr><td><strong>KEN-7</strong></td><td>OzzAnimPlayer — ozz-animation blend trees; <code>ozz_bake</code> converter; 30-joint Biped rig</td><td><span class="badge done">✓ 2026-05-18</span></td></tr>
-    <tr><td><strong>KEN-8</strong></td><td>Variant C — JoltWorld (CharacterVirtual, max_bodies=512); CrowdSystem (ORCA, max_agents=64)</td><td><span class="badge done">✓ 2026-05-18</span></td></tr>
-    <tr><td><strong>VBfA-R1–R9</strong></td><td>SSAO, bloom, color grade, 6-sample ambient probe, snow shader, shadow fade, motion blur, emissive/dissolve material variants</td><td><span class="badge done">✓ 2026-05-19</span></td></tr>
-    <tr><td><strong>VBfA-AI1–AI6</strong></td><td>BT LOD tiers, awareness limits, AI budget scheduler, repulsion forces, squad controller, impact events</td><td><span class="badge done">✓ 2026-05-19</span></td></tr>
+    <tr><td><strong>REF-1</strong></td><td>OGRE v1.100 mesh/skeleton parsing → <code>tools/md_convert.py</code> → <code>md_human.glb</code> (30 bones)</td><td><span class="badge done">✓ 2026-05-18</span></td></tr>
+    <tr><td><strong>REF-2</strong></td><td>SkinMesh — cgltf GLB loader; SkinVertex stride=52; GPU LBS via <code>animated.vert</code></td><td><span class="badge done">✓ 2026-05-18</span></td></tr>
+    <tr><td><strong>REF-3</strong></td><td>Body texture DDS→PNG→GPU sampler (set=2 binding=3)</td><td><span class="badge done">✓ 2026-05-18</span></td></tr>
+    <tr><td><strong>REF-4</strong></td><td>WorldMapUI aspect ratio fix; player crosshair pin (state=2); artistic world map</td><td><span class="badge done">✓ 2026-05-18</span></td></tr>
+    <tr><td><strong>REF-5</strong></td><td><code>editor_world_panel.h</code> — World tab у editor (Zone/Faction/Town editing + map preview)</td><td><span class="badge done">✓ 2026-05-18</span></td></tr>
+    <tr><td><strong>REF-6</strong></td><td>NavMesh spam fix — silent <code>npolys==0</code> early-return; per-chunk navmesh disabled</td><td><span class="badge done">✓ 2026-05-18</span></td></tr>
+    <tr><td><strong>REF-7</strong></td><td>OzzAnimPlayer — ozz-animation blend trees; <code>ozz_bake</code> converter; 30-joint Biped rig</td><td><span class="badge done">✓ 2026-05-18</span></td></tr>
+    <tr><td><strong>REF-8</strong></td><td>Variant C — JoltWorld (CharacterVirtual, max_bodies=512); CrowdSystem (ORCA, max_agents=64)</td><td><span class="badge done">✓ 2026-05-18</span></td></tr>
+    <tr><td><strong>FX-R1–R9</strong></td><td>SSAO, bloom, color grade, 6-sample ambient probe, snow shader, shadow fade, motion blur, emissive/dissolve material variants</td><td><span class="badge done">✓ 2026-05-19</span></td></tr>
+    <tr><td><strong>FX-AI1–AI6</strong></td><td>BT LOD tiers, awareness limits, AI budget scheduler, repulsion forces, squad controller, impact events</td><td><span class="badge done">✓ 2026-05-19</span></td></tr>
     <tr><td><strong>M59 Foot IK</strong></td><td>Аналітичний 2-bone foot placement IK (ray-cast → TerrainQuery → ankle rotate)</td><td><span class="badge done">✓ 2026-05-19</span></td></tr>
     <tr><td><strong>Terrain Atlas</strong></td><td><code>world_hmap.r32</code> (67 MB): 4096 зон з fullmap.tif; замінив 415 MB окремих файлів; cross-chunk normal stitching через atlas RAM; F7 runtime brush (raise/lower/smooth/save)</td><td><span class="badge done">✓ 2026-05-20 · 1557 tests</span></td></tr>
-    <tr><td><strong>md_* rename</strong></td><td>Всі <code>kenshi_*</code> → <code>md_*</code> у публічних репо (tools/, engine/): 6 Python scripts, 2 директорії, game/data assets, JSON keys</td><td><span class="badge done">✓ 2026-05-20</span></td></tr>
-    <tr><td><strong>RD-2</strong></td><td>Sky render order fix (depth_test=false перший у pass); skintone sat/bri (colorize GLSL); combat idle combatstance; Kenshi RE 6 файлів; CharacterDef morph_names</td><td><span class="badge done">✓ 2026-05-21</span></td></tr>
+    <tr><td><strong>md_* rename</strong></td><td>Всі оригінальні префікси → <code>md_*</code> у публічних репо (tools/, engine/): 6 Python scripts, 2 директорії, game/data assets, JSON keys</td><td><span class="badge done">✓ 2026-05-20</span></td></tr>
+    <tr><td><strong>RD-2</strong></td><td>Sky render order fix (depth_test=false перший у pass); skintone sat/bri (colorize GLSL); combat idle combatstance; RE 6 файлів; CharacterDef morph_names</td><td><span class="badge done">✓ 2026-05-21</span></td></tr>
     <tr><td><strong>RD-3</strong></td><td><code>monkey_dust_editor</code> мігровано на SDL_GPU/Vulkan: <code>imgui_impl_sdlgpu3</code>; TerrainRenderer у редакторі, RTT→ImGui::Image</td><td><span class="badge done">✓ 2026-05-21</span></td></tr>
     <tr><td><strong>RD-6</strong></td><td>Hair Z-fighting fix: <code>gl_Position.z -= 0.0003 * gl_Position.w</code> у hair vert shader; 33 морфів у md_human_t.glb (female_body, wide_hips, stocky, narrow_torso + 29 artist); GPU Char Preview overlay (Ctrl+D): hair_color, eye_pos, pipeline status, bone21; NpcRender morph pipeline</td><td><span class="badge done">✓ 2026-06-01</span></td></tr>
     <tr><td><strong>RD-5</strong></td><td>3D World editor: повний 64×64 світ (всі чанки завжди завантажені), per-chunk дистанційний LOD 0–3 (LOD0+POM &lt;1.2 км, LOD1 &lt;3.5 км, LOD2 &lt;8 км, LOD3 &lt;18 км; масштабується з висотою камери), overview mesh видалено, tab-gated рендер (zero CPU/GPU у неактивній вкладці), камера стартує на 8000 м; <code>DrawRaw/DrawRawPOM</code> новий параметр <code>int lod</code>; Heightmap panel: zoom=1.0 (повний світ), letterbox; порядок вкладок оновлено</td><td><span class="badge done">✓ 2026-05-30</span></td></tr>
     <tr><td><strong>RD-4</strong></td><td>Terrain zone seam bug fix: LOD IBO T-junction → disabled (always L0); <code>TerrainAtlas_SmoothBoundaries()</code> N=15 (22.9m cliff → ≤10° per step); <code>ndl_min=0.57</code> = flat-terrain NdotL (warm/cool ambient split eliminated); camera spring arm endpoint clamp (ray-march trembling fix). Повний debug-log: <code>CLAUDE_TERRAIN_SEAM.md</code></td><td><span class="badge done">✓ 2026-05-22</span></td></tr>
-    <tr><td><strong>KEN-MIG P1</strong></td><td>Kenshi combat parity: limits (MAX_AGENTS→512, MAX_FACTIONS→64, INV_MAX_SLOTS→64); LimbHealth{hp[6]} 6 зон; cut dmg 0.7f→0.5f; StatSheet 3→25 skills; KO при limb≤0; Toughness XP; Bleed per-limb; IdleStance enum</td><td><span class="badge done">✓ 2026-05-23</span></td></tr>
-    <tr><td><strong>KEN-MIG P2</strong></td><td>DirectorConfig wired (LoadConfig+Tick); AoeHit+AoeApply collect→apply; CombatConfig combo/stagger per speed class; SenseModifiers+VisualSenseEffects; SquadComponent; FactionState +population/economy; Inventory weight system; Settlement; weapon skill mult</td><td><span class="badge done">✓ 2026-05-23</span></td></tr>
-    <tr><td><strong>KEN-MIG P3</strong></td><td>DailySchedule time-slot goal selection; NeedsComponent hunger/fatigue/medical; Ragdoll JoltPhysics RagdollSettings 30 bones; FactionRelationMatrix[64][64] + BountyRecord(16B); BleedSystem::Tick + DoctorAction; OffscreenNpcDatabase{[10000]} 1Hz bulk tick (Spawn кожні 10 тіків)</td><td><span class="badge done">✓ 2026-05-23</span></td></tr>
-    <tr><td><strong>KEN-MIG P4</strong></td><td>gamedata.base FCS binary parser; ItemDef[2048]; ResearchSystem + prereqs; LoadMods() + mod directory scan; 60 зон (WR_MAX_ZONES=128); BuildingIntegrity BFS; FactionSystem::LoadFromFcs; fauna configs 5 presets</td><td><span class="badge done">✓ 2026-05-23</span></td></tr>
-    <tr><td><strong>KEN-MIG P5</strong></td><td>ShopInventory+PriceCalc (ShopSlot[32], ItemGrade, namespace PriceCalc); WageSystem PayDailyWages() 1/день(1440 тіків); ItemInstance(8B)+EquipmentSlots[7]=EquipmentComponent(64B); BuildingState phases+PowerGrid; RaceModifiers(6 рас)+XP soft-cap+TraitBitmask; ParryWindow CalcParryChance; ZoneState persistence (OnPlayerEnter+PurgeZone, 800m); DialogSystem ConditionEvaluator+DialogDef</td><td><span class="badge done">✓ 2026-05-24</span></td></tr>
-    <tr><td><strong>KEN-MIG P6</strong></td><td>7 BT need-survival leaves wired у BuildWanderBT Selector: <code>actSeekFood</code> (hunger+hysteresis), <code>actSeekBed</code> (fatigue+is_sleeping flag), <code>actSurgery</code> (FieldMedic≥10, 2× clinic), <code>actRepairSkeleton</code> (Engineering≥1, 2× station), <code>actVendorTend</code> (TickRestock), <code>actBuyFromVendor</code> (faction-wealth economy), <code>actRepairItem</code> (condition/s per Engineering); CombatDispatch: weapon(−2)/armour(−3) condition degradation per hit; FactionSystem::GetWealth/ModWealth; NpcDialogSystem (namespace md, E-key ImGui popup, SDL_GPU path)</td><td><span class="badge done">✓ 2026-05-24 · 1557 tests</span></td></tr>
+    <tr><td><strong>REF-MIG P1</strong></td><td>Survival-sim combat parity: limits (MAX_AGENTS→512, MAX_FACTIONS→64, INV_MAX_SLOTS→64); LimbHealth{hp[6]} 6 зон; cut dmg 0.7f→0.5f; StatSheet 3→25 skills; KO при limb≤0; Toughness XP; Bleed per-limb; IdleStance enum</td><td><span class="badge done">✓ 2026-05-23</span></td></tr>
+    <tr><td><strong>REF-MIG P2</strong></td><td>DirectorConfig wired (LoadConfig+Tick); AoeHit+AoeApply collect→apply; CombatConfig combo/stagger per speed class; SenseModifiers+VisualSenseEffects; SquadComponent; FactionState +population/economy; Inventory weight system; Settlement; weapon skill mult</td><td><span class="badge done">✓ 2026-05-23</span></td></tr>
+    <tr><td><strong>REF-MIG P3</strong></td><td>DailySchedule time-slot goal selection; NeedsComponent hunger/fatigue/medical; Ragdoll JoltPhysics RagdollSettings 30 bones; FactionRelationMatrix[64][64] + BountyRecord(16B); BleedSystem::Tick + DoctorAction; OffscreenNpcDatabase{[10000]} 1Hz bulk tick (Spawn кожні 10 тіків)</td><td><span class="badge done">✓ 2026-05-23</span></td></tr>
+    <tr><td><strong>REF-MIG P4</strong></td><td>gamedata.base FCS binary parser; ItemDef[2048]; ResearchSystem + prereqs; LoadMods() + mod directory scan; 60 зон (WR_MAX_ZONES=128); BuildingIntegrity BFS; FactionSystem::LoadFromFcs; fauna configs 5 presets</td><td><span class="badge done">✓ 2026-05-23</span></td></tr>
+    <tr><td><strong>REF-MIG P5</strong></td><td>ShopInventory+PriceCalc (ShopSlot[32], ItemGrade, namespace PriceCalc); WageSystem PayDailyWages() 1/день(1440 тіків); ItemInstance(8B)+EquipmentSlots[7]=EquipmentComponent(64B); BuildingState phases+PowerGrid; RaceModifiers(6 рас)+XP soft-cap+TraitBitmask; ParryWindow CalcParryChance; ZoneState persistence (OnPlayerEnter+PurgeZone, 800m); DialogSystem ConditionEvaluator+DialogDef</td><td><span class="badge done">✓ 2026-05-24</span></td></tr>
+    <tr><td><strong>REF-MIG P6</strong></td><td>7 BT need-survival leaves wired у BuildWanderBT Selector: <code>actSeekFood</code> (hunger+hysteresis), <code>actSeekBed</code> (fatigue+is_sleeping flag), <code>actSurgery</code> (FieldMedic≥10, 2× clinic), <code>actRepairSkeleton</code> (Engineering≥1, 2× station), <code>actVendorTend</code> (TickRestock), <code>actBuyFromVendor</code> (faction-wealth economy), <code>actRepairItem</code> (condition/s per Engineering); CombatDispatch: weapon(−2)/armour(−3) condition degradation per hit; FactionSystem::GetWealth/ModWealth; NpcDialogSystem (namespace md, E-key ImGui popup, SDL_GPU path)</td><td><span class="badge done">✓ 2026-05-24 · 1557 tests</span></td></tr>
     <tr><td colspan="3" style="opacity:.55;font-size:12px;padding-top:10px">Ця таблиця не оновлювалась між 2026-05-24 і 2026-07-19 — за повну хронологію цього періоду дивись <code>CLAUDE_STATE.md</code> / <code>CLAUDE_HISTORY.md</code>.</td></tr>
-    <tr><td><strong>Terrain rewrite + procgen removal + LOD fix</strong></td><td>Термейн-шейдинг → per-pixel dominant-weight (єдиний <code>terrain_forward.slang</code>, <code>terrain_pom.slang</code>/<code>terrain_albedo_bake.slang</code> видалені); процедурна генерація термейну видалена повністю (<code>TerrainMaster</code>/<code>md_master_hmap</code>, недосяжна noise-fallback гілка, 2D Heightmap-панель) — реальні Kenshi-зони завжди в межах, процедурна генерація не існує і в оригінальному Kenshi; <code>world_hmap</code> мігровано <code>.r32</code>→raw <code>.r16</code> (виміряно ~5× швидше за PNG16); LOD T-junction фікс — <code>BuildLodIboStitched()</code>, межа кожного чанка завжди повної роздільності (кількісно підтверджено: розрив був до 19.4 м, тепер watertightness-тест + 0 вироджених трикутників на реальних даних)</td><td><span class="badge done">✓ 2026-07-19 · 1750 tests</span></td></tr>
+    <tr><td><strong>Terrain rewrite + procgen removal + LOD fix</strong></td><td>Термейн-шейдинг → per-pixel dominant-weight (єдиний <code>terrain_forward.slang</code>, <code>terrain_pom.slang</code>/<code>terrain_albedo_bake.slang</code> видалені); процедурна генерація термейну видалена повністю (<code>TerrainMaster</code>/<code>md_master_hmap</code>, недосяжна noise-fallback гілка, 2D Heightmap-панель) — реальні авторські зони завжди в межах, процедурна генерація не існує і в оригінальній грі; <code>world_hmap</code> мігровано <code>.r32</code>→raw <code>.r16</code> (виміряно ~5× швидше за PNG16); LOD T-junction фікс — <code>BuildLodIboStitched()</code>, межа кожного чанка завжди повної роздільності (кількісно підтверджено: розрив був до 19.4 м, тепер watertightness-тест + 0 вироджених трикутників на реальних даних)</td><td><span class="badge done">✓ 2026-07-19 · 1750 tests</span></td></tr>
   </table>
 </section>
 
