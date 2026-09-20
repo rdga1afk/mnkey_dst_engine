@@ -30,6 +30,15 @@ public:
     Vec3 sun_color    = { 1.00f, 0.95f, 0.80f };
     Vec3 ambient_color = { 0.15f, 0.18f, 0.22f };
 
+    // 2026-09-20 (F3 Settings tab, docs/RESOLVE_OPT.md session): manual
+    // time-of-day override for dev/testing -- when enabled, UpdateGameState
+    // (logic_tick_orchestration.cpp) uses time_override_hours instead of the
+    // real now_s/60 elapsed-time clock. Lives here (not a game-side global)
+    // so both game/src (consumer) and tools/editor (the F3 UI control) reach
+    // it through the same LightSystem::Get() singleton both already use.
+    bool  time_override_enabled = false;
+    float time_override_hours   = 12.0f;
+
     MdTexture brdf_lut;
 
     void Init() {
@@ -77,6 +86,38 @@ public:
         const Vec3 c_night = { 0.00f, 0.00f, 0.00f };   // no direct sun at night
         Vec3 sc = lerpV(c_night, c_day, t_day);
         sc = lerpV(sc, c_horiz, t_horiz * 0.65f);
+
+        // 2026-09-20 (owner-caught, docs/RESOLVE_OPT.md session): night had
+        // NO celestial light source at all -- `moon` didn't exist anywhere
+        // in the codebase (grep confirmed zero hits before this), so
+        // c_night=black left terrain lit by ambient_color's near-black
+        // {0.02,0.02,0.06} "stars" floor alone. Moon direction/elevation is
+        // the sun's elev_angle phase-shifted by π (12h) -- the moon is
+        // "opposite" the sun in this simple model, so it's above the
+        // horizon exactly when the sun (t_day==0) is below it, and vice
+        // versa (moon_elevation == -elevation, verified algebraically:
+        // sin(elev_angle+π) == -sin(elev_angle)). Reuses sun_dir/sun_color
+        // (not new fields) -- at night these represent the moon instead of
+        // the sun, so the whole existing pipeline (terrain's uf.sun_dir_str,
+        // NPC's sunDir/sunColor, AmbientProbeSystem's SetSkyLight) picks up
+        // moonlight for free, no shader/UBO changes needed.
+        float moon_elevation = -elevation;
+        float t_moon = moon_elevation < 0.f ? 0.f : moon_elevation;
+        if (t_moon > 1.f) t_moon = 1.f;
+        // Cool, dim bluish-white -- real moonlight is reflected sunlight,
+        // much weaker and cooler than direct sun (no dawn/dusk warm tint;
+        // a full moon doesn't meaningfully change color near the horizon
+        // the way the sun's atmospheric scattering does).
+        const Vec3 c_moon = { 0.32f, 0.36f, 0.52f };
+        Vec3 mc = vec3_scale(c_moon, t_moon);
+        if (t_day <= 0.f) {
+            // Real SkyX BasicController::update(): mMoonDirection = -mSunDirection
+            // (full 3-component negation, moon is antipodal to the sun).
+            sun_dir.x = -sun_dir.x;
+            sun_dir.y = -sun_dir.y;
+            sun_dir.z = -sun_dir.z;
+            sc = mc;
+        }
         sun_color = sc;
 
         // --- Ambient color ---
