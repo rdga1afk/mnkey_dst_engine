@@ -103,16 +103,23 @@ private:
 
     GpuTexture       gbuf_color_;
     GpuDepthTexture   gbuf_depth_;
+    // RESOLVE_OPT 4-draw spatial split (Крок 4/6, docs/RESOLVE_OPT.md,
+    // 2026-09-19) REVERTED 2026-09-21 (tests/scenarios/resolve_split_ab.lua):
+    // the split cut per-pixel SHADER INSTRUCTIONS (1662->281 on the cheap
+    // path, INTEL_DEBUG-verified) but was never checked against real
+    // GPU-ms. It made things worse: without a hardware discard (stencil
+    // rejected earlier as disproportionate blast radius), each of the 4
+    // pipelines rasterized the FULL screen and fetched the G-buffer before
+    // discarding non-matching pixels -- up to 4x the depth/G-buffer reads
+    // per frame. Measured directly on P5 worst-zone (24,12), visually
+    // confirmed via screenshot before trusting the numbers: single-draw
+    // ~1.64ms vs the 4-draw split's ~6.8ms -- the split was ~4x SLOWER in
+    // real wall-clock terms despite the real instruction-count win. Back
+    // to one pipeline, one draw. A future spatial-split attempt MUST pair
+    // with real hardware discard (stencil, or an indirect/compute tile-
+    // classification dispatch) so the discard doesn't itself cost a full
+    // G-buffer refetch.
     GpuPipeline       resolve_pipeline_;
-    // RESOLVE_OPT spatial-split plan, Крок 4 (docs/RESOLVE_OPT.md,
-    // 2026-09-19): second pipeline, terrain_shading_screenspace_cheap.
-    // frag -- see DrawShadingResolve's own doc comment.
-    GpuPipeline       resolve_pipeline_cheap_;
-    // Крок 6 (2026-09-19): two more pipelines for the 3-way category
-    // split (terrain_shading_screenspace_zone.frag / _cliff.frag) --
-    // resolve_pipeline_ above now only handles category==3 ("both").
-    GpuPipeline       resolve_pipeline_zone_;
-    GpuPipeline       resolve_pipeline_cliff_;
     int  w_ = 0, h_ = 0;
     bool ready_ = false;
 };

@@ -72,41 +72,6 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
         return false;
     }
 
-    // RESOLVE_OPT spatial-split plan, Крок 4 (docs/RESOLVE_OPT.md,
-    // 2026-09-19): second pipeline, IDENTICAL desc except frag_path --
-    // terrain_shading_screenspace_cheap.frag skips both corner-blend
-    // subsystems (TS_CHEAP_RESOLVE), a genuinely separate compiled SPIR-V
-    // (not a runtime branch -- see that shader's own doc comment for why
-    // that distinction matters on Gen9). Same 13 frag_samplers: the cheap
-    // shader declares the identical resource set (GLSL compiles every
-    // function body in the shared #included files regardless of which
-    // branch calls it), even though most go unused/DCE'd there.
-    GpuPipeline::Desc rdCheap = rd;
-    rdCheap.frag_path = "shaders/terrain_shading_screenspace_cheap.frag";
-    if (!resolve_pipeline_cheap_.Create(rdCheap)) {
-        MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] cheap resolve pipeline create failed");
-        return false;
-    }
-
-    // Крок 6 (docs/RESOLVE_OPT.md, 2026-09-19): two more pipelines, same
-    // IDENTICAL desc pattern as rdCheap above -- terrain_shading_
-    // screenspace_zone.frag / _cliff.frag, the +zone-only / +cliff-only
-    // twins. resolve_pipeline_ (rd, unchanged) now only ever draws
-    // category==3 ("both") pixels -- see DrawShadingResolve's own doc
-    // comment for the 4-draw dispatch.
-    GpuPipeline::Desc rdZone = rd;
-    rdZone.frag_path = "shaders/terrain_shading_screenspace_zone.frag";
-    if (!resolve_pipeline_zone_.Create(rdZone)) {
-        MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] zone resolve pipeline create failed");
-        return false;
-    }
-    GpuPipeline::Desc rdCliff = rd;
-    rdCliff.frag_path = "shaders/terrain_shading_screenspace_cliff.frag";
-    if (!resolve_pipeline_cliff_.Create(rdCliff)) {
-        MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] cliff resolve pipeline create failed");
-        return false;
-    }
-
     ready_ = true;
     MD_LOG(MD_LOG_INFO, "[TerrainShadingProjected] ready %dx%d (RGBA32F gbuffer + isolated D32_FLOAT)", w, h);
     return true;
@@ -130,9 +95,6 @@ void TerrainShadingProjected::EnsureSize(md::GpuDeviceHandle dev, int w, int h) 
 
 void TerrainShadingProjected::Shutdown() {
     resolve_pipeline_.Destroy();
-    resolve_pipeline_cheap_.Destroy();
-    resolve_pipeline_zone_.Destroy();
-    resolve_pipeline_cliff_.Destroy();
     gbuf_depth_.Shutdown();
     gbuf_color_.Shutdown();
     ready_ = false;
@@ -270,9 +232,9 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
         pv.Draw(3, 1, 0, 0);
     };
 
-    drawOne(resolve_pipeline_cheap_);
-    drawOne(resolve_pipeline_zone_);
-    drawOne(resolve_pipeline_cliff_);
+    // RESOLVE_OPT 4-draw split reverted to a single draw -- see
+    // resolve_pipeline_'s own doc comment (terrain_shading_projected.h)
+    // for the full measured rationale.
     drawOne(resolve_pipeline_);
 }
 #endif
