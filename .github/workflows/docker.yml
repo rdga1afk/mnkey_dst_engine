@@ -13,8 +13,8 @@ on:
 # engine CI (public) будує образ з усіма deps + libmonkey_dust_engine.a.
 # monkey_dust CI (private) запускається в цьому образі → тільки компілює game/.
 #
-# Образ тегується: ghcr.io/rdga1bot/monkey_dust-buildenv:latest
-# і ghcr.io/rdga1bot/monkey_dust-buildenv:<engine-sha>
+# Образ тегується: ghcr.io/rdga1afk/monkey_dust-buildenv:latest
+# і ghcr.io/rdga1afk/monkey_dust-buildenv:<engine-sha>
 #
 # Переваги vs Підходу 1:
 #   - Не потрібно завантажувати/розпаковувати tarball
@@ -61,7 +61,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/rdga1bot/monkey_dust-buildenv
+          images: ghcr.io/rdga1afk/monkey_dust-buildenv
           tags: |
             type=raw,value=latest
             type=sha,prefix=
