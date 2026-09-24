@@ -165,29 +165,32 @@ bool TerrainWorldHeightmap::Init(md::GpuDeviceHandle dev) {
     // not a per-frame or per-window operation.
     //
     // 2026-08-29 (task #556 falsification test, docs/research/
-    // OGRE_NEXT_TERRA_NORMAL_MIP_DEEPSEEK_RESEARCH.md): this texture used
-    // to be num_levels=1, always sampled at textureLod(...,0.0) regardless
-    // of the sampling vertex's mesh LOD tier -- a coarse/distant node's
-    // 17x17 grid vertices are spaced many native normal-texels apart, so
-    // each one point-samples ONE native texel of a high-frequency signal
-    // instead of an average over its true world-space footprint. On steep
-    // Kenshi cliffs (large per-texel normal variance) that is classic
-    // undersampling -> per-vertex normal noise -> the reported black/white
-    // "cliff speckle" (tests/editor_scenarios/editor_verify_bw_pattern_*.lua).
-    // Fix: give normal_tex_ a real mip chain (same formula as this file's
-    // OLD pre-#398 height mip count) and have terrain_quadtree.vert fetch
-    // it at a LOD derived from the vertex's own texelSize vs this texture's
-    // native texel size, so a coarse node's vertices sample a pre-filtered
-    // (box-averaged), not raw, normal.
-    Uint32 normal_num_levels = 1;
-    { int sz = N; while (sz > 1) { sz >>= 1; ++normal_num_levels; } }
+    // OGRE_NEXT_TERRA_NORMAL_MIP_DEEPSEEK_RESEARCH.md): this texture briefly
+    // got a real mip chain (14 levels) so a coarse/distant node's vertices
+    // could sample a pre-filtered normal instead of one raw native texel --
+    // meant to fix "cliff speckle" undersampling on coarse mesh tiers.
+    //
+    // Removed 2026-09-23 (this session's bake/live terrain-shading
+    // discrepancy review, unrelated task -- found while investigating a
+    // different bug): #556 predates TERRAIN_FLAT_LOD_PLAN.md's fixed-depth
+    // quadtree migration (БОРГ-TERRAIN-1). Under kFlatLodDepth (terrain_
+    // quadtree.cpp), every node's texelSize is provably identical to this
+    // texture's native texel size -- confirmed across all three live draw
+    // paths that read this texture (terrain_quadtree.vert's 3 pipelines,
+    // terrain_quadtree_batched.vert's real DrawBatched call in game/src/
+    // render/npc_render_frame_prep.cpp, terrain_quadtree_boundary.vert's
+    // editor wireframe) -- so the LOD #556 introduced was mathematically
+    // always 0, and mip levels 1-13 (~45MB) were never sampled by anything.
+    // Back to a single level, same pattern tex_ (the height texture) itself
+    // already uses since #398 -- see that field's own doc comment above.
+    const Uint32 normal_num_levels = 1;
     {
         GpuSamplerDesc normal_sdesc;
-        normal_sdesc.min_filter = GpuSamplerDesc::Filter::LINEAR_MIPMAP; // -> mipmap_mode=LINEAR
+        normal_sdesc.min_filter = GpuSamplerDesc::Filter::LINEAR;
         normal_sdesc.mag_filter = GpuSamplerDesc::Filter::LINEAR;
         normal_sdesc.wrap_s     = GpuSamplerDesc::Wrap::CLAMP_TO_EDGE;
         normal_sdesc.wrap_t     = GpuSamplerDesc::Wrap::CLAMP_TO_EDGE;
-        normal_sdesc.gen_mipmap = true; // -> CreateSDLSampler's max_lod=1000, clamps to normal_num_levels-1 anyway
+        normal_sdesc.gen_mipmap = false; // -> CreateSDLSampler's max_lod=0, matches normal_num_levels=1
         const SDL_GPUTextureUsageFlags normal_usage =
             SDL_GPU_TEXTUREUSAGE_COMPUTE_STORAGE_WRITE
             | SDL_GPU_TEXTUREUSAGE_SAMPLER
@@ -243,10 +246,9 @@ bool TerrainWorldHeightmap::Init(md::GpuDeviceHandle dev) {
             uint32_t g = (uint32_t)((N + 7) / 8);
             pass.Dispatch(g, g, 1);
             pass.End();
-            // Compute pass only wrote mip 0 (readwrite storage binding
-            // defaults to level 0) -- fill levels 1..normal_num_levels-1
-            // from it now, same call already used for tex_ before #398.
-            GpuGenerateMipmaps(bcmd, normal_tex_.SDLTexture());
+            // normal_num_levels=1 (see this texture's doc comment above) --
+            // no SDL_GenerateMipmapsForGPUTexture call, single level only,
+            // same as tex_'s own (#398) pattern.
         } else {
             fprintf(stderr, "[TerrainWorldHeightmap] normal bake SDL_BeginGPUComputePass failed: %s\n", SDL_GetError());
         }

@@ -19,7 +19,7 @@ and **[Jolt Physics](https://github.com/jrouwe/JoltPhysics)**.
 
 > **Render backend: SDL3/SDL_GPU, permanently.**
 
-> **Full documentation →** [rdga1bot.github.io/mnkey\_dst\_engine/monkey\_dust\_docs.html](https://rdga1bot.github.io/mnkey_dst_engine/monkey_dust_docs.html)
+> **Full documentation →** [rdga1afk.github.io/mnkey\_dst\_engine/monkey\_dust\_docs.html](https://rdga1afk.github.io/mnkey_dst_engine/monkey_dust_docs.html)
 
 ---
 
@@ -39,6 +39,7 @@ and **[Jolt Physics](https://github.com/jrouwe/JoltPhysics)**.
 | `GpuDevice` thread-safety | `AcquireCommandBuffer`/`Submit`/`SubmitAndAcquireFence`/`BeginFrame` are `std::mutex`-guarded (2026-09-12) — safe to call from a background loader thread concurrently with the main render thread's per-frame submissions; also serializes the underlying Vulkan queue submission, which requires external synchronization regardless of this class's own bookkeeping |
 | Terrain geometry + shading | **Sole geometry system:** flat fixed-depth tiling (`terrain_quadtree.vert/.frag`, plain GLSL — Slang removed 2026-07-26; geometry simplified 2026-09-04): `TerrainQuadtree::SelectVisible` walks a fixed depth (`kFlatLodDepth=3`) out to `kFlatMaxRenderDistance=3000 m` — no adaptive subdivision, no geomorph blend, no skirts, no stitched-IBO seam handling (removed after RMSE-verified pixel-identical output at 2.3–3.6× lower render cost than the old adaptive quadtree); one shared filled index buffer per node depth. Two candidate replacements were explored and deleted after regressions/redesign didn't clear re-verification: `TerrainProjectedGrid` (TPG, 2026-09-12 → deleted 2026-09-17) and a Delaunay/TIN adaptive mesh (deleted 2026-09-18) — see `CLAUDE_HISTORY.md` for both post-mortems. Ground shading (`TerrainShadingProjected`, screen-space G-buffer resolve) is shared and independent of geometry; matches the original reference material behaviour (same material at all tiers, no POM/normal-mapping split), per-pixel dominant-weight selection (base/slope/cliff/grass/dirt/road) |
 | Zone-corner cliff bake (2026-09-16, redesigned 2026-09-17) | Load-time compute-bake (`terrain_zone_corner_bake.comp`) precomputes the 4-corner tent-blend cliff shading for 1446/4225 real biome-convergent zone corners into a packed atlas — 1 atlas lookup instead of up to ~12 live texture samples for flagged near-range pixels. Original version baked each 128px tile across the full 460.8m zone-cell (~3.6m/texel) and regressed the same day (smeared cliff colour); redesigned to bake a static 48m window centred on the grid vertex instead (~9.6× finer texel density, same atlas memory budget), live per-zone fallback outside the window — live-verified (magenta shader diagnostic confirmed engagement before trusting any screenshot diff) at the original regression's exact location, no smearing |
+| Bake/live `cliff_w` single-source-of-truth (2026-09-24) | `TerrainRenderer::InitSteepnessSmoothed` loads a small (2048²) per-biome-radius smoothed-steepness companion texture (`md_ground_steepness_smoothed.png`, `tools/md_bake_ground_layers.py`); `terrain_shading_common.glsl`'s live `cliff_w` samples it instead of deriving steepness from the raw per-pixel normal, so it agrees with the offline flat-ground bake's own classification by construction — fixes a structural bake/live disagreement (measured 31%→11.6% after the fix) that showed as a soft dark smear on steep terrain. Also removed a fully dead normal-texture mip-chain (task #556) whose LOD-selection had been provably always-0 since a later fixed-depth quadtree migration — see `docs/BAKE_GROUND.md` §4.8 (main repo) |
 | `ToroidalUpdate` primitive (2026-09-17) | `engine/include/monkey_dust/world/toroidal_update.h` — reusable wrap-addressed-cache helper: splits a camera-origin shift into ≤4 axis-aligned quad regions needing re-render, world-to-texel addressed. General-purpose, not terrain-specific; for any future toroidal cache (detail atlas, shadow/GI clipmaps) |
 | GPU pipeline resource-safety validator (2026-09-17) | `engine/include/monkey_dust/render/gpu_pipeline_safety_check.h` — static `Validate{Compute,Graphics}PipelineDesc()` checks resource-category combinations against known-unsafe patterns on Intel Gen9 ANV (e.g. storage buffer + samplers/storage-texture in one compute pipeline — the exact combo that crashed `libvulkan_intel.so` twice during the zone-corner bake's development) BEFORE `Create()` runs, not via a live crash |
 | Render-pass diagnostic | `RenderPassGraph::Register`/`SetEnabled`/`IsEnabled` — permanent, default-enabled per-pass on/off toggle (`md.set_render_pass_enabled`) wired into `draw_scene`/`draw_sky`/`draw_npc_forward`/`draw_terrain_props`/`draw_water`/`draw_hud`/`draw_player_cloth`/`draw_player_hair`/`cull_prepass`/`evsm_shadow`; used with `md.get_gpu_ms()` (`sync_timing_`) to decompose per-frame GPU cost live, no rebuild required |
@@ -175,7 +176,7 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DUSE_SDL3=ON
 ninja -C build monkey_dust_engine
 ```
 
-> **Shaders** live in the parent [`monkey_dust`](https://github.com/rdga1bot/mnkey_dst) game repository (`shaders/` + `scripts/compile_shaders.sh`).
+> **Shaders** live in the parent [`monkey_dust`](https://github.com/rdga1afk/mnkey_dst) game repository (`shaders/` + `scripts/compile_shaders.sh`).
 > The engine library itself is shader-agnostic — it loads pre-compiled SPIR-V at runtime via `GpuPipeline::Create(desc)`.
 
 **Dependencies** (bring your own or via CMake FetchContent):
@@ -198,7 +199,7 @@ ninja -C build md_tests          # meta-target, depends on flare_ini_parser + fl
 > The large GTest suite (1830 tests: 1651 gtest + 179 behavior, gaia-ecs backend — FNV · AgentBlackboard · FlowGraph ·
 > DirectorSystem · BT VM · Batch 3–31 · M47–M59 · O3DE-1–4 · ZLD-1–2 · FL-3–4 · REF-1–8 ·
 > FX-R1–9 · FX-AI1–6, etc.) lives in the private parent
-> [`monkey_dust`](https://github.com/rdga1bot/mnkey_dst) game repo's `tests/` directory, not in
+> [`monkey_dust`](https://github.com/rdga1afk/mnkey_dst) game repo's `tests/` directory, not in
 > this engine submodule.
 
 ---

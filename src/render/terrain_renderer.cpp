@@ -323,6 +323,34 @@ bool TerrainRenderer::InitGroundBaked(const char* path)
 #endif
 }
 
+bool TerrainRenderer::InitSteepnessSmoothed(const char* path)
+{
+#ifdef MD_SDL_GPU
+    // Single channel (R=G=B=steepness after stbi's forced 4-channel
+    // expansion, see InitFromFile) -- LINEAR_MIPMAP same as InitGroundBaked,
+    // this is sampled at the same varying view distances as that texture.
+    GpuSamplerDesc sd;
+    sd.min_filter = GpuSamplerDesc::Filter::LINEAR_MIPMAP;
+    sd.mag_filter = GpuSamplerDesc::Filter::LINEAR;
+    sd.wrap_s     = GpuSamplerDesc::Wrap::CLAMP_TO_EDGE;
+    sd.wrap_t     = GpuSamplerDesc::Wrap::CLAMP_TO_EDGE;
+    sd.gen_mipmap = true;
+    sd.flip_v     = false;
+
+    tex_steepness_smoothed_.Shutdown();
+    if (!tex_steepness_smoothed_.InitFromFile(path, sd)) {
+        fprintf(stderr, "[TerrainRenderer] steepness-smoothed texture failed: %s\n", path);
+        steepness_smoothed_ready_ = false;
+        return false;
+    }
+    steepness_smoothed_ready_ = true;
+    fprintf(stdout, "[TerrainRenderer] steepness-smoothed texture loaded: %s\n", path);
+    return true;
+#else
+    return false;
+#endif
+}
+
 bool TerrainRenderer::InitBiomeBlend(const char* path)
 {
 #ifdef MD_SDL_GPU

@@ -84,7 +84,7 @@ bool TerrainQuadtreeRenderer::InitForward(md::GpuDeviceHandle /*dev*/) {
     pd.vert_path = "shaders/terrain_quadtree.vert"; // shared, unmodified -- see that file's own doc comment
     pd.frag_path = "shaders/terrain_quadtree_forward.frag";
     pd.frag_uniform_bufs = 2; // set=3 binding=0 PatchFrag, binding=1 ForwardCam
-    pd.frag_samplers     = 8; // set=2: tex_colour,tex_ground,tex_ground_baked,tex_overlay_mask,tex_ground_nml(task #12),tex_detail_array,tex_detail_tint(КРОК3),zoneGroundLayersTex
+    pd.frag_samplers     = 9; // set=2: tex_colour,tex_ground,tex_ground_baked,tex_overlay_mask,tex_ground_nml(task #12),tex_detail_array,tex_detail_tint(КРОК3),zoneGroundLayersTex,texSteepnessSmoothed(2026-09-24)
     pd.frag_storage_bufs = 0;
     // color_format left INVALID -- draws into the caller's real swapchain-
     // format main color target, not an isolated G-buffer (the whole point
@@ -418,6 +418,13 @@ void TerrainQuadtreeRenderer::BeginForward(SDL_GPURenderPass* rp, md::GpuCommand
         { ground.ZoneGroundLayersTexture(), ground.ZoneGroundLayersSampler() },
     };
     pv.BindFragmentSamplers(7, zone_binding, 1);
+    // bake/live cliff_w single-source-of-truth (2026-09-24) -- same
+    // structural-resolution requirement as this function's own doc comment
+    // above (dormant path, still binding-correct).
+    SDL_GPUTextureSamplerBinding steepness_binding[1] = {
+        { ground.SteepnessSmoothedTexture(), ground.SteepnessSmoothedSampler() },
+    };
+    pv.BindFragmentSamplers(8, steepness_binding, 1);
 }
 
 void TerrainQuadtreeRenderer::DrawNodeForward(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd,

@@ -61,9 +61,10 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
     rd.vert_uniform_bufs  = 0;
     rd.vert_samplers      = 0;
     rd.frag_uniform_bufs  = 2;  // set=3 binding=0 ProjFragUBO, binding=1 ProjCamUBO
-    rd.frag_samplers      = 13; // set=2: tex_colour,tex_ground,tex_ground_baked,tex_overlay_mask,tex_ground_nml (task #12), tex_detail_array,tex_detail_tint (КРОК3 2026-09-17); gbufPacked,gbufDepth; zoneGroundLayersTex (texture, not SSBO, since 2026-08-09); zoneCornerBakeColorAtlas/NormalAtlas/LutTex (task #141 2026-09-16). БОРГ-TERRAIN-2 (2026-09-13): was 10 -- vtIndirection/vtAtlas removed, dead VT cache-hit path never called.
+    rd.frag_samplers      = 14; // set=2: tex_colour,tex_ground,tex_ground_baked,tex_overlay_mask,tex_ground_nml (task #12), tex_detail_array,tex_detail_tint (КРОК3 2026-09-17); gbufPacked,gbufDepth; zoneGroundLayersTex (texture, not SSBO, since 2026-08-09); zoneCornerBakeColorAtlas/NormalAtlas/LutTex (task #141 2026-09-16); texSteepnessSmoothed (2026-09-24, bake/live cliff_w single-source-of-truth). БОРГ-TERRAIN-2 (2026-09-13): was 10 -- vtIndirection/vtAtlas removed, dead VT cache-hit path never called.
     // 2026-09-19 (docs/RESOLVE_OPT.md session finding): AmbientProbeBuf,
-    // binding=13 (after the 13 samplers 0-12 above) -- see terrain_
+    // binding=14 (was 13, shifted 2026-09-24 when texSteepnessSmoothed was
+    // inserted at 13; after the 14 samplers 0-13 above) -- see terrain_
     // shading_common.glsl's TS_HAS_AMBIENT_PROBE doc comment. Was 0 since
     // БОРГ-TERRAIN-2 (2026-09-13, vtPageMeta removed with TerrainVtPageCache).
     rd.frag_storage_bufs  = 1;
@@ -222,10 +223,18 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
         };
         pv.BindFragmentSamplers(10, corner_bake_bindings, 3);
 
+        // bake/live cliff_w single-source-of-truth (2026-09-24), binding=13
+        // -- continues the same contiguous sampler run. See terrain_
+        // shading_screenspace.frag's texSteepnessSmoothed doc comment.
+        SDL_GPUTextureSamplerBinding steepness_binding[1] = {
+            { ground.SteepnessSmoothedTexture(), ground.SteepnessSmoothedSampler() },
+        };
+        pv.BindFragmentSamplers(13, steepness_binding, 1);
+
         // 2026-09-19 (docs/RESOLVE_OPT.md session finding): directional
-        // ambient via AmbientProbeSystem, binding=13 (after the 13
-        // samplers above) -- see terrain_shading_common.glsl's own
-        // TS_HAS_AMBIENT_PROBE doc comment.
+        // ambient via AmbientProbeSystem, binding=14 (was 13, shifted
+        // 2026-09-24 -- after the 14 samplers above) -- see terrain_
+        // shading_common.glsl's TS_HAS_AMBIENT_PROBE doc comment.
         SDL_GPUBuffer* ambient_probe_buf = AmbientProbeSystem::Get().GetSSBO().SDLBuffer();
         pv.BindFragmentStorageBuffers(0, &ambient_probe_buf, 1);
 

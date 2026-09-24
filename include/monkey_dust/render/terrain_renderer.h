@@ -64,6 +64,15 @@ public:
     // see /home/rdga1/.claude/plans/serene-pondering-teapot.md).
     bool InitGroundBaked(const char* path);
 
+    // Load the bake/live cliff_w single-source-of-truth companion
+    // (md_ground_steepness_smoothed.png, tools/md_bake_ground_layers.py --
+    // same per-biome-radius smoothed steepness used to classify
+    // InitGroundBaked's slope_w, single channel R=steepness). Live cliff_w
+    // samples THIS instead of deriving steepness from the raw per-pixel
+    // normal, so the two agree by construction — see terrain_shading_
+    // common.glsl's TS_ComputeGroundAlbedo for the consuming formula.
+    bool InitSteepnessSmoothed(const char* path);
+
     // Load the procedural biome-crossfade texture (md_biome_blend.png,
     // tools/md_gen_biome_blendmap.py) — R/G/B = neighbouring-zone's
     // base/slope/cliff GroundTexLayer index (0..23, packed as raw uint8/255),
@@ -121,6 +130,9 @@ public:
     // materials) supports; a global read-only SSBO indexed per-pixel is not.
     md::GpuTextureHandle ZoneGroundLayersTexture() const { return zone_layers_tex_; }
     SDL_GPUSampler* ZoneGroundLayersSampler() const { return zone_layers_sampler_; }
+
+    md::GpuTextureHandle SteepnessSmoothedTexture() const { return tex_steepness_smoothed_.SDLTexture(); }
+    SDL_GPUSampler* SteepnessSmoothedSampler() const { return tex_steepness_smoothed_.SDLSampler(); }
 
     // Upload the per-zone (64x64=4096) ground-layer lookup table: 27 of 28
     // uint32 per zone used -- [0..5] base,slope,cliff,grass,dirt,road
@@ -184,6 +196,8 @@ private:
 
     GpuTexture  tex_ground_baked_;      // offline-baked flat-ground colour (task #306) — TerrainPatchRenderer's flat-ground sample
     bool        ground_baked_ready_ = false;
+    GpuTexture  tex_steepness_smoothed_; // bake/live cliff_w single-source-of-truth (see InitSteepnessSmoothed)
+    bool        steepness_smoothed_ready_ = false;
     GpuTexture  tex_biome_blend_;       // R/G/B=neighbour base/slope/cliff idx, A=blend weight — loaded, currently unconsumed (see InitBiomeBlend)
     bool        biome_blend_ready_ = false;
     GpuTexture  tex_overlay_mask_;      // R=grass, G=grass2, B=dirt, A=road (see InitOverlayMask)
