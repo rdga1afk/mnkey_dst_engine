@@ -68,14 +68,6 @@ void GpuCommandBuffer::BindVertexBuffer(GpuVertexBuffer* buf) {
     (void)buf;
 }
 
-void GpuCommandBuffer::SetUniformMat4(int loc, const float* m16) {
-    (void)loc; (void)m16;
-}
-
-void GpuCommandBuffer::SetUniformVec3(int loc, const float* v3) {
-    (void)loc; (void)v3;
-}
-
 void GpuCommandBuffer::Draw(uint32_t vertex_count, uint32_t first_vertex) {
 #ifdef MD_SDL_GPU
     if (sdl_cmd_) {
@@ -327,22 +319,6 @@ void GpuComputePass::Begin(GpuComputePipeline* pipeline, const StorageBindings& 
 #else
     (void)bindings;
 #endif
-}
-
-void GpuComputePass::SetUniformFloat(int loc, float v) {
-    (void)loc; (void)v;
-}
-
-void GpuComputePass::SetUniformInt(int loc, int v) {
-    (void)loc; (void)v;
-}
-
-void GpuComputePass::SetUniformVec3(int loc, const float* v3) {
-    (void)loc; (void)v3;
-}
-
-void GpuComputePass::SetUniformVec4Array(int loc, const float* v4, int count) {
-    (void)loc; (void)v4; (void)count;
 }
 
 #ifdef MD_SDL_GPU

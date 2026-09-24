@@ -118,11 +118,6 @@ public:
     // SDL_GPU: SDL_BindGPUVertexBuffers
     void BindVertexBuffer(GpuVertexBuffer* buf);
 
-    // Upload small per-draw constants via named uniform location.
-    // SDL_GPU: no-op — use PushVertexUniforms / PushFragmentUniforms instead.
-    void SetUniformMat4(int loc, const float* m16);
-    void SetUniformVec3(int loc, const float* v3);
-
     // Issue draw call.
     // SDL_GPU: SDL_DrawGPUPrimitives
     void Draw(uint32_t vertex_count, uint32_t first_vertex = 0);

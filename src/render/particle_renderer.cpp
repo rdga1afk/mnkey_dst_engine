@@ -26,37 +26,7 @@ void ParticleRenderer::Init() {
 #endif
     pipeline_.Create(desc);
 
-    loc_viewProj_ = pipeline_.UniformLoc("viewProj");
-    loc_camPos_   = pipeline_.UniformLoc("cameraPos");
-
     vbuf_.Init(MAX_PARTICLES, 20);
-}
-
-void ParticleRenderer::Draw(Mat4 viewProj, Vec3 cam_pos) {
-    // Build vertices from simulation SoA.
-    void* ptr = vbuf_.MapWrite();
-    if (!ptr) return;
-
-    int count = ParticleSoA::Get().BuildVertices(
-        static_cast<ParticleVertex*>(ptr), MAX_PARTICLES,
-        cam_pos.x, cam_pos.y, cam_pos.z, PARTICLE_VIS_DIST_DEFAULT);
-    vbuf_.Unmap();
-
-    if (count <= 0) {
-        vbuf_.Advance();
-        return;
-    }
-
-    float cp[3] = { cam_pos.x, cam_pos.y, cam_pos.z };
-
-    cmd_.BindPipeline(&pipeline_);
-    cmd_.BindVertexBuffer(&vbuf_);
-    cmd_.SetUniformMat4(loc_viewProj_, mat4_ptr(viewProj));
-    cmd_.SetUniformVec3(loc_camPos_,   cp);
-    cmd_.Draw((uint32_t)count);
-    cmd_.EndPass();
-
-    vbuf_.Advance();
 }
 
 void ParticleRenderer::Shutdown() {

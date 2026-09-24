@@ -110,12 +110,6 @@ public:
     // bindings is required for SDL_GPU; ignored in OpenGL.
     void Begin(GpuComputePipeline* pipeline, const StorageBindings& bindings = StorageBindings{});
 
-    // OpenGL named-uniform setters. SDL_GPU: no-ops (use PushUniforms instead).
-    void SetUniformFloat    (int loc, float v);
-    void SetUniformInt      (int loc, int v);
-    void SetUniformVec3     (int loc, const float* v3);
-    void SetUniformVec4Array(int loc, const float* v4, int count);
-
 #ifdef MD_SDL_GPU
     // Push uniform data (UBO slot) for the compute shader.
     void PushUniforms(uint32_t slot, const void* data, uint32_t size_bytes);

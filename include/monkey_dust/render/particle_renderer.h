@@ -14,7 +14,6 @@ public:
     }
 
     void Init();
-    void Draw(Mat4 viewProj, Vec3 cam_pos);
     void Shutdown();
 
 #ifdef MD_SDL_GPU
@@ -31,9 +30,5 @@ private:
 
     GpuPipeline      pipeline_;
     GpuVertexBuffer  vbuf_;
-    GpuCommandBuffer cmd_;
-
-    int loc_viewProj_ = -1;
-    int loc_camPos_   = -1;
 };
 
