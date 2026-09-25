@@ -107,34 +107,11 @@ void JoltWorld::Init(int max_bodies) {
     physics_system_.Init((uint)max_bodies, 0, max_body_pairs, max_constraints,
                          *bp_layer_iface_, *ovbp_layer_pair_, *ovbp_filter_);
 
-    // Build shared capsule shape (0.35m radius, 0.9m half-height → 1.8m tall)
-    JPH::CapsuleShapeSettings css(0.9f, 0.35f);
-    css.mUserData = 0;
-    auto cs_result = css.Create();
-    if (cs_result.HasError()) {
-        fprintf(stderr, "[Jolt] CapsuleShape create failed: %s\n",
-                cs_result.GetError().c_str());
-        return;
-    }
-    // Offset: capsule center is at height 0.9+0.35=1.25m → shift up by 1.25m so feet at y=0
-    JPH::RotatedTranslatedShapeSettings rts(
-        JPH::Vec3(0, 1.25f, 0), JPH::Quat::sIdentity(), cs_result.Get());
-    auto rts_result = rts.Create();
-    if (rts_result.HasError()) {
-        fprintf(stderr, "[Jolt] RotatedTranslatedShape failed\n"); return;
-    }
-    char_shape_ = rts_result.Get();
-
     ready_ = true;
     fprintf(stdout, "[Jolt] Init OK  max_bodies=%d\n", max_bodies);
 }
 
 void JoltWorld::Shutdown() {
-    for (int i = 0; i < char_count_; ++i) {
-        if (chars_[i]) { delete chars_[i]; chars_[i] = nullptr; }
-    }
-    char_count_ = 0;
-    char_shape_ = nullptr;
     delete bp_layer_iface_;   bp_layer_iface_  = nullptr;
     delete ovbp_layer_pair_;  ovbp_layer_pair_ = nullptr;
     delete ovbp_filter_;      ovbp_filter_     = nullptr;
@@ -145,63 +122,9 @@ void JoltWorld::Shutdown() {
     ready_ = false;
 }
 
-// ── Character creation/destroy ───────────────────────────────────────────────
-JPH::CharacterVirtual* JoltWorld::CreateCharacter(float x, float y, float z,
-                                                    float /*radius*/,
-                                                    float /*half_height*/) {
-    if (!ready_ || char_count_ >= MAX_CHARS) return nullptr;
-
-    JPH::CharacterVirtualSettings cvs;
-    cvs.mShape           = char_shape_;
-    cvs.mMaxSlopeAngle   = JPH::DegreesToRadians(45.f);
-    cvs.mMaxStrength     = 100.f;
-    cvs.mCharacterPadding= 0.02f;
-    cvs.mPenetrationRecoverySpeed = 1.f;
-    cvs.mPredictiveContactDistance = 0.1f;
-
-    auto* c = new JPH::CharacterVirtual(&cvs,
-        JPH::RVec3(x, y, z), JPH::Quat::sIdentity(), 0, &physics_system_);
-    c->SetLinearVelocity(JPH::Vec3::sZero());
-
-    chars_[char_count_++] = c;
-    return c;
-}
-
-void JoltWorld::DestroyCharacter(JPH::CharacterVirtual* c) {
-    if (!c) return;
-    for (int i = 0; i < char_count_; ++i) {
-        if (chars_[i] != c) continue;
-        delete c;
-        chars_[i] = chars_[--char_count_];
-        chars_[char_count_] = nullptr;
-        return;
-    }
-}
-
 // ── Step ────────────────────────────────────────────────────────────────────
 void JoltWorld::Step(float dt) {
     if (!ready_) return;
-
-    JPH::CharacterVirtual::ExtendedUpdateSettings eu_settings;
-    eu_settings.mStickToFloorStepDown      = JPH::Vec3(0, -0.5f, 0);
-    eu_settings.mWalkStairsStepUp          = JPH::Vec3(0,  0.4f, 0);
-    eu_settings.mWalkStairsMinStepForward  = 0.02f;
-    eu_settings.mWalkStairsCosAngleForwardContact = 0.7f;
-
-    JPH::BroadPhaseLayerFilter  bp_filter;
-    JPH::ObjectLayerFilter      obj_filter;
-    JPH::BodyFilter             body_filter;
-    JPH::ShapeFilter            shape_filter;
-
-    for (int i = 0; i < char_count_; ++i) {
-        if (!chars_[i]) continue;
-        chars_[i]->ExtendedUpdate(dt, JPH::Vec3(0, -9.81f, 0),
-                                   eu_settings,
-                                   physics_system_.GetDefaultBroadPhaseLayerFilter(Layers::MOVING),
-                                   physics_system_.GetDefaultLayerFilter(Layers::MOVING),
-                                   body_filter, shape_filter, *temp_alloc_);
-    }
-
     physics_system_.Update(dt, 1, temp_alloc_, job_system_);
 }
 
@@ -322,34 +245,3 @@ float JoltWorld::CastRay(float fx, float fy, float fz,
     return 1.f;
 }
 
-// ── Static terrain mesh ──────────────────────────────────────────────────────
-void JoltWorld::AddStaticMesh(const float* verts, int nv,
-                               const int* tris, int nt) {
-    if (!ready_) return;
-
-    JPH::TriangleList triangles;
-    triangles.reserve((size_t)nt);
-    for (int i = 0; i < nt; ++i) {
-        const int* t = tris + i * 3;
-        const float* a = verts + t[0] * 3;
-        const float* b = verts + t[1] * 3;
-        const float* c = verts + t[2] * 3;
-        triangles.push_back(JPH::Triangle(
-            JPH::Float3(a[0],a[1],a[2]),
-            JPH::Float3(b[0],b[1],b[2]),
-            JPH::Float3(c[0],c[1],c[2])));
-    }
-
-    JPH::MeshShapeSettings mss(triangles);
-    auto result = mss.Create();
-    if (result.HasError()) {
-        fprintf(stderr, "[Jolt] MeshShape failed: %s\n", result.GetError().c_str());
-        return;
-    }
-
-    JPH::BodyCreationSettings bcs(result.Get(),
-        JPH::RVec3::sZero(), JPH::Quat::sIdentity(),
-        JPH::EMotionType::Static, Layers::NON_MOVING);
-    physics_system_.GetBodyInterface().CreateAndAddBody(bcs, JPH::EActivation::DontActivate);
-    fprintf(stdout, "[Jolt] Terrain mesh added: %d verts / %d tris\n", nv, nt);
-}

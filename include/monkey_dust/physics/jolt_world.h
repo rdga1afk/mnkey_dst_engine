@@ -1,6 +1,10 @@
 #pragma once
-// JoltWorld — singleton Jolt Physics world: character controllers + ragdoll.
-// Only active for LOD-Close NPCs (within 50m); frozen NPCs use direct position.
+// JoltWorld — singleton Jolt Physics world: raw PhysicsSystem + ragdoll.
+// NPC physics goes through System() (RagdollSystem) directly, not through
+// a CharacterVirtual controller -- PhysicsAgent::character below is read
+// by game/src's logic ticks but nothing currently assigns it (the
+// CreateCharacter subsystem that used to populate it was confirmed
+// unreachable and removed 2026-09-25, surgical-simplicity audit).
 
 // Jolt requires these macros before the header
 #ifndef JPH_DEBUG_RENDERER
@@ -24,17 +28,6 @@ public:
 
     // Step the physics world (call at logic tick rate, 0.1s).
     void Step(float dt);
-
-    // Create/destroy CharacterVirtual for one NPC. Thread: main only.
-    JPH::CharacterVirtual* CreateCharacter(float x, float y, float z,
-                                            float radius = 0.35f,
-                                            float half_height = 0.9f);
-    void DestroyCharacter(JPH::CharacterVirtual* c);
-
-    // Add terrain heightfield as static body.
-    // verts: float[nv*3] (XYZ), indices: int[nt*3].
-    void AddStaticMesh(const float* verts, int nv,
-                       const int*   tris,  int nt);
 
     // Add terrain chunk as a static MeshShape from its heightmap.
     // heights: (grid+1)×(grid+1) row-major floats.
@@ -77,14 +70,6 @@ private:
     BPLayerInterface* bp_layer_iface_  = nullptr;
     OVBPLayerPair*    ovbp_layer_pair_ = nullptr;
     OVBroadPhase*     ovbp_filter_     = nullptr;
-
-    // Character shape (shared by all NPCs — same capsule)
-    JPH::Ref<JPH::Shape> char_shape_;
-
-    // Track created characters for update step
-    static constexpr int MAX_CHARS = 512;
-    JPH::CharacterVirtual* chars_[MAX_CHARS] = {};
-    int char_count_ = 0;
 
     JPH::BodyID terrain_body_;  // current PCG terrain body (invalid = none)
 };
