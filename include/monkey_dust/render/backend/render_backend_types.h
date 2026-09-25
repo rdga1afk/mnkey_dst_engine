@@ -4,9 +4,10 @@
 #include <monkey_dust/ecs/md_entity.h>
 
 // RENDER-BACKEND-STAGE-0 (docs/RENDER_BACKEND_ABSTRACTION.md, §3.2).
-// POD-типи, спільні для всіх backend-реалізацій (SdlGpuBackend зараз,
-// GodotBackend/FilamentBackend/OgreNextBackend/BgfxBackend/O3deAtomBackend
-// stub-класи пізніше). БЕЗ std::vector/std::string у hot-path структурах.
+// POD-типи, спільні для всіх backend-реалізацій (SdlGpuBackend/
+// GraniteBackend -- див. render_backend.h's doc comment щодо видалених
+// stub-класів інших движків). БЕЗ std::vector/std::string у hot-path
+// структурах.
 namespace md::render_backend {
 
 // Per-frame parameters IRenderBackend's granular methods need but don't

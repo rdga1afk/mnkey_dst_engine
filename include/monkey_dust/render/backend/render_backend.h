@@ -4,10 +4,11 @@
 
 // RENDER-BACKEND-STAGE-0 (docs/RENDER_BACKEND_ABSTRACTION.md, §3.2).
 // IRenderBackend -- один інтерфейс виклику GPU render pipeline, щоб
-// SdlGpuBackend (сьогодні) і майбутні GodotBackend/FilamentBackend/
-// OgreNextBackend/BgfxBackend/O3deAtomBackend stub-класи (§7) підключались
-// через ту саму точку виклику з game_render_frame.cpp, не переписуючи
-// ігрову логіку/ECS/asset pipeline.
+// SdlGpuBackend і GraniteBackend (обидва реальні, §7) підключались через
+// ту саму точку виклику з game_render_frame.cpp, не переписуючи ігрову
+// логіку/ECS/asset pipeline. (§9's 5 compile-only stub-класи для інших
+// движків видалені 2026-09-25, нуль реальних споживачів -- майбутня
+// стадія embedding додасть свій stub заново, коли з'явиться консюмер.)
 //
 // Метод-на-етап-пайплайну (НЕ один monolithic RenderFrame()) -- порядок
 // методів нижче ВІДПОВІДАЄ реальному порядку викликів у грі, перевірено

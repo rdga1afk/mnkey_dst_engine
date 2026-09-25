@@ -262,11 +262,16 @@ endif()
 
 # RENDER-BACKEND-STAGE-4 (docs/RENDER_BACKEND_ABSTRACTION.md, §7.1). Render
 # backend selection. SDLGPU is the real default, always wired into
-# npc_render_init.cpp's runtime backend creation. GODOT/FILAMENT/BGFX/
-# DILIGENT/OGRENEXT compile an empty stub class (engine/include/monkey_dust/
-# render/backend/stubs/, validated for real by render_backend_stub_compile_
-# check.cpp) implementing IRenderBackend, but are not otherwise used (§9:
-# real embedding is a separate future phase).
+# npc_render_init.cpp's runtime backend creation. The GODOT/FILAMENT/BGFX/
+# DILIGENT/OGRENEXT compile-only stub scaffolding (§9's "real embedding is
+# a separate future phase") was removed 2026-09-25 -- surgical-simplicity
+# audit, owner-confirmed architectural cleanup: fully inert in every real
+# build (MD_RENDER_BACKEND=SDLGPU is the only configuration anyone
+# actually builds), zero runtime callers, only ever validated by a
+# compile-check TU nothing else depended on. IRenderBackend itself is
+# unaffected -- SdlGpuBackend and GraniteBackend remain its 2 real
+# implementations; a future embedding phase re-adds a stub the same way
+# these were added, when there's an actual consumer.
 #
 # GRANITE (docs/GRANITE_IRENDERBACKEND_INTEGRATION.md §2.4) is the one
 # exception with REAL runtime wiring at this stage, requires
@@ -290,13 +295,13 @@ endif()
 #     not-yet-ported-content reasoning as the game, so they stay blank when
 #     GRANITE is selected.
 set(MD_RENDER_BACKEND "SDLGPU" CACHE STRING
-    "Render backend: SDLGPU, GRANITE, GODOT, FILAMENT, BGFX, DILIGENT, OGRENEXT")
+    "Render backend: SDLGPU, GRANITE")
 set_property(CACHE MD_RENDER_BACKEND PROPERTY STRINGS
-    SDLGPU GRANITE GODOT FILAMENT BGFX DILIGENT OGRENEXT)
+    SDLGPU GRANITE)
 target_compile_definitions(monkey_dust_engine PUBLIC MD_RENDER_BACKEND_${MD_RENDER_BACKEND})
 
-# SDL3 + SDL_GPU is the only REAL rendering backend (see MD_RENDER_BACKEND
-# above for the other 5's compile-only stub scaffolding).
+# SDL3 + SDL_GPU is the default rendering backend (GRANITE is the other
+# real implementation, see MD_RENDER_BACKEND above).
 # GLM provides math types; MD_LOG_NO_RAYLIB replaces TraceLog with fprintf.
 target_compile_definitions(monkey_dust_engine PUBLIC USE_SDL3 USE_GLM MD_LOG_NO_RAYLIB MD_SDL_GPU)
 if(MD_STATIC_DEPS)
