@@ -16,6 +16,27 @@
 #include <monkey_dust/render/gpu_hal_free_functions.h>
 #endif
 
+// Shared load/log/ready-flag shape behind InitGroundBaked/InitSteepnessSmoothed/
+// InitBiomeBlend/InitKenshiOverlay (surgical-simplicity audit, docs/
+// SURGICAL_SIMPLICITY_AUDIT_2026-09.md §2). InitOverlayMask is NOT
+// included -- it has a real extra fast-path (a pre-baked .raw sidecar
+// tried before falling back to InitFromFile) this shape doesn't cover;
+// force-fitting it would mean either dropping that fast path or adding
+// branchiness only it needs. Unconditional (not #ifdef MD_SDL_GPU) --
+// InitKenshiOverlay, one of its 4 callers, compiles unconditionally too.
+static bool LoadTerrainTexture(GpuTexture& tex, const char* path, const GpuSamplerDesc& sd,
+                                bool& ready_flag, const char* log_name) {
+    tex.Shutdown();
+    if (!tex.InitFromFile(path, sd)) {
+        fprintf(stderr, "[TerrainRenderer] %s failed: %s\n", log_name, path);
+        ready_flag = false;
+        return false;
+    }
+    ready_flag = true;
+    fprintf(stdout, "[TerrainRenderer] %s loaded: %s\n", log_name, path);
+    return true;
+}
+
 bool TerrainRenderer::Init() {
 #ifdef MD_SDL_GPU
     // Create 1×1 white fallback texture for slots where InitTextures was not
@@ -309,15 +330,7 @@ bool TerrainRenderer::InitGroundBaked(const char* path)
     sd.gen_mipmap = true;
     sd.flip_v     = false;
 
-    tex_ground_baked_.Shutdown();
-    if (!tex_ground_baked_.InitFromFile(path, sd)) {
-        fprintf(stderr, "[TerrainRenderer] ground baked texture failed: %s\n", path);
-        ground_baked_ready_ = false;
-        return false;
-    }
-    ground_baked_ready_ = true;
-    fprintf(stdout, "[TerrainRenderer] ground baked texture loaded: %s\n", path);
-    return true;
+    return LoadTerrainTexture(tex_ground_baked_, path, sd, ground_baked_ready_, "ground baked texture");
 #else
     return false;
 #endif
@@ -337,15 +350,8 @@ bool TerrainRenderer::InitSteepnessSmoothed(const char* path)
     sd.gen_mipmap = true;
     sd.flip_v     = false;
 
-    tex_steepness_smoothed_.Shutdown();
-    if (!tex_steepness_smoothed_.InitFromFile(path, sd)) {
-        fprintf(stderr, "[TerrainRenderer] steepness-smoothed texture failed: %s\n", path);
-        steepness_smoothed_ready_ = false;
-        return false;
-    }
-    steepness_smoothed_ready_ = true;
-    fprintf(stdout, "[TerrainRenderer] steepness-smoothed texture loaded: %s\n", path);
-    return true;
+    return LoadTerrainTexture(tex_steepness_smoothed_, path, sd, steepness_smoothed_ready_,
+                               "steepness-smoothed texture");
 #else
     return false;
 #endif
@@ -370,15 +376,7 @@ bool TerrainRenderer::InitBiomeBlend(const char* path)
     sd.gen_mipmap = false;
     sd.flip_v     = false;
 
-    tex_biome_blend_.Shutdown();
-    if (!tex_biome_blend_.InitFromFile(path, sd)) {
-        fprintf(stderr, "[TerrainRenderer] biome blend map failed: %s\n", path);
-        biome_blend_ready_ = false;
-        return false;
-    }
-    biome_blend_ready_ = true;
-    fprintf(stdout, "[TerrainRenderer] biome blend map loaded: %s\n", path);
-    return true;
+    return LoadTerrainTexture(tex_biome_blend_, path, sd, biome_blend_ready_, "biome blend map");
 #else
     return false;
 #endif
@@ -503,14 +501,12 @@ bool TerrainRenderer::InitKenshiOverlay(const char* path)
     sd.gen_mipmap = true;
     sd.flip_v     = false;
 
-    tex_colour_.Shutdown();
-    if (!tex_colour_.InitFromFile(path, sd)) {
-        fprintf(stderr, "[TerrainRenderer] kenshi overlay failed: %s\n", path);
-        return false;
-    }
-    tex_loaded_ = true;
-    fprintf(stdout, "[TerrainRenderer] kenshi overlay loaded: %s\n", path);
-    return true;
+    // LoadTerrainTexture also clears tex_loaded_ on failure -- the
+    // original here left it at its prior value, a latent stale-flag bug
+    // (tex_colour_.Shutdown() above already ran either way, so a failed
+    // reload left tex_loaded_=true pointing at a texture that no longer
+    // existed). Matches the other 3 callers' already-correct behavior.
+    return LoadTerrainTexture(tex_colour_, path, sd, tex_loaded_, "kenshi overlay");
 }
 
 
