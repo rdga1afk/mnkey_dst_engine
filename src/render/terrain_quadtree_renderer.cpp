@@ -59,9 +59,9 @@ bool TerrainQuadtreeRenderer::Init(md::GpuDeviceHandle /*dev*/) {
     pd.vert_uniform_bufs  = 1;
     pd.vert_samplers      = 2; // 2026-08-24: #398 reverted -- heightTex + normalTex (world-wide)
     pd.vert_path = "shaders/terrain_quadtree.vert";
-    pd.frag_path = "shaders/terrain_gbuffer_mini.frag"; // RESOLVE_OPT spatial-split Крок 4: now computes boundary-mask bit
+    pd.frag_path = "shaders/terrain_gbuffer_mini.frag"; // RESOLVE_OPT spatial-split reverted (81a091f) -- category dead, no samplers needed
     pd.frag_uniform_bufs = 0;
-    pd.frag_samplers     = 3; // Крок 4: tex_ground, tex_ground_nml, zoneGroundLayersTex (TS_NeedsCornerBlend)
+    pd.frag_samplers     = 0;
     pd.frag_storage_bufs = 0;
     pd.color_format = SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT;
     if (!gbuffer_pipeline_.Create(pd)) {
@@ -136,28 +136,9 @@ bool TerrainQuadtreeRenderer::InitBatched(md::GpuDeviceHandle dev) {
     pd.vert_uniform_bufs  = 1;
     pd.vert_samplers      = 3; // heightTex, normalTex, nodeDataTex -- see .vert's own doc comment
     pd.vert_path = "shaders/terrain_quadtree_batched.vert";
-    pd.frag_path = "shaders/terrain_gbuffer_mini.frag"; // RESOLVE_OPT spatial-split Крок 4: now computes boundary-mask bit, same as gbuffer_pipeline_
+    pd.frag_path = "shaders/terrain_gbuffer_mini.frag"; // RESOLVE_OPT spatial-split reverted (81a091f), same as gbuffer_pipeline_
     pd.frag_uniform_bufs = 0;
-    // Крок 4 (2026-09-19): was 0, "MUST stay 0 -- see .vert's doc comment
-    // on why" -- that comment's actual concern (vert_storage_bufs>0 +
-    // frag_samplers>0) doesn't apply here (.vert uses nodeDataTex, a
-    // TEXTURE not an SSBO, vert_storage_bufs=0). The OTHER historical
-    // concern (vert_samplers>0 + frag_samplers>0, a suspected Gen9 hang)
-    // was downgraded to an INFO log in gpu_hal_pipeline.cpp 2026-07-25
-    // after an isolated test disproved it on this exact hardware/driver
-    // stack -- verified against that guard's current code before making
-    // this change, not assumed. See .vert's own doc comment, also updated.
-    // Крок 4 (2026-09-19): was 0, "MUST stay 0 -- see .vert's doc comment
-    // on why" -- that comment's actual concern (vert_storage_bufs>0 +
-    // frag_samplers>0) doesn't apply here (.vert uses nodeDataTex, a
-    // TEXTURE not an SSBO, vert_storage_bufs=0). The OTHER historical
-    // concern (vert_samplers>0 + frag_samplers>0, a suspected Gen9 hang)
-    // was downgraded to an INFO log in gpu_hal_pipeline.cpp 2026-07-25
-    // after an isolated test disproved it on this exact hardware/driver
-    // stack. Root cause of the real Крок 4 regression turned out to be
-    // an unrelated debug-shader artifact, NOT this combination -- see
-    // docs/RESOLVE_OPT.md's Крок 4 investigation log.
-    pd.frag_samplers     = 3; // tex_ground, tex_ground_nml, zoneGroundLayersTex (TS_NeedsCornerBlend)
+    pd.frag_samplers     = 0; // category dead (see .frag's doc comment) -- no samplers needed
     pd.frag_storage_bufs = 0;
     pd.color_format = SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT;
     if (!batched_pipeline_.Create(pd)) {
@@ -230,7 +211,10 @@ void TerrainQuadtreeRenderer::UploadNodeData(md::GpuDeviceHandle dev, SDL_GPUCop
 void TerrainQuadtreeRenderer::BeginBatched(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd,
                                             const TerrainWorldHeightmap& hmap, const float* vp16,
                                             float cam_x, float cam_y, float cam_z,
-                                            const TerrainRenderer& ground) {
+                                            const TerrainRenderer& /*ground*/) {
+    // RESOLVE_OPT spatial-split reverted (81a091f) -- used to bind 3
+    // samplers here for terrain_gbuffer_mini.frag's now-dead category
+    // computation; ground param kept for call-site/header compatibility.
     if (!batched_ready_) return;
     GpuPassView pv = GpuPassView::FromRaw(rp, cmd);
     pv.BindPipeline(&batched_pipeline_);
@@ -257,27 +241,6 @@ void TerrainQuadtreeRenderer::BeginBatched(SDL_GPURenderPass* rp, md::GpuCommand
         { node_data_tex_, node_data_sampler_ },
     };
     pv.BindVertexSamplers(0, samp, 3);
-
-    // RESOLVE_OPT spatial-split plan, Крок 4 -- see DrawNode's own doc
-    // comment on this exact binding block; DrawBatched itself binds
-    // nothing per-call, so this is the only place to bind it for the
-    // batched path.
-    SDL_GPUTextureSamplerBinding ground_all[7];
-    ground.GetSharedGroundSamplers(ground_all);
-    // Slots 1/4 (tex_ground_array/tex_ground_nml_array) have no fallback
-    // of a matching image type in FillSamplerBindings and fall back to
-    // nullptr/nullptr if the real asset failed to load -- same null risk
-    // DrawShadingResolve already guards against.
-    if (!ground_all[1].texture || !ground_all[1].sampler
-        || !ground_all[4].texture || !ground_all[4].sampler) {
-        return;
-    }
-    SDL_GPUTextureSamplerBinding frag_samp[3] = {
-        ground_all[1], // tex_ground
-        ground_all[4], // tex_ground_nml
-        { ground.ZoneGroundLayersTexture(), ground.ZoneGroundLayersSampler() },
-    };
-    pv.BindFragmentSamplers(0, frag_samp, 3);
 }
 
 void TerrainQuadtreeRenderer::DrawBatched(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, int count) {
@@ -313,7 +276,10 @@ void TerrainQuadtreeRenderer::DrawNode(SDL_GPURenderPass* rp, md::GpuCommandBuff
                                         const TerrainWorldHeightmap& hmap, const float* vp16,
                                         const TerrainQuadtree::VisibleNode& node,
                                         float cam_x, float cam_y, float cam_z,
-                                        const TerrainRenderer& ground) {
+                                        const TerrainRenderer& /*ground*/) {
+    // RESOLVE_OPT spatial-split reverted (81a091f) -- used to bind 3
+    // samplers here for terrain_gbuffer_mini.frag's now-dead category
+    // computation; ground param kept for call-site/header compatibility.
     if (!ready_) return;
 
     // texelSize = this node's own world footprint / 16 quads (kPatchQuads,
@@ -345,24 +311,6 @@ void TerrainQuadtreeRenderer::DrawNode(SDL_GPURenderPass* rp, md::GpuCommandBuff
         { hmap.NormalTexture(), hmap.NormalSampler() },
     };
     pv.BindVertexSamplers(0, samp, 2);
-
-    // RESOLVE_OPT spatial-split plan, Крок 4: terrain_gbuffer_mini.frag's
-    // boundary-mask computation (TS_NeedsCornerBlend) needs tex_ground(1)/
-    // tex_ground_nml(4) from GetSharedGroundSamplers' 7-slot layout, plus
-    // ZoneGroundLayersTexture -- bound at set=2 binding=0/1/2 to match
-    // that shader's declaration order.
-    SDL_GPUTextureSamplerBinding ground_all[7];
-    ground.GetSharedGroundSamplers(ground_all);
-    if (!ground_all[1].texture || !ground_all[1].sampler
-        || !ground_all[4].texture || !ground_all[4].sampler) {
-        return;
-    }
-    SDL_GPUTextureSamplerBinding frag_samp[3] = {
-        ground_all[1], // tex_ground
-        ground_all[4], // tex_ground_nml
-        { ground.ZoneGroundLayersTexture(), ground.ZoneGroundLayersSampler() },
-    };
-    pv.BindFragmentSamplers(0, frag_samp, 3);
 
     pv.BindIndexBuffer(&filled_ibo_, SDL_GPU_INDEXELEMENTSIZE_32BIT);
     pv.DrawIndexed(filled_index_count_, 1, 0, 0, 0);
