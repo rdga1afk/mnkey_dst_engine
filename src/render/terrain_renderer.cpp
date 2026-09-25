@@ -513,60 +513,48 @@ bool TerrainRenderer::InitKenshiOverlay(const char* path)
 #ifdef MD_SDL_GPU
 void TerrainRenderer::FillSamplerBindings(SDL_GPUTextureSamplerBinding out[6]) const
 {
-    bool valid = tex_loaded_ && tex_colour_.Valid()
-                 && tex_colour_.SDLTexture() && tex_colour_.SDLSampler();
-    out[0].texture = valid ? tex_colour_.SDLTexture() : fallback_tex_;
-    out[0].sampler = valid ? tex_colour_.SDLSampler() : fallback_sampler_;
+    // Shared check-and-select shape behind every slot below (surgical-
+    // simplicity audit, docs/SURGICAL_SIMPLICITY_AUDIT_2026-09.md §2):
+    // ready-flag && tex.Valid() && real SDL handles -- use the real
+    // texture/sampler, else fall back (nullptr for slots with no
+    // dedicated fallback asset).
+    auto fill_slot = [](SDL_GPUTextureSamplerBinding& slot, bool ready, const GpuTexture& tex,
+                         SDL_GPUTexture* fallback_tex, SDL_GPUSampler* fallback_sampler) {
+        bool valid = ready && tex.Valid() && tex.SDLTexture() && tex.SDLSampler();
+        slot.texture = valid ? tex.SDLTexture() : fallback_tex;
+        slot.sampler = valid ? tex.SDLSampler() : fallback_sampler;
+    };
+
+    fill_slot(out[0], tex_loaded_, tex_colour_, fallback_tex_, fallback_sampler_);
     // b1: per-biome DDS ground array — the actual per-vertex-indexed ground
     // textures (see terrain_gen.cpp's s_ground_pick / TerrainVertex).
-    bool ga = ground_array_ready_ && tex_ground_array_.Valid()
-              && tex_ground_array_.SDLTexture() && tex_ground_array_.SDLSampler();
-    out[1].texture = ga ? tex_ground_array_.SDLTexture() : nullptr;
-    out[1].sampler = ga ? tex_ground_array_.SDLSampler() : nullptr;
+    fill_slot(out[1], ground_array_ready_, tex_ground_array_, nullptr, nullptr);
     // b2: offline-baked flat-ground colour (task #306) — TerrainPatchRenderer's
     // flat-ground path only (was the painted grass/dirt/road mask before
     // that blend moved offline; the per-chunk near/mid path never used
     // this slot, resolving ground layers at generation time instead).
-    bool mv = ground_baked_ready_ && tex_ground_baked_.Valid()
-              && tex_ground_baked_.SDLTexture() && tex_ground_baked_.SDLSampler();
-    out[2].texture = mv ? tex_ground_baked_.SDLTexture() : fallback_mask_tex_;
-    out[2].sampler = mv ? tex_ground_baked_.SDLSampler() : fallback_mask_sampler_;
+    fill_slot(out[2], ground_baked_ready_, tex_ground_baked_, fallback_mask_tex_, fallback_mask_sampler_);
     // b3: procedural biome-crossfade blend map — loaded, currently unconsumed
     // (GetSharedGroundSamplers only exposes 3 of these 4 slots to Granite).
-    bool bv = biome_blend_ready_ && tex_biome_blend_.Valid()
-              && tex_biome_blend_.SDLTexture() && tex_biome_blend_.SDLSampler();
-    out[3].texture = bv ? tex_biome_blend_.SDLTexture() : fallback_blend_tex_;
-    out[3].sampler = bv ? tex_biome_blend_.SDLSampler() : fallback_blend_sampler_;
+    fill_slot(out[3], biome_blend_ready_, tex_biome_blend_, fallback_blend_tex_, fallback_blend_sampler_);
     // b4: grass/dirt/road paint mask (task terrain-detail-erases-road,
     // 2026-08-01) — TerrainPatchRenderer's close-range detail-restore layer
     // only; reuses fallback_mask_tex_/sampler_ (all-zero — no grass/dirt/
     // road painted anywhere, safe default) since it's the same neutral
     // shape this slot already had before InitPOM's removal.
-    bool om = overlay_mask_ready_ && tex_overlay_mask_.Valid()
-              && tex_overlay_mask_.SDLTexture() && tex_overlay_mask_.SDLSampler();
-    out[4].texture = om ? tex_overlay_mask_.SDLTexture() : fallback_mask_tex_;
-    out[4].sampler = om ? tex_overlay_mask_.SDLSampler() : fallback_mask_sampler_;
+    fill_slot(out[4], overlay_mask_ready_, tex_overlay_mask_, fallback_mask_tex_, fallback_mask_sampler_);
     // b5: per-biome ground NORMAL DDS array, paired 1:1 with tex_ground_
     // array's diffuse layers (InitGroundTextureArray loads both from the
     // same biome_table.txt index list). task #12 (2026-09-03) -- loaded
     // since the array's introduction but never exposed here before, so no
     // shading pass ever sampled it.
-    bool na = ground_array_ready_ && tex_ground_nml_array_.Valid()
-              && tex_ground_nml_array_.SDLTexture() && tex_ground_nml_array_.SDLSampler();
-    out[5].texture = na ? tex_ground_nml_array_.SDLTexture() : nullptr;
-    out[5].sampler = na ? tex_ground_nml_array_.SDLSampler() : nullptr;
+    fill_slot(out[5], ground_array_ready_, tex_ground_nml_array_, nullptr, nullptr);
     // b6/b7: КРОК 3 packed detail array + tint lookup (see InitDetailArray's
     // doc comment). nullptr when not loaded -- callers that don't need
     // these (corner-bake compute, which only reads b1/b5 for the cliff
     // layer) simply never look at these two slots.
-    bool da = detail_array_ready_ && tex_detail_array_.Valid()
-              && tex_detail_array_.SDLTexture() && tex_detail_array_.SDLSampler();
-    out[6].texture = da ? tex_detail_array_.SDLTexture() : nullptr;
-    out[6].sampler = da ? tex_detail_array_.SDLSampler() : nullptr;
-    bool dt = detail_array_ready_ && tex_detail_tint_.Valid()
-              && tex_detail_tint_.SDLTexture() && tex_detail_tint_.SDLSampler();
-    out[7].texture = dt ? tex_detail_tint_.SDLTexture() : nullptr;
-    out[7].sampler = dt ? tex_detail_tint_.SDLSampler() : nullptr;
+    fill_slot(out[6], detail_array_ready_, tex_detail_array_, nullptr, nullptr);
+    fill_slot(out[7], detail_array_ready_, tex_detail_tint_, nullptr, nullptr);
 }
 
 void TerrainRenderer::GetSharedGroundSamplers(SDL_GPUTextureSamplerBinding out[7]) const {
