@@ -61,12 +61,12 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
     rd.vert_uniform_bufs  = 0;
     rd.vert_samplers      = 0;
     rd.frag_uniform_bufs  = 2;  // set=3 binding=0 ProjFragUBO, binding=1 ProjCamUBO
-    rd.frag_samplers      = 14; // set=2: tex_colour,tex_ground,tex_ground_baked,tex_overlay_mask,tex_ground_nml (task #12), tex_detail_array,tex_detail_tint (КРОК3 2026-09-17); gbufPacked,gbufDepth; zoneGroundLayersTex (texture, not SSBO, since 2026-08-09); zoneCornerBakeColorAtlas/NormalAtlas/LutTex (task #141 2026-09-16); texSteepnessSmoothed (2026-09-24, bake/live cliff_w single-source-of-truth). БОРГ-TERRAIN-2 (2026-09-13): was 10 -- vtIndirection/vtAtlas removed, dead VT cache-hit path never called.
+    rd.frag_samplers      = 14; // set=2: tex_colour,tex_ground,tex_ground_baked,tex_overlay_mask,tex_ground_nml (task #12), tex_detail_array,tex_detail_tint (КРОК3 2026-09-17); gbufPacked,gbufDepth; zoneGroundLayersTex (texture, not SSBO, since 2026-08-09); texSteepnessSmoothed (2026-09-24, bake/live cliff_w single-source-of-truth); tex_biome_blend/kbi1LookupTex/biomeLayersTex (task-terrain-kenshi-parity, 2026-09-26). БОРГ-TERRAIN-2 (2026-09-13): was 10 -- vtIndirection/vtAtlas removed, dead VT cache-hit path never called. 2026-09-26: was 11 -- task #141's zone-corner cliff bake atlas (3 samplers) removed then task-terrain-kenshi-parity's 3 samplers added back, see CLAUDE_HISTORY.md.
     // 2026-09-19 (docs/RESOLVE_OPT.md session finding): AmbientProbeBuf,
-    // binding=14 (was 13, shifted 2026-09-24 when texSteepnessSmoothed was
-    // inserted at 13; after the 14 samplers 0-13 above) -- see terrain_
-    // shading_common.glsl's TS_HAS_AMBIENT_PROBE doc comment. Was 0 since
-    // БОРГ-TERRAIN-2 (2026-09-13, vtPageMeta removed with TerrainVtPageCache).
+    // binding=11 (2026-09-26: was 14, shifted -3 after removing the
+    // corner-bake atlas's 3 samplers; after the 11 samplers 0-10 above) --
+    // see terrain_shading_common.glsl's TS_HAS_AMBIENT_PROBE doc comment.
+    // Was 0 since БОРГ-TERRAIN-2 (2026-09-13, vtPageMeta removed with TerrainVtPageCache).
     rd.frag_storage_bufs  = 1;
     if (!resolve_pipeline_.Create(rd)) {
         MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] resolve pipeline create failed");
@@ -140,7 +140,8 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
                                                    float world_origin_x, float world_origin_z, float world_to_uv,
                                                    float fog_far, const float fog_color[3], float fog_near,
                                                    const TerrainRenderer& ground,
-                                                   bool shade_constant_debug) {
+                                                   bool shade_constant_debug,
+                                                   bool kenshi_blend_debug) {
     if (!ready_) return;
 
     // RESOLVE_OPT spatial-split plan, Крок 4/6 (docs/RESOLVE_OPT.md,
@@ -163,7 +164,10 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
         fubo.ambient[2]     = sun.ambient[2]; fubo.ambient[3] = 0.f;
         fubo.world_params[0] = world_origin_x; fubo.world_params[1] = world_origin_z;
         fubo.world_params[2] = world_to_uv;
-        fubo.world_params[3] = shade_constant_debug ? 1.f : 0.f;  // Крок 0 ablation, see header doc comment
+        // Крок 0 ablation (shade_constant_debug=1.0) / task-terrain-kenshi-
+        // parity (kenshi_blend_debug=2.0, checked first in the shader) --
+        // see header doc comment.
+        fubo.world_params[3] = kenshi_blend_debug ? 2.f : (shade_constant_debug ? 1.f : 0.f);
         fubo.fog_color_near[0] = fog_color[0]; fubo.fog_color_near[1] = fog_color[1];
         fubo.fog_color_near[2] = fog_color[2]; fubo.fog_color_near[3] = fog_near;
         fubo.fog_far = fog_far;
@@ -211,30 +215,31 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
         };
         pv.BindFragmentSamplers(9, zone_binding, 1);
 
-        // task #141: zone-corner cliff bake atlas + LUT, binding=10/11/12
-        // (КРОК 3, 2026-09-17: was 8/9/10, shifted +2) -- continues the same
-        // contiguous sampler run. Safe even before the real bake has run
-        // (TerrainRenderer::Init leaves the LUT filled with -1 and the
-        // atlases as valid 1x1 placeholders).
-        SDL_GPUTextureSamplerBinding corner_bake_bindings[3] = {
-            { ground.CornerBakeColorAtlasTexture(),  ground.CornerBakeColorAtlasSampler() },
-            { ground.CornerBakeNormalAtlasTexture(), ground.CornerBakeNormalAtlasSampler() },
-            { ground.CornerBakeLutTexture(),         ground.CornerBakeLutSampler() },
-        };
-        pv.BindFragmentSamplers(10, corner_bake_bindings, 3);
-
-        // bake/live cliff_w single-source-of-truth (2026-09-24), binding=13
-        // -- continues the same contiguous sampler run. See terrain_
+        // bake/live cliff_w single-source-of-truth (2026-09-24), binding=10
+        // (2026-09-26: was 13, shifted -3 after removing task #141's
+        // zone-corner cliff bake atlas -- see CLAUDE_HISTORY.md) --
+        // continues the same contiguous sampler run. See terrain_
         // shading_screenspace.frag's texSteepnessSmoothed doc comment.
         SDL_GPUTextureSamplerBinding steepness_binding[1] = {
             { ground.SteepnessSmoothedTexture(), ground.SteepnessSmoothedSampler() },
         };
-        pv.BindFragmentSamplers(13, steepness_binding, 1);
+        pv.BindFragmentSamplers(10, steepness_binding, 1);
+
+        // task-terrain-kenshi-parity (2026-09-26): the three Kenshi-parity
+        // biome-blend data sources, binding=11/12/13 -- see terrain_
+        // shading_screenspace.frag's own binding doc comments for the full
+        // rationale. Continues the same contiguous sampler run.
+        SDL_GPUTextureSamplerBinding kenshi_bindings[3] = {
+            { ground.BiomeBlendTexture(),      ground.BiomeBlendSampler() },
+            { ground.Kbi1BlendLookupTexture(), ground.Kbi1BlendLookupSampler() },
+            { ground.BiomeLayersTexture(),     ground.BiomeLayersSampler() },
+        };
+        pv.BindFragmentSamplers(11, kenshi_bindings, 3);
 
         // 2026-09-19 (docs/RESOLVE_OPT.md session finding): directional
-        // ambient via AmbientProbeSystem, binding=14 (was 13, shifted
-        // 2026-09-24 -- after the 14 samplers above) -- see terrain_
-        // shading_common.glsl's TS_HAS_AMBIENT_PROBE doc comment.
+        // ambient via AmbientProbeSystem, binding=14 (2026-09-26: was 11,
+        // shifted +3 after adding the 3 Kenshi-parity samplers above) --
+        // see terrain_shading_common.glsl's TS_HAS_AMBIENT_PROBE doc comment.
         SDL_GPUBuffer* ambient_probe_buf = AmbientProbeSystem::Get().GetSSBO().SDLBuffer();
         pv.BindFragmentStorageBuffers(0, &ambient_probe_buf, 1);
 

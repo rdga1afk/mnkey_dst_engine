@@ -5,7 +5,6 @@
 #include <monkey_dust/platform/md_fs.h>
 #include <cstdio>
 #include <cstring>
-#include <cmath>
 #include <vector>
 
 #ifdef MD_SDL_GPU
@@ -126,90 +125,6 @@ bool TerrainRenderer::Init() {
         zone_layers_sampler_ = GpuCreateSampler(dev, &si);
     }
 
-    // task #141: zone-corner cliff bake atlas + LUT -- see terrain_
-    // renderer.h's accessor doc comment. LUT filled with -1 (int32) here,
-    // synchronously, so the shading pipeline is safe to draw with BEFORE
-    // the real bake (SceneRender's load sequence, once implemented) ever
-    // runs -- the TS_HAS_CORNER_BAKE runtime branch reads this LUT and
-    // takes the live per-pixel path whenever it sees -1, identical output
-    // to before this feature existed.
-    {
-        md::GpuDeviceHandle dev = md::GpuDevice::Get().SDLDevice();
-        SDL_GPUTextureCreateInfo lut_ti{};
-        lut_ti.type                 = SDL_GPU_TEXTURETYPE_2D;
-        lut_ti.format               = SDL_GPU_TEXTUREFORMAT_R32_INT;
-        lut_ti.width                = 65;
-        lut_ti.height               = 65;
-        lut_ti.layer_count_or_depth = 1;
-        lut_ti.num_levels           = 1;
-        lut_ti.usage                = SDL_GPU_TEXTUREUSAGE_SAMPLER;
-        corner_bake_lut_tex_ = GpuCreateTexture(dev, &lut_ti);
-
-        SDL_GPUSamplerCreateInfo lut_si{};
-        lut_si.min_filter     = SDL_GPU_FILTER_NEAREST;
-        lut_si.mag_filter     = SDL_GPU_FILTER_NEAREST;
-        lut_si.mipmap_mode    = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST;
-        lut_si.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-        lut_si.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-        lut_si.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-        corner_bake_lut_sampler_ = GpuCreateSampler(dev, &lut_si);
-
-        // 1x1 placeholder atlases -- never actually sampled while the LUT
-        // above reads -1 everywhere, but must be real, correctly-typed
-        // bound textures (SDL_GPU has no "unbound sampler" concept for a
-        // declared shader binding). Real bake (terrain_zone_corner_bake.
-        // comp) replaces both via a compute-storage-write usage texture,
-        // recreated at real size once the flagged-corner count is known.
-        SDL_GPUTextureCreateInfo atlas_ti{};
-        atlas_ti.type                 = SDL_GPU_TEXTURETYPE_2D;
-        atlas_ti.format               = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
-        atlas_ti.width                = 1;
-        atlas_ti.height               = 1;
-        atlas_ti.layer_count_or_depth = 1;
-        atlas_ti.num_levels           = 1;
-        atlas_ti.usage                = SDL_GPU_TEXTUREUSAGE_SAMPLER
-                                       | SDL_GPU_TEXTUREUSAGE_COMPUTE_STORAGE_WRITE;
-        corner_bake_color_tex_  = GpuCreateTexture(dev, &atlas_ti);
-        corner_bake_normal_tex_ = GpuCreateTexture(dev, &atlas_ti);
-
-        SDL_GPUSamplerCreateInfo atlas_si{};
-        atlas_si.min_filter     = SDL_GPU_FILTER_LINEAR;
-        atlas_si.mag_filter     = SDL_GPU_FILTER_LINEAR;
-        atlas_si.mipmap_mode    = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST;
-        atlas_si.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-        atlas_si.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-        atlas_si.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-        corner_bake_color_sampler_  = GpuCreateSampler(dev, &atlas_si);
-        corner_bake_normal_sampler_ = GpuCreateSampler(dev, &atlas_si);
-
-        if (corner_bake_lut_tex_) {
-            std::vector<int32_t> lut_init((size_t)65 * 65, -1);
-            SDL_GPUTransferBufferCreateInfo tbi{};
-            tbi.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-            tbi.size  = (Uint32)(lut_init.size() * sizeof(int32_t));
-            SDL_GPUTransferBuffer* tb = GpuCreateTransferBuffer(dev, &tbi);
-            if (tb) {
-                void* map = GpuMapTransfer(tb, false);
-                if (map) memcpy(map, lut_init.data(), tbi.size);
-                GpuUnmapTransfer(tb);
-
-                md::GpuCommandBufferHandle cmd = md::GpuDevice::Get().AcquireCommandBuffer();
-                GpuCopyPass cp;
-                cp.Begin(cmd);
-                SDL_GPUTextureTransferInfo src{};
-                src.transfer_buffer = tb;
-                src.pixels_per_row  = 65;
-                src.rows_per_layer  = 65;
-                SDL_GPUTextureRegion dst{};
-                dst.texture = corner_bake_lut_tex_;
-                dst.w = 65; dst.h = 65; dst.d = 1;
-                cp.UploadTexture(src, dst, false);
-                cp.End();
-                md::GpuDevice::Get().Submit(cmd);
-                GpuReleaseTransferBuffer(dev, tb);
-            }
-        }
-    }
 #endif
     return true;
 }
@@ -382,6 +297,132 @@ bool TerrainRenderer::InitBiomeBlend(const char* path)
 #endif
 }
 
+bool TerrainRenderer::InitKbi1BlendLookup(const char* path)
+{
+#ifdef MD_SDL_GPU
+    GpuSamplerDesc sd;
+    // NEAREST: a discrete 32x32 per-cell lookup (tools/md_bake_kbi1_
+    // lookup.py) -- interpolating across cell boundaries would blend
+    // biome_id BYTE VALUES together into a garbage intermediate id. The
+    // continuous cross-fade comes entirely from md_biome_blend.png's own
+    // bilinear sampling (InitBiomeBlend), same as real Kenshi.
+    sd.min_filter = GpuSamplerDesc::Filter::NEAREST;
+    sd.mag_filter = GpuSamplerDesc::Filter::NEAREST;
+    sd.wrap_s     = GpuSamplerDesc::Wrap::CLAMP_TO_EDGE;
+    sd.wrap_t     = GpuSamplerDesc::Wrap::CLAMP_TO_EDGE;
+    sd.gen_mipmap = false;
+    sd.flip_v     = false;
+
+    bool ready = false;
+    return LoadTerrainTexture(kbi1_lookup_tex_, path, sd, ready, "KBI1 blend lookup");
+#else
+    (void)path;
+    return false;
+#endif
+}
+
+void TerrainRenderer::UploadBiomeLayersTex()
+{
+#ifdef MD_SDL_GPU
+    md::GpuDeviceHandle dev = md::GpuDevice::Get().SDLDevice();
+    if (!dev) return;
+
+    int count = BiomeRegistry::Get().BiomeCount();
+    if (count <= 0) return;
+
+    if (!biome_layers_tex_) {
+        SDL_GPUTextureCreateInfo ti{};
+        ti.type                 = SDL_GPU_TEXTURETYPE_2D;
+        ti.format               = SDL_GPU_TEXTUREFORMAT_R32G32B32A32_UINT;
+        ti.width                = (Uint32)(count * 7);
+        ti.height                = 1;
+        ti.layer_count_or_depth = 1;
+        ti.num_levels           = 1;
+        ti.usage                = SDL_GPU_TEXTUREUSAGE_SAMPLER;
+        biome_layers_tex_ = GpuCreateTexture(dev, &ti);
+
+        SDL_GPUSamplerCreateInfo si{};
+        si.min_filter     = SDL_GPU_FILTER_NEAREST;
+        si.mag_filter     = SDL_GPU_FILTER_NEAREST;
+        si.mipmap_mode    = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST;
+        si.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+        si.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+        si.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+        biome_layers_sampler_ = GpuCreateSampler(dev, &si);
+    }
+    if (!biome_layers_tex_) return;
+
+    // SAME 28-slot packing as UploadZoneGroundLayers, keyed by biome_id
+    // (row index) instead of zone_idx -- see that function's own doc
+    // comment for the full slot layout (base/slope/cliff/grass/dirt/road
+    // indices, tiling, distortion, slope/cliff blend bands, biome_id).
+    const int W = count * 7, H = 1;
+    std::vector<uint32_t> packed((size_t)W * H * 4, 0u);
+    for (int b = 0; b < count; ++b) {
+        const BiomeDef& d = BiomeRegistry::Get().ForIndex(b);
+        uint32_t slots[28] = {};
+        slots[0] = (uint32_t)d.tex_base;
+        slots[1] = (uint32_t)d.tex_slope;
+        slots[2] = (uint32_t)d.tex_cliff;
+        slots[3] = (uint32_t)d.tex_grass;
+        slots[4] = (uint32_t)d.tex_dirt;
+        slots[5] = (uint32_t)d.tex_road;
+        memcpy(&slots[6],  &d.cliff_tiling_x, sizeof(uint32_t));
+        memcpy(&slots[7],  &d.cliff_tiling_y, sizeof(uint32_t));
+        memcpy(&slots[8],  &d.brightness_fix, sizeof(uint32_t));
+        memcpy(&slots[9],  &d.tile_base_x,  sizeof(uint32_t));
+        memcpy(&slots[10], &d.tile_base_y,  sizeof(uint32_t));
+        memcpy(&slots[11], &d.tile_grass_x, sizeof(uint32_t));
+        memcpy(&slots[12], &d.tile_grass_y, sizeof(uint32_t));
+        memcpy(&slots[13], &d.tile_dirt_x,  sizeof(uint32_t));
+        memcpy(&slots[14], &d.tile_dirt_y,  sizeof(uint32_t));
+        memcpy(&slots[15], &d.tile_road_x,  sizeof(uint32_t));
+        memcpy(&slots[16], &d.tile_road_y,  sizeof(uint32_t));
+        memcpy(&slots[17], &d.distort_amplitude, sizeof(uint32_t));
+        memcpy(&slots[18], &d.distort_wavelength, sizeof(uint32_t));
+        memcpy(&slots[19], &d.tile_slope_x, sizeof(uint32_t));
+        memcpy(&slots[20], &d.tile_slope_y, sizeof(uint32_t));
+        memcpy(&slots[21], &d.slope_min,  sizeof(uint32_t));
+        memcpy(&slots[22], &d.slope_max,  sizeof(uint32_t));
+        memcpy(&slots[23], &d.slope_fade, sizeof(uint32_t));
+        memcpy(&slots[24], &d.cliff_min,  sizeof(uint32_t));
+        memcpy(&slots[25], &d.cliff_max,  sizeof(uint32_t));
+        memcpy(&slots[26], &d.cliff_fade, sizeof(uint32_t));
+        slots[27] = (uint32_t)d.biome_id;
+
+        for (int slot = 0; slot < 28; ++slot) {
+            int t = slot / 4, c = slot % 4;
+            size_t texel_idx = (size_t)(b * 7 + t);
+            packed[texel_idx * 4 + (size_t)c] = slots[slot];
+        }
+    }
+
+    SDL_GPUTransferBufferCreateInfo tbi{};
+    tbi.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+    tbi.size  = (Uint32)(packed.size() * sizeof(uint32_t));
+    SDL_GPUTransferBuffer* tb = GpuCreateTransferBuffer(dev, &tbi);
+    if (!tb) return;
+    void* map = GpuMapTransfer(tb, false);
+    if (map) memcpy(map, packed.data(), tbi.size);
+    GpuUnmapTransfer(tb);
+
+    md::GpuCommandBufferHandle cmd = md::GpuDevice::Get().AcquireCommandBuffer();
+    GpuCopyPass cp;
+    cp.Begin(cmd);
+    SDL_GPUTextureTransferInfo src{};
+    src.transfer_buffer = tb;
+    src.pixels_per_row  = (Uint32)W;
+    src.rows_per_layer  = (Uint32)H;
+    SDL_GPUTextureRegion dst{};
+    dst.texture = biome_layers_tex_;
+    dst.w = (Uint32)W; dst.h = (Uint32)H; dst.d = 1;
+    cp.UploadTexture(src, dst, false);
+    cp.End();
+    md::GpuDevice::Get().Submit(cmd);
+    GpuReleaseTransferBuffer(dev, tb);
+#endif
+}
+
 bool TerrainRenderer::InitOverlayMask(const char* path)
 {
 #ifdef MD_SDL_GPU
@@ -449,6 +490,7 @@ void TerrainRenderer::Shutdown() {
     overlay_mask_ready_ = false;
     tex_loaded_         = false;
     ground_array_ready_ = false;
+    kbi1_lookup_tex_.Shutdown();
 
 #ifdef MD_SDL_GPU
     md::GpuDeviceHandle dev = md::GpuDevice::Get().SDLDevice();
@@ -461,21 +503,13 @@ void TerrainRenderer::Shutdown() {
         if (fallback_blend_tex_)     GpuReleaseTexture(dev, fallback_blend_tex_);
         if (zone_layers_sampler_)    GpuReleaseSampler(dev, zone_layers_sampler_);
         if (zone_layers_tex_)        GpuReleaseTexture(dev, zone_layers_tex_);
-        if (corner_bake_color_sampler_)  GpuReleaseSampler(dev, corner_bake_color_sampler_);
-        if (corner_bake_color_tex_)      GpuReleaseTexture(dev, corner_bake_color_tex_);
-        if (corner_bake_normal_sampler_) GpuReleaseSampler(dev, corner_bake_normal_sampler_);
-        if (corner_bake_normal_tex_)     GpuReleaseTexture(dev, corner_bake_normal_tex_);
-        if (corner_bake_lut_sampler_)    GpuReleaseSampler(dev, corner_bake_lut_sampler_);
-        if (corner_bake_lut_tex_)        GpuReleaseTexture(dev, corner_bake_lut_tex_);
+        if (biome_layers_sampler_)   GpuReleaseSampler(dev, biome_layers_sampler_);
+        if (biome_layers_tex_)       GpuReleaseTexture(dev, biome_layers_tex_);
     }
     zone_layers_tex_     = nullptr;
     zone_layers_sampler_ = nullptr;
-    corner_bake_color_tex_      = nullptr;
-    corner_bake_color_sampler_  = nullptr;
-    corner_bake_normal_tex_     = nullptr;
-    corner_bake_normal_sampler_ = nullptr;
-    corner_bake_lut_tex_        = nullptr;
-    corner_bake_lut_sampler_    = nullptr;
+    biome_layers_tex_     = nullptr;
+    biome_layers_sampler_ = nullptr;
     fallback_tex_            = nullptr;
     fallback_sampler_        = nullptr;
     fallback_mask_tex_       = nullptr;
@@ -625,80 +659,3 @@ void TerrainRenderer::UploadZoneGroundLayers(const uint32_t* data, int count_uin
 #endif
 }
 
-bool TerrainRenderer::RebuildCornerBakeAtlas(int corner_count) {
-#ifdef MD_SDL_GPU
-    if (corner_count <= 0) return false;
-    md::GpuDeviceHandle dev = md::GpuDevice::Get().SDLDevice();
-    if (!dev) return false;
-
-    int tiles_per_row = (int)std::ceil(std::sqrt((double)corner_count));
-    if (tiles_per_row < 1) tiles_per_row = 1;
-    const int TILE_RES = 128;
-    const int atlas_dim = tiles_per_row * TILE_RES;
-
-    SDL_GPUTextureCreateInfo ti{};
-    ti.type                 = SDL_GPU_TEXTURETYPE_2D;
-    ti.format                = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
-    ti.width                 = (Uint32)atlas_dim;
-    ti.height                = (Uint32)atlas_dim;
-    ti.layer_count_or_depth = 1;
-    ti.num_levels            = 1;
-    ti.usage                 = SDL_GPU_TEXTUREUSAGE_SAMPLER
-                              | SDL_GPU_TEXTUREUSAGE_COMPUTE_STORAGE_WRITE;
-    md::GpuTextureHandle new_color  = GpuCreateTexture(dev, &ti);
-    md::GpuTextureHandle new_normal = GpuCreateTexture(dev, &ti);
-    if (!new_color || !new_normal) {
-        if (new_color)  GpuReleaseTexture(dev, new_color);
-        if (new_normal) GpuReleaseTexture(dev, new_normal);
-        fprintf(stderr, "[TerrainRenderer] RebuildCornerBakeAtlas: texture create failed (%dx%d)\n",
-                atlas_dim, atlas_dim);
-        return false;
-    }
-
-    if (corner_bake_color_tex_)  GpuReleaseTexture(dev, corner_bake_color_tex_);
-    if (corner_bake_normal_tex_) GpuReleaseTexture(dev, corner_bake_normal_tex_);
-    corner_bake_color_tex_     = new_color;
-    corner_bake_normal_tex_    = new_normal;
-    corner_bake_tiles_per_row_ = tiles_per_row;
-    fprintf(stderr, "[TerrainRenderer] RebuildCornerBakeAtlas: %d corners, %dx%d tiles, atlas %dx%d\n",
-            corner_count, tiles_per_row, tiles_per_row, atlas_dim, atlas_dim);
-    return true;
-#else
-    (void)corner_count;
-    return false;
-#endif
-}
-
-void TerrainRenderer::UploadCornerBakeLut(const int32_t* data65x65) {
-#ifdef MD_SDL_GPU
-    if (!corner_bake_lut_tex_) return;
-    md::GpuDeviceHandle dev = md::GpuDevice::Get().SDLDevice();
-    if (!dev) return;
-
-    SDL_GPUTransferBufferCreateInfo tbi{};
-    tbi.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-    tbi.size  = (Uint32)(65 * 65 * sizeof(int32_t));
-    SDL_GPUTransferBuffer* tb = GpuCreateTransferBuffer(dev, &tbi);
-    if (!tb) return;
-    void* map = GpuMapTransfer(tb, false);
-    if (map) memcpy(map, data65x65, tbi.size);
-    GpuUnmapTransfer(tb);
-
-    md::GpuCommandBufferHandle cmd = md::GpuDevice::Get().AcquireCommandBuffer();
-    GpuCopyPass cp;
-    cp.Begin(cmd);
-    SDL_GPUTextureTransferInfo src{};
-    src.transfer_buffer = tb;
-    src.pixels_per_row  = 65;
-    src.rows_per_layer  = 65;
-    SDL_GPUTextureRegion dst{};
-    dst.texture = corner_bake_lut_tex_;
-    dst.w = 65; dst.h = 65; dst.d = 1;
-    cp.UploadTexture(src, dst, false);
-    cp.End();
-    md::GpuDevice::Get().Submit(cmd);
-    GpuReleaseTransferBuffer(dev, tb);
-#else
-    (void)data65x65;
-#endif
-}

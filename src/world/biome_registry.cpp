@@ -178,6 +178,11 @@ const BiomeDef& BiomeRegistry::ForZone(const char* zone_slug) const {
     return default_;
 }
 
+const BiomeDef& BiomeRegistry::ForIndex(int idx) const {
+    if (idx < 0 || idx >= biome_count_) return default_;
+    return biomes_[idx].def;
+}
+
 const BiomeDef& BiomeRegistry::ForColor(uint8_t r, uint8_t g, uint8_t b) const {
     if (biome_count_ == 0) return default_;
     int best = 0, best_d2 = 0x7FFFFFFF;

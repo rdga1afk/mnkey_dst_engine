@@ -7,14 +7,15 @@
 // docs/DAGOR_IMPLEMENTATION_PROMPT.md Рівень 2, КРОК 6 -- addresses the
 // bug CLASS behind task #141's two real GpuComputePipeline::Create
 // segfaults (journalctl-confirmed crashes inside libvulkan_intel.so,
-// see terrain_zone_corner_bake.comp's own doc comment for the full
-// story): mixing a storage BUFFER with samplers/storage-TEXTURES in one
-// compute pipeline crashes the driver, with no Vulkan validation error
-// to catch it -- every working compute pipeline in this codebase uses
-// EITHER (samplers + a storage texture + UBO) [terrain_worldmap_
-// normal_bake.comp, terrain_zone_corner_bake.comp's fixed form] OR
-// (storage buffers + UBO, no samplers/textures) [npc_cull.comp], never
-// both categories together.
+// originally hit by terrain_zone_corner_bake.comp -- that file was
+// removed 2026-09-26, see CLAUDE_HISTORY.md, but the crash class it
+// found is unrelated to why it was removed and still applies): mixing
+// a storage BUFFER with samplers/storage-TEXTURES in one compute
+// pipeline crashes the driver, with no Vulkan validation error to catch
+// it -- every working compute pipeline in this codebase uses EITHER
+// (samplers + a storage texture + UBO) [terrain_worldmap_normal_bake.
+// comp] OR (storage buffers + UBO, no samplers/textures) [npc_cull.comp],
+// never both categories together.
 //
 // This is a compile-time-adjacent SAFETY NET, not a full resource
 // scheduler (that would be a much larger, daFrameGraph-style project --
@@ -39,9 +40,10 @@ inline bool ValidateComputePipelineDesc(const ::GpuComputePipeline::Desc& desc,
                                       desc.num_readonly_storage_textures > 0 ||
                                       desc.num_readwrite_storage_textures > 0;
     // The actual, journalctl-confirmed root cause of task #141's two
-    // real crashes (terrain_zone_corner_bake.comp doc comment) -- fixed
-    // there by moving the storage-buffer data into a small sampled
-    // texture instead. No exception to this rule exists anywhere in the
+    // real crashes (originally hit by terrain_zone_corner_bake.comp,
+    // removed 2026-09-26 -- see CLAUDE_HISTORY.md) -- fixed there by
+    // moving the storage-buffer data into a small sampled texture
+    // instead. No exception to this rule exists anywhere in the
     // codebase today.
     if (hasStorageBuffer && hasSamplerOrTexture) {
         *out_reason =

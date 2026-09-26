@@ -73,10 +73,18 @@ public:
     // common.glsl's TS_ComputeGroundAlbedo for the consuming formula.
     bool InitSteepnessSmoothed(const char* path);
 
-    // Load the procedural biome-crossfade texture (md_biome_blend.png,
-    // tools/md_gen_biome_blendmap.py) — R/G/B = neighbouring-zone's
-    // base/slope/cliff GroundTexLayer index (0..23, packed as raw uint8/255),
-    // A = blend weight (0=pure current-zone biome, 1=pure neighbour biome).
+    // Load the biome-crossfade texture (md_biome_blend.png,
+    // private/md_gen_biome_blendmap.py). STALE COMMENT FIXED 2026-09-26:
+    // this used to describe an EARLIER generator version (R/G/B =
+    // neighbouring-zone's base/slope/cliff GroundTexLayer index, A = blend
+    // weight) -- as of the script's v6 (2026-07-19, see InitBiomeBlend's
+    // own doc comment in terrain_renderer.cpp) it is a direct 1:1 copy of
+    // the REAL Kenshi data/newland/land/blendmap.png instead: R/G/B/A are
+    // 4 INDEPENDENT strictly-binary (0/255) masks, matching real Kenshi's
+    // own blendMap mechanism (terrainfp4.hlsl) exactly -- confirmed
+    // 2026-09-26 by an unrelated, independent empirical cross-check
+    // (KBI1 blendinfo.dat slot-to-channel correlation, 100% purity across
+    // 353 real-map samples; see re/re_docs/kenshi/terrain.md Subsystem 3).
     // Same zone-lookup-path-only scope as InitGroundBaked above — the
     // per-chunk near/mid path no longer needs this (per-vertex ground
     // selection resolves zone/chunk-boundary blending directly).
@@ -104,6 +112,33 @@ public:
     // original full-chromatic arrays unchanged (see the bake script's own
     // "SCOPE NOTE" doc comment for why). Must be called after Init().
     bool InitDetailArray(const char* dir);
+
+    // task-terrain-kenshi-parity (2026-09-26): loads tools/md_bake_kbi1_
+    // lookup.py's output -- a 32x32 RGBA8 texture decoded from Kenshi's
+    // real blendinfo.dat (KBI1 format, see re/re_docs/kenshi/terrain.md
+    // Subsystem 3). Each texel's R/G/B/A byte is the biome_id (row index
+    // into biome_table.txt, matching BiomeDef::biome_id) whose weight is
+    // carried by md_biome_blend.png's SAME channel at that world position
+    // -- confirmed empirically, slot0..3 maps directly to R/G/B/A, 100%
+    // purity across 353 real-map samples (zero exceptions). 255=inactive.
+    // NEAREST-filtered (a coarse per-cell lookup, not meant to interpolate
+    // across cell boundaries -- the continuous cross-fade comes entirely
+    // from md_biome_blend.png's own bilinear sampling, same as real Kenshi).
+    bool InitKbi1BlendLookup(const char* path);
+
+    // Companion to ZoneGroundLayersTexture/UploadZoneGroundLayers, but
+    // indexed by biome_id (0..73, BiomeRegistry's small load-order list)
+    // instead of zone_idx (0..4095) -- for the Kenshi-parity blend path
+    // above, which resolves a biome_id directly from InitKbi1BlendLookup's
+    // texture rather than going through the zone grid. SAME 28-slot
+    // packing convention as zone_layers_tex_ (see UploadZoneGroundLayers's
+    // own doc comment for the full slot layout) so existing TS_ZoneLayer-
+    // style shader helpers can be reused unchanged, just fed a biome_id
+    // instead of a zone_idx. Populated directly from BiomeRegistry's
+    // already-loaded BiomeDef array (no external buffer needed, unlike
+    // UploadZoneGroundLayers which depends on the caller's per-zone
+    // resolution) -- call after BiomeRegistry::Get().LoadFromFile().
+    void UploadBiomeLayersTex();
 
     bool IsReady() const;
 
@@ -134,6 +169,13 @@ public:
     md::GpuTextureHandle SteepnessSmoothedTexture() const { return tex_steepness_smoothed_.SDLTexture(); }
     SDL_GPUSampler* SteepnessSmoothedSampler() const { return tex_steepness_smoothed_.SDLSampler(); }
 
+    md::GpuTextureHandle Kbi1BlendLookupTexture() const { return kbi1_lookup_tex_.SDLTexture(); }
+    SDL_GPUSampler* Kbi1BlendLookupSampler() const { return kbi1_lookup_tex_.SDLSampler(); }
+    md::GpuTextureHandle BiomeLayersTexture() const { return biome_layers_tex_; }
+    SDL_GPUSampler* BiomeLayersSampler() const { return biome_layers_sampler_; }
+    md::GpuTextureHandle BiomeBlendTexture() const { return tex_biome_blend_.SDLTexture(); }
+    SDL_GPUSampler* BiomeBlendSampler() const { return tex_biome_blend_.SDLSampler(); }
+
     // Upload the per-zone (64x64=4096) ground-layer lookup table: 27 of 28
     // uint32 per zone used -- [0..5] base,slope,cliff,grass,dirt,road
     // GroundTexLayer indices, [6..7] real per-biome cliff UV tiling scale
@@ -156,37 +198,6 @@ public:
     // internally -- callers keep building the same flat array.
     void UploadZoneGroundLayers(const uint32_t* data, int count_uints);
 
-    // task #141 (docs/research/TERRAIN_ZONE_CORNER_BAKE_PLAN.md,
-    // 2026-09-16): load-time zone-corner cliff bake -- see terrain_
-    // shading_common.glsl's TS_HAS_CORNER_BAKE branch (terrain_cliff_
-    // blend.glsl) for the runtime lookup, terrain_zone_corner_bake.comp
-    // for the bake itself. Created with a SAFE fallback state in Init()
-    // (LUT filled entirely with -1 = "no flagged corner", tiny placeholder
-    // atlases never actually sampled while the LUT says so) so the
-    // shading pipeline's sampler count is always correct even before
-    // UploadCornerBakeAtlas below has run -- a missing/wrong-sized
-    // binding here is a silent-garbage class of bug on this hardware
-    // (CLAUDE.md Hardware Checklist), not something to leave unbound.
-    md::GpuTextureHandle CornerBakeColorAtlasTexture()  const { return corner_bake_color_tex_; }
-    md::GpuTextureHandle CornerBakeNormalAtlasTexture() const { return corner_bake_normal_tex_; }
-    md::GpuTextureHandle CornerBakeLutTexture()         const { return corner_bake_lut_tex_; }
-    SDL_GPUSampler* CornerBakeColorAtlasSampler()  const { return corner_bake_color_sampler_; }
-    SDL_GPUSampler* CornerBakeNormalAtlasSampler() const { return corner_bake_normal_sampler_; }
-    SDL_GPUSampler* CornerBakeLutSampler()         const { return corner_bake_lut_sampler_; }
-    int CornerBakeTilesPerRow() const { return corner_bake_tiles_per_row_; }
-
-    // Recreates the color/normal atlas textures at real size for
-    // `corner_count` flagged corners (tilesPerRow = ceil(sqrt(corner_
-    // count)), tile_res fixed at 128 -- see docs/research/TERRAIN_ZONE_
-    // CORNER_BAKE_PLAN.md). Caller (SceneRender::Init) runs the actual
-    // compute bake afterward, writing into these via GpuComputePass's
-    // rw_textures. Returns false (leaves existing placeholder textures
-    // untouched) if corner_count<=0 or texture creation fails.
-    bool RebuildCornerBakeAtlas(int corner_count);
-    // Uploads the 65x65 grid-vertex -> atlas-tile-index LUT (-1 = not
-    // flagged) -- same GpuCopyPass upload pattern as UploadZoneGroundLayers.
-    void UploadCornerBakeLut(const int32_t* data65x65);
-
 private:
     GpuTexture  tex_colour_;        // Kenshi colour overlay
     GpuTexture  tex_ground_array_;  // 24-layer BC3 DDS array — the actual per-vertex-indexed ground textures
@@ -198,7 +209,7 @@ private:
     bool        ground_baked_ready_ = false;
     GpuTexture  tex_steepness_smoothed_; // bake/live cliff_w single-source-of-truth (see InitSteepnessSmoothed)
     bool        steepness_smoothed_ready_ = false;
-    GpuTexture  tex_biome_blend_;       // R/G/B=neighbour base/slope/cliff idx, A=blend weight — loaded, currently unconsumed (see InitBiomeBlend)
+    GpuTexture  tex_biome_blend_;       // real Kenshi blendMap 1:1 copy, R/G/B/A = 4 independent binary blend-weight masks (see InitBiomeBlend's doc comment) -- consumed by the Kenshi-parity path (task-terrain-kenshi-parity, 2026-09-26)
     bool        biome_blend_ready_ = false;
     GpuTexture  tex_overlay_mask_;      // R=grass, G=grass2, B=dirt, A=road (see InitOverlayMask)
     bool        overlay_mask_ready_ = false;
@@ -214,14 +225,11 @@ private:
     md::GpuTextureHandle zone_layers_tex_     = nullptr;
     SDL_GPUSampler* zone_layers_sampler_ = nullptr;
 
-    // task #141: zone-corner cliff bake atlas + LUT (see accessors above).
-    md::GpuTextureHandle corner_bake_color_tex_     = nullptr;
-    md::GpuTextureHandle corner_bake_normal_tex_    = nullptr;
-    md::GpuTextureHandle corner_bake_lut_tex_       = nullptr;
-    SDL_GPUSampler* corner_bake_color_sampler_  = nullptr;
-    SDL_GPUSampler* corner_bake_normal_sampler_ = nullptr;
-    SDL_GPUSampler* corner_bake_lut_sampler_    = nullptr;
-    int corner_bake_tiles_per_row_ = 1;
+    // task-terrain-kenshi-parity (2026-09-26): see InitKbi1BlendLookup/
+    // UploadBiomeLayersTex's own doc comments above.
+    GpuTexture kbi1_lookup_tex_;
+    md::GpuTextureHandle biome_layers_tex_     = nullptr;
+    SDL_GPUSampler* biome_layers_sampler_ = nullptr;
 
 #ifdef MD_SDL_GPU
     md::GpuTextureHandle fallback_tex_            = nullptr;

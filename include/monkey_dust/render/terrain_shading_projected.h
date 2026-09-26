@@ -83,8 +83,15 @@ public:
     // patch_size/hmap, which this pass has no vertex geometry to need) so
     // callers can swap between the two variants with the same data.
     // shade_constant_debug: Крок 0 ablation (2026-08-23) -- true bypasses
-    // TS_ComputeGroundAlbedo with a flat colour via world_params.w, a
+    // TS_ComputeGroundAlbedo with a flat colour via world_params.w=1.0, a
     // single value for the whole draw (uniform branch, not per-pixel).
+    // kenshi_blend_debug (task-terrain-kenshi-parity, 2026-09-26): true
+    // sets world_params.w=2.0 instead, switching to the Kenshi-parity
+    // blendMap-driven biome blend (TS_ComputeKenshiBiomeBlend,
+    // terrain_kenshi_blend.glsl) for live A/B comparison against the
+    // default zone-tent scheme -- see that file's own doc comment. The two
+    // flags are mutually exclusive by construction (kenshi checked first
+    // in the shader); passing both true selects kenshi.
     // БОРГ-TERRAIN-2 (2026-09-13): `vt` (TerrainVtPageCache) parameter
     // removed -- the cache-hit sampling path it fed (VT_SampleAlbedo in
     // terrain_shading_screenspace.frag) was never called from that
@@ -96,7 +103,8 @@ public:
                              float world_origin_x, float world_origin_z, float world_to_uv,
                              float fog_far, const float fog_color[3], float fog_near,
                              const TerrainRenderer& ground,
-                             bool shade_constant_debug = false);
+                             bool shade_constant_debug = false,
+                             bool kenshi_blend_debug = false);
 
 private:
     bool CreateTextures(int w, int h);

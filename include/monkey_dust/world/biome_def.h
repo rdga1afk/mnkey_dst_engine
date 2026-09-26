@@ -114,6 +114,16 @@ public:
     const char* GroundTexPath(int idx) const;
     const char* GroundNmlPath(int idx) const;
 
+    // task-terrain-kenshi-parity (2026-09-26): enumeration by load-order
+    // index, matching BiomeDef::biome_id (the same row index ForZone/
+    // ForColor's matched entry already carries) -- for building a
+    // biome_id-indexed GPU lookup texture (TerrainRenderer::
+    // UploadBiomeLayersTex) from every loaded biome, not just one queried
+    // by slug/colour. idx out of [0,BiomeCount()) returns the same
+    // zeroed-fallback BiomeDef ForZone/ForColor use.
+    int BiomeCount() const { return biome_count_; }
+    const BiomeDef& ForIndex(int idx) const;
+
 private:
     BiomeRegistry() = default;
 
