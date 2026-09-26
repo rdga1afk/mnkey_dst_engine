@@ -41,6 +41,40 @@ struct ForwardCamUBO {
     float cam_pos_ws[4];
 };
 static_assert(sizeof(ForwardCamUBO) == 16, "ForwardCamUBO size mismatch");
+
+// G-buffer material inputs (2026-09-26: ground material is sampled in the
+// geometry pass, terrain_gbuffer_mini.frag, not in the screen-space
+// resolve). 12 fragment samplers in the order that shader declares them,
+// plus its PatchFrag (only world_params is read) and ScreenspaceCam UBOs
+// -- same layout as ForwardFragUBO/ForwardCamUBO above. Returns false,
+// binding nothing, if any texture is missing: the array samplers and the
+// three Kenshi biome-blend textures have no same-typed fallback.
+bool BindGBufferMaterial(GpuPassView& pv, md::GpuCommandBufferHandle cmd,
+                         float cam_x, float cam_y, float cam_z,
+                         float world_origin_x, float world_origin_z, float world_to_uv,
+                         const TerrainRenderer& ground) {
+    SDL_GPUTextureSamplerBinding b[12];
+    ground.GetSharedGroundSamplers(b); // 0..6
+    b[7]  = { ground.ZoneGroundLayersTexture(),  ground.ZoneGroundLayersSampler() };
+    b[8]  = { ground.SteepnessSmoothedTexture(), ground.SteepnessSmoothedSampler() };
+    b[9]  = { ground.BiomeBlendTexture(),        ground.BiomeBlendSampler() };
+    b[10] = { ground.Kbi1BlendLookupTexture(),   ground.Kbi1BlendLookupSampler() };
+    b[11] = { ground.BiomeLayersTexture(),       ground.BiomeLayersSampler() };
+    for (int i = 0; i < 12; ++i) {
+        if (!b[i].texture || !b[i].sampler) return false;
+    }
+    pv.BindFragmentSamplers(0, b, 12);
+
+    ForwardFragUBO fubo{};
+    fubo.world_params[0] = world_origin_x;
+    fubo.world_params[1] = world_origin_z;
+    fubo.world_params[2] = world_to_uv;
+    GpuPushFragmentUniforms(cmd, 0, &fubo, sizeof(fubo));
+    ForwardCamUBO cubo{};
+    cubo.cam_pos_ws[0] = cam_x; cubo.cam_pos_ws[1] = cam_y; cubo.cam_pos_ws[2] = cam_z;
+    GpuPushFragmentUniforms(cmd, 1, &cubo, sizeof(cubo));
+    return true;
+}
 } // namespace
 
 bool TerrainQuadtreeRenderer::Init(md::GpuDeviceHandle /*dev*/) {
@@ -59,11 +93,12 @@ bool TerrainQuadtreeRenderer::Init(md::GpuDeviceHandle /*dev*/) {
     pd.vert_uniform_bufs  = 1;
     pd.vert_samplers      = 2; // 2026-08-24: #398 reverted -- heightTex + normalTex (world-wide)
     pd.vert_path = "shaders/terrain_quadtree.vert";
-    pd.frag_path = "shaders/terrain_gbuffer_mini.frag"; // RESOLVE_OPT spatial-split reverted (81a091f) -- category dead, no samplers needed
-    pd.frag_uniform_bufs = 0;
-    pd.frag_samplers     = 0;
+    pd.frag_path = "shaders/terrain_gbuffer_mini.frag"; // ground material + position/normal (2026-09-26)
+    pd.frag_uniform_bufs = 2;  // set=3: PatchFrag (world_params), ScreenspaceCam
+    pd.frag_samplers     = 12; // set=2: see BindGBufferMaterial
     pd.frag_storage_bufs = 0;
-    pd.color_format = SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT;
+    pd.color_format  = SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT;  // RT0: world pos + packed normal
+    pd.color_format2 = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM_SRGB; // RT1: albedo
     if (!gbuffer_pipeline_.Create(pd)) {
         MD_LOG(MD_LOG_WARNING, "[TerrainQuadtreeRenderer] pipeline create failed");
         return false;
@@ -136,11 +171,12 @@ bool TerrainQuadtreeRenderer::InitBatched(md::GpuDeviceHandle dev) {
     pd.vert_uniform_bufs  = 1;
     pd.vert_samplers      = 3; // heightTex, normalTex, nodeDataTex -- see .vert's own doc comment
     pd.vert_path = "shaders/terrain_quadtree_batched.vert";
-    pd.frag_path = "shaders/terrain_gbuffer_mini.frag"; // RESOLVE_OPT spatial-split reverted (81a091f), same as gbuffer_pipeline_
-    pd.frag_uniform_bufs = 0;
-    pd.frag_samplers     = 0; // category dead (see .frag's doc comment) -- no samplers needed
+    pd.frag_path = "shaders/terrain_gbuffer_mini.frag"; // ground material + position/normal (2026-09-26)
+    pd.frag_uniform_bufs = 2;  // set=3: PatchFrag (world_params), ScreenspaceCam
+    pd.frag_samplers     = 12; // set=2: see BindGBufferMaterial
     pd.frag_storage_bufs = 0;
-    pd.color_format = SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT;
+    pd.color_format  = SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT;  // RT0: world pos + packed normal
+    pd.color_format2 = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM_SRGB; // RT1: albedo
     if (!batched_pipeline_.Create(pd)) {
         MD_LOG(MD_LOG_WARNING, "[TerrainQuadtreeRenderer] batched pipeline create failed");
         return false;
@@ -211,13 +247,16 @@ void TerrainQuadtreeRenderer::UploadNodeData(md::GpuDeviceHandle dev, SDL_GPUCop
 void TerrainQuadtreeRenderer::BeginBatched(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd,
                                             const TerrainWorldHeightmap& hmap, const float* vp16,
                                             float cam_x, float cam_y, float cam_z,
-                                            const TerrainRenderer& /*ground*/) {
-    // RESOLVE_OPT spatial-split reverted (81a091f) -- used to bind 3
-    // samplers here for terrain_gbuffer_mini.frag's now-dead category
-    // computation; ground param kept for call-site/header compatibility.
+                                            float world_origin_x, float world_origin_z, float world_to_uv,
+                                            const TerrainRenderer& ground) {
     if (!batched_ready_) return;
     GpuPassView pv = GpuPassView::FromRaw(rp, cmd);
     pv.BindPipeline(&batched_pipeline_);
+    // DrawBatched binds nothing itself, so the material lands here once;
+    // DrawBatched skips the draw if it could not be bound.
+    batched_material_bound_ = BindGBufferMaterial(pv, cmd, cam_x, cam_y, cam_z,
+                                                  world_origin_x, world_origin_z, world_to_uv, ground);
+    if (!batched_material_bound_) return;
 
     struct TerrainBatchUBO {
         float vp[16];
@@ -244,7 +283,7 @@ void TerrainQuadtreeRenderer::BeginBatched(SDL_GPURenderPass* rp, md::GpuCommand
 }
 
 void TerrainQuadtreeRenderer::DrawBatched(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, int count) {
-    if (!batched_ready_ || count <= 0) return;
+    if (!batched_ready_ || !batched_material_bound_ || count <= 0) return;
     if (count > kMaxBatchedNodes) count = kMaxBatchedNodes;
     GpuPassView pv = GpuPassView::FromRaw(rp, cmd);
 
@@ -276,10 +315,8 @@ void TerrainQuadtreeRenderer::DrawNode(SDL_GPURenderPass* rp, md::GpuCommandBuff
                                         const TerrainWorldHeightmap& hmap, const float* vp16,
                                         const TerrainQuadtree::VisibleNode& node,
                                         float cam_x, float cam_y, float cam_z,
-                                        const TerrainRenderer& /*ground*/) {
-    // RESOLVE_OPT spatial-split reverted (81a091f) -- used to bind 3
-    // samplers here for terrain_gbuffer_mini.frag's now-dead category
-    // computation; ground param kept for call-site/header compatibility.
+                                        float world_origin_x, float world_origin_z, float world_to_uv,
+                                        const TerrainRenderer& ground) {
     if (!ready_) return;
 
     // texelSize = this node's own world footprint / 16 quads (kPatchQuads,
@@ -289,6 +326,8 @@ void TerrainQuadtreeRenderer::DrawNode(SDL_GPURenderPass* rp, md::GpuCommandBuff
 
     GpuPassView pv = GpuPassView::FromRaw(rp, cmd);
     pv.BindPipeline(&gbuffer_pipeline_);
+    if (!BindGBufferMaterial(pv, cmd, cam_x, cam_y, cam_z,
+                             world_origin_x, world_origin_z, world_to_uv, ground)) return;
 
     TerrainQuadtreeUBO ubo{};
     std::memcpy(ubo.vp, vp16, 64);

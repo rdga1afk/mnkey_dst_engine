@@ -452,9 +452,14 @@ bool GpuPipeline::Create(const Desc& desc) {
         }
     }
 
+    // Optional second target (MRT) -- same blend state as the first.
+    SDL_GPUColorTargetDescription color_targets[2] = { color_target, color_target };
+    const bool mrt = !desc.depth_only && desc.color_format2 != SDL_GPU_TEXTUREFORMAT_INVALID;
+    if (mrt) color_targets[1].format = desc.color_format2;
+
     SDL_GPUGraphicsPipelineTargetInfo target_info = {};
-    target_info.color_target_descriptions = desc.depth_only ? nullptr : &color_target;
-    target_info.num_color_targets         = desc.depth_only ? 0u : 1u;
+    target_info.color_target_descriptions = desc.depth_only ? nullptr : color_targets;
+    target_info.num_color_targets         = desc.depth_only ? 0u : (mrt ? 2u : 1u);
     if (desc.has_depth_target || desc.depth_only) {
         // D32_FLOAT: must match GpuDepthTexture::Init which uses D32_FLOAT.
         // Intel Gen9 (HD 520) cannot sample D24_UNORM — pipeline must match texture.

@@ -110,6 +110,7 @@ private:
     bool CreateTextures(int w, int h);
 
     GpuTexture       gbuf_color_;
+    GpuTexture       gbuf_albedo_;  // RT1, ground albedo from the G-buffer pass (sRGB RGBA8)
     GpuDepthTexture   gbuf_depth_;
     // RESOLVE_OPT 4-draw spatial split (Крок 4/6, docs/RESOLVE_OPT.md,
     // 2026-09-19) REVERTED 2026-09-21 (tests/scenarios/resolve_split_ab.lua):

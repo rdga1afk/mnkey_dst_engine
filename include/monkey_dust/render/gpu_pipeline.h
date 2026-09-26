@@ -39,6 +39,9 @@ public:
         // Override swapchain color format (e.g. SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM
         // for intermediate render targets). INVALID (0) = use swapchain format.
         SDL_GPUTextureFormat color_format = SDL_GPU_TEXTUREFORMAT_INVALID;
+        // Second colour target (MRT, matches ColorPassDesc::MAX_COLOR_TARGETS=2).
+        // INVALID (default) = single target, every existing pipeline unchanged.
+        SDL_GPUTextureFormat color_format2 = SDL_GPU_TEXTUREFORMAT_INVALID;
 #endif
     };
 
