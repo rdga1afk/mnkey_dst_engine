@@ -234,6 +234,14 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
             { ground.Kbi1BlendLookupTexture(), ground.Kbi1BlendLookupSampler() },
             { ground.BiomeLayersTexture(),     ground.BiomeLayersSampler() },
         };
+        // Unlike ground_bindings above, these three have no same-typed 1x1
+        // fallback on load failure (LoadTerrainTexture/UploadBiomeLayersTex
+        // leave the handle null rather than substituting a placeholder) --
+        // must check before binding, same reasoning as the ground_bindings
+        // loop's own comment.
+        for (int i = 0; i < 3; ++i) {
+            if (!kenshi_bindings[i].texture || !kenshi_bindings[i].sampler) return;
+        }
         pv.BindFragmentSamplers(11, kenshi_bindings, 3);
 
         // 2026-09-19 (docs/RESOLVE_OPT.md session finding): directional
