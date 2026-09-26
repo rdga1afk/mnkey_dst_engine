@@ -301,8 +301,9 @@ bool TerrainRenderer::InitKbi1BlendLookup(const char* path)
 {
 #ifdef MD_SDL_GPU
     GpuSamplerDesc sd;
-    // NEAREST: a discrete 32x32 per-cell lookup (tools/md_bake_kbi1_
-    // lookup.py) -- interpolating across cell boundaries would blend
+    // NEAREST: a discrete 32x32 per-cell lookup (baked by a private-repo
+    // tool, not vendored here -- see terrain_renderer.h's own doc
+    // comment) -- interpolating across cell boundaries would blend
     // biome_id BYTE VALUES together into a garbage intermediate id. The
     // continuous cross-fade comes entirely from md_biome_blend.png's own
     // bilinear sampling (InitBiomeBlend), same as real Kenshi.

@@ -113,8 +113,10 @@ public:
     // "SCOPE NOTE" doc comment for why). Must be called after Init().
     bool InitDetailArray(const char* dir);
 
-    // task-terrain-kenshi-parity (2026-09-26): loads tools/md_bake_kbi1_
-    // lookup.py's output -- a 32x32 RGBA8 texture decoded from Kenshi's
+    // task-terrain-kenshi-parity (2026-09-26): loads a private repo
+    // tool's output (baking script kept private, not in this public
+    // submodule -- see .claude/rules/asset-pipeline-paths.md in the main
+    // repo) -- a 32x32 RGBA8 texture decoded from Kenshi's
     // real blendinfo.dat (KBI1 format, see re/re_docs/kenshi/terrain.md
     // Subsystem 3). Each texel's R/G/B/A byte is the biome_id (row index
     // into biome_table.txt, matching BiomeDef::biome_id) whose weight is
