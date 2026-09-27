@@ -79,6 +79,12 @@ if(NOT TARGET Jolt)
     # WIN32/APPLE-only internally in Jolt.cmake and stay inert here
     # regardless of value; JPH_USE_CPU_COMPUTE needs no shader compiler).
     set(JPH_USE_VK OFF CACHE BOOL "" FORCE)
+    # Same stale-cache trap for Jolt's INTERPROCEDURAL_OPTIMIZATION (default
+    # ON): with clang, Jolt's objects become LLVM bitcode, and mold can't
+    # read them unless the final link also passes -flto -- "unable to handle
+    # this LTO object file" on linking monkey_dust. A manual OFF in an old
+    # build/ cache hid this until the cache was reset. Off explicitly.
+    set(INTERPROCEDURAL_OPTIMIZATION OFF CACHE BOOL "" FORCE)
     add_subdirectory(${MD_THIRD_PARTY}/JoltPhysics/Build)
     set_target_properties(Jolt PROPERTIES PRECOMPILE_HEADERS "")
 endif()
