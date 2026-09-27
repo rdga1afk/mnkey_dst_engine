@@ -36,7 +36,6 @@ public:
                   const TerrainWorldHeightmap& hmap, const float* vp16,
                   const TerrainQuadtree::VisibleNode& node,
                   float cam_x, float cam_y, float cam_z,
-                  float world_origin_x, float world_origin_z, float world_to_uv,
                   const TerrainRenderer& ground);
 
     // Forward (inline) shading revival -- draws node geometry directly into
@@ -110,7 +109,6 @@ public:
     void BeginBatched(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd,
                       const TerrainWorldHeightmap& hmap, const float* vp16,
                       float cam_x, float cam_y, float cam_z,
-                      float world_origin_x, float world_origin_z, float world_to_uv,
                       const TerrainRenderer& ground);
 
     // Issues ONE instanced draw_indexed for the filled grid, covering the
@@ -189,7 +187,6 @@ private:
     bool ready_ = false;
     bool forward_ready_ = false;
     bool batched_ready_ = false;
-    bool batched_material_bound_ = false; // set by BeginBatched, gates DrawBatched
     bool wireframe_ready_ = false;
     bool batched_wireframe_ready_ = false;
     md::GpuTextureHandle node_data_tex_     = nullptr;
