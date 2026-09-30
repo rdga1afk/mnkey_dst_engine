@@ -176,12 +176,42 @@ public:
                                 float cam_x, float cam_y, float cam_z);
     void DrawBatchedBoundary(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, int count);
 
+    // FRAME_AUDIT_2026-09-27 follow-up (audit #2, "no early-Z, no
+    // front-to-back order"): depth-only variants of gbuffer_pipeline_/
+    // batched_pipeline_ -- IDENTICAL vert_path/frag_path/sampler counts,
+    // only depth_only=true (no color target). Kept shader-identical to the
+    // color pipelines deliberately: pairing "the same" vertex shader with a
+    // DIFFERENT fragment shader let this codebase's driver codegen diverge
+    // just enough to fail a later LESS_OR_EQUAL depth test once already
+    // (animated_prepass.vert/shadow_csm.frag vs npc_instanced.frag, see
+    // npc_render_init.cpp's own doc comment on prepass_pipeline) -- same
+    // frag_path here removes that whole risk class. Fills the shared
+    // gbuf_depth_ BEFORE the real G-buffer color pass opens with
+    // LOAD_OP=LOAD, so the color pass's existing depth_test=true,
+    // LESS_OR_EQUAL compare rejects already-occluded fragments via
+    // hardware early-Z before terrain_gbuffer_mini.frag runs (confirmed
+    // early-Z-eligible: no discard, no gl_FragDepth write).
+    bool InitDepthOnly(md::GpuDeviceHandle dev);
+    bool IsDepthOnlyReady() const { return depth_only_ready_ && batched_depth_only_ready_; }
+    void DrawNodeDepthOnly(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd,
+                           const TerrainWorldHeightmap& hmap, const float* vp16,
+                           const TerrainQuadtree::VisibleNode& node,
+                           float cam_x, float cam_y, float cam_z);
+    // Same resource bindings as BeginBatched, depth-only pipeline bound
+    // instead -- DrawBatched itself is reused unchanged (it never rebinds
+    // a pipeline, only index buffer + draw call).
+    void BeginBatchedDepthOnly(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd,
+                               const TerrainWorldHeightmap& hmap, const float* vp16,
+                               float cam_x, float cam_y, float cam_z);
+
 private:
     GpuPipeline gbuffer_pipeline_;
     GpuPipeline forward_pipeline_;
     GpuPipeline wireframe_pipeline_;
     GpuPipeline batched_pipeline_;
     GpuPipeline batched_wireframe_pipeline_;
+    GpuPipeline gbuffer_depth_only_pipeline_;
+    GpuPipeline batched_depth_only_pipeline_;
     GpuStaticBuffer filled_ibo_;
     uint32_t filled_index_count_ = 0;
     bool ready_ = false;
@@ -189,6 +219,8 @@ private:
     bool batched_ready_ = false;
     bool wireframe_ready_ = false;
     bool batched_wireframe_ready_ = false;
+    bool depth_only_ready_ = false;
+    bool batched_depth_only_ready_ = false;
     md::GpuTextureHandle node_data_tex_     = nullptr;
     SDL_GPUSampler* node_data_sampler_ = nullptr;
 };

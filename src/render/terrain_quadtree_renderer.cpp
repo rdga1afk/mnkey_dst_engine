@@ -243,6 +243,123 @@ void TerrainQuadtreeRenderer::BeginBatched(SDL_GPURenderPass* rp, md::GpuCommand
     pv.BindVertexSamplers(0, samp, 3);
 }
 
+bool TerrainQuadtreeRenderer::InitDepthOnly(md::GpuDeviceHandle /*dev*/) {
+    // Same vert_path/frag_path/sampler counts as gbuffer_pipeline_ --
+    // deliberately, see this method's own header doc comment (codegen-
+    // divergence risk if the frag shader differs from the color pass).
+    {
+        GpuPipeline::Desc pd;
+        pd.layout.count       = 0;
+        pd.raster.depth_test  = true;
+        pd.raster.depth_write = true;
+        pd.raster.cull_back   = false; // skirt quads face outward on all 4 borders
+        pd.has_depth_target   = true;
+        pd.depth_only         = true;
+        pd.vert_uniform_bufs  = 1;
+        pd.vert_samplers      = 2;
+        pd.vert_path = "shaders/terrain_quadtree.vert";
+        pd.frag_path = "shaders/terrain_gbuffer_mini.frag";
+        pd.frag_uniform_bufs = 0;
+        pd.frag_samplers     = 0;
+        pd.frag_storage_bufs = 0;
+        if (!gbuffer_depth_only_pipeline_.Create(pd)) {
+            MD_LOG(MD_LOG_WARNING, "[TerrainQuadtreeRenderer] depth-only pipeline create failed");
+            return false;
+        }
+        depth_only_ready_ = true;
+    }
+    {
+        GpuPipeline::Desc pd;
+        pd.layout.count       = 0;
+        pd.raster.depth_test  = true;
+        pd.raster.depth_write = true;
+        pd.raster.cull_back   = false;
+        pd.has_depth_target   = true;
+        pd.depth_only         = true;
+        pd.vert_uniform_bufs  = 1;
+        pd.vert_samplers      = 3;
+        pd.vert_path = "shaders/terrain_quadtree_batched.vert";
+        pd.frag_path = "shaders/terrain_gbuffer_mini.frag";
+        pd.frag_uniform_bufs = 0;
+        pd.frag_samplers     = 0;
+        pd.frag_storage_bufs = 0;
+        if (!batched_depth_only_pipeline_.Create(pd)) {
+            MD_LOG(MD_LOG_WARNING, "[TerrainQuadtreeRenderer] batched depth-only pipeline create failed");
+            return false;
+        }
+        batched_depth_only_ready_ = true;
+    }
+    return true;
+}
+
+void TerrainQuadtreeRenderer::DrawNodeDepthOnly(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd,
+                                                 const TerrainWorldHeightmap& hmap, const float* vp16,
+                                                 const TerrainQuadtree::VisibleNode& node,
+                                                 float cam_x, float cam_y, float cam_z) {
+    if (!depth_only_ready_) return;
+    constexpr float kPatchQuads = 16.0f;
+    float texelSize = node.size / kPatchQuads;
+
+    GpuPassView pv = GpuPassView::FromRaw(rp, cmd);
+    pv.BindPipeline(&gbuffer_depth_only_pipeline_);
+
+    TerrainQuadtreeUBO ubo{};
+    std::memcpy(ubo.vp, vp16, 64);
+    ubo.origin_size_texel_morph[0] = node.origin_x;
+    ubo.origin_size_texel_morph[1] = node.origin_z;
+    ubo.origin_size_texel_morph[2] = texelSize;
+    ubo.origin_size_texel_morph[3] = 0.f;
+    ubo.height_range[0] = hmap.HeightMin();
+    ubo.height_range[1] = hmap.HeightMax();
+    ubo.height_range[2] = hmap.WorldExtent();
+    ubo.height_range[3] = (float)hmap.Resolution();
+    ubo.cam_pos_skirt[0] = cam_x;
+    ubo.cam_pos_skirt[1] = cam_y;
+    ubo.cam_pos_skirt[2] = cam_z;
+    ubo.cam_pos_skirt[3] = 0.f;
+    pv.PushVertexUniforms(0, &ubo, sizeof(ubo));
+
+    SDL_GPUTextureSamplerBinding samp[2] = {
+        { hmap.Texture(), hmap.Sampler() },
+        { hmap.NormalTexture(), hmap.NormalSampler() },
+    };
+    pv.BindVertexSamplers(0, samp, 2);
+
+    pv.BindIndexBuffer(&filled_ibo_, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+    pv.DrawIndexed(filled_index_count_, 1, 0, 0, 0);
+}
+
+void TerrainQuadtreeRenderer::BeginBatchedDepthOnly(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd,
+                                                     const TerrainWorldHeightmap& hmap, const float* vp16,
+                                                     float cam_x, float cam_y, float cam_z) {
+    if (!batched_depth_only_ready_) return;
+    GpuPassView pv = GpuPassView::FromRaw(rp, cmd);
+    pv.BindPipeline(&batched_depth_only_pipeline_);
+
+    struct TerrainBatchUBO {
+        float vp[16];
+        float height_range[4];
+        float cam_pos_pad[4];
+    } ubo{};
+    std::memcpy(ubo.vp, vp16, 64);
+    ubo.height_range[0] = hmap.HeightMin();
+    ubo.height_range[1] = hmap.HeightMax();
+    ubo.height_range[2] = hmap.WorldExtent();
+    ubo.height_range[3] = (float)hmap.Resolution();
+    ubo.cam_pos_pad[0] = cam_x;
+    ubo.cam_pos_pad[1] = cam_y;
+    ubo.cam_pos_pad[2] = cam_z;
+    ubo.cam_pos_pad[3] = 0.f;
+    pv.PushVertexUniforms(0, &ubo, sizeof(ubo));
+
+    SDL_GPUTextureSamplerBinding samp[3] = {
+        { hmap.Texture(), hmap.Sampler() },
+        { hmap.NormalTexture(), hmap.NormalSampler() },
+        { node_data_tex_, node_data_sampler_ },
+    };
+    pv.BindVertexSamplers(0, samp, 3);
+}
+
 void TerrainQuadtreeRenderer::DrawBatched(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, int count) {
     if (!batched_ready_ || count <= 0) return;
     if (count > kMaxBatchedNodes) count = kMaxBatchedNodes;
@@ -257,6 +374,8 @@ void TerrainQuadtreeRenderer::Shutdown(md::GpuDeviceHandle dev) {
     if (forward_ready_) forward_pipeline_.Destroy();
     if (wireframe_ready_) wireframe_pipeline_.Destroy();
     if (batched_wireframe_ready_) batched_wireframe_pipeline_.Destroy();
+    if (depth_only_ready_) gbuffer_depth_only_pipeline_.Destroy();
+    if (batched_depth_only_ready_) batched_depth_only_pipeline_.Destroy();
     if (batched_ready_) {
         batched_pipeline_.Destroy();
         if (dev && node_data_tex_) GpuReleaseTexture(dev, node_data_tex_);
@@ -270,6 +389,8 @@ void TerrainQuadtreeRenderer::Shutdown(md::GpuDeviceHandle dev) {
     wireframe_ready_ = false;
     batched_ready_ = false;
     batched_wireframe_ready_ = false;
+    depth_only_ready_ = false;
+    batched_depth_only_ready_ = false;
 }
 
 void TerrainQuadtreeRenderer::DrawNode(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd,
