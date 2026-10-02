@@ -22,8 +22,10 @@ static_assert(sizeof(ProjFragUBO) == 80, "ProjFragUBO size mismatch");
 
 struct ProjCamUBO {
     float cam_pos_ws[4];
+    float inv_vp[16];  // S7: inverse view-projection (column-major, same layout as the vertex VP UBO)
+    float recon[4];    // S7: x=world_extent, y=heightmap resolution (texels), z=mode (0 off,1 reconstruct)
 };
-static_assert(sizeof(ProjCamUBO) == 16, "ProjCamUBO size mismatch");
+static_assert(sizeof(ProjCamUBO) == 96, "ProjCamUBO size mismatch");
 
 bool TerrainShadingProjected::CreateTextures(int w, int h) {
     w_ = w; h_ = h;
@@ -72,6 +74,13 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
         MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] resolve pipeline create failed");
         return false;
     }
+    // task #227: Kenshi-parity variant (debug-only) -- failure here is non-fatal, the toggle then
+    // falls back to the default pipeline's base-layer-only Kenshi branch.
+    rd.frag_path = "shaders/terrain_shading_screenspace_kenshi.frag";
+    resolve_kenshi_ready_ = resolve_kenshi_pipeline_.Create(rd);
+    if (!resolve_kenshi_ready_) {
+        MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] kenshi resolve variant create failed (debug toggle falls back)");
+    }
 
     ready_ = true;
     MD_LOG(MD_LOG_INFO, "[TerrainShadingProjected] ready %dx%d (RGBA32F gbuffer + isolated D32_FLOAT)", w, h);
@@ -96,6 +105,8 @@ void TerrainShadingProjected::EnsureSize(md::GpuDeviceHandle dev, int w, int h) 
 
 void TerrainShadingProjected::Shutdown() {
     resolve_pipeline_.Destroy();
+    resolve_kenshi_pipeline_.Destroy();
+    resolve_kenshi_ready_ = false;
     gbuf_depth_.Shutdown();
     gbuf_color_.Shutdown();
     ready_ = false;
@@ -176,6 +187,9 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
         ProjCamUBO cubo{};
         cubo.cam_pos_ws[0] = cam_x; cubo.cam_pos_ws[1] = cam_y;
         cubo.cam_pos_ws[2] = cam_z; cubo.cam_pos_ws[3] = 0.f;
+        std::memcpy(cubo.inv_vp, s7_.inv_vp, sizeof(cubo.inv_vp));
+        cubo.recon[0] = s7_.world_extent; cubo.recon[1] = s7_.res_texels;
+        cubo.recon[2] = (float)s7_.mode;
         GpuPushFragmentUniforms(cmd, 1, &cubo, sizeof(cubo));
 
         // set=2: same 7 shared ground samplers the normal forward terrain draw
@@ -199,8 +213,11 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
         // a texture, not an SSBO, since 2026-08-09.
 
         // set=1: this class's own G-buffer (packed world-pos/normal + dedicated depth).
+        const bool s7_recon = (s7_.mode == 1 && s7_.normal_tex && s7_.normal_samp);
         SDL_GPUTextureSamplerBinding gbuf_bindings[2] = {
-            { gbuf_color_.SDLTexture(), gbuf_color_.SDLSampler() },
+            // S7 mode 1: binding 7 carries the world normal texture (gbuf_color_ is not written).
+            s7_recon ? SDL_GPUTextureSamplerBinding{ s7_.normal_tex, s7_.normal_samp }
+                     : SDL_GPUTextureSamplerBinding{ gbuf_color_.SDLTexture(), gbuf_color_.SDLSampler() },
             { gbuf_depth_.SDLTexture(), gbuf_depth_.SDLSampler() },
         };
         pv.BindFragmentSamplers(7, gbuf_bindings, 2);
@@ -257,6 +274,6 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
     // RESOLVE_OPT 4-draw split reverted to a single draw -- see
     // resolve_pipeline_'s own doc comment (terrain_shading_projected.h)
     // for the full measured rationale.
-    drawOne(resolve_pipeline_);
+    drawOne((kenshi_blend_debug && resolve_kenshi_ready_) ? resolve_kenshi_pipeline_ : resolve_pipeline_);
 }
 #endif

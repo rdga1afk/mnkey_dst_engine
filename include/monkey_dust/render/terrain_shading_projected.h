@@ -106,7 +106,22 @@ public:
                              bool shade_constant_debug = false,
                              bool kenshi_blend_debug = false);
 
+    // S7 (docs/TERRAIN_SURFACE_PLAN_2026-10-02.md): the G-buffer pass can be depth-only
+    // (no colour target); DrawShadingResolve then reconstructs world position from the
+    // G-buffer depth (inv_vp) and the normal from the world normal texture. Set by
+    // CullAndPrepass each frame BEFORE DrawShadingResolve. mode: 0 off (read gbuf_color_),
+    // 1 reconstruct.
+    struct S7State {
+        float inv_vp[16] = {};
+        float world_extent = 0.f, res_texels = 0.f;
+        SDL_GPUTexture* normal_tex = nullptr;
+        SDL_GPUSampler* normal_samp = nullptr;
+        int mode = 0;
+    };
+    void SetS7(const S7State& s) { s7_ = s; }
+
 private:
+    S7State s7_;
     bool CreateTextures(int w, int h);
 
     GpuTexture       gbuf_color_;
@@ -128,6 +143,10 @@ private:
     // classification dispatch) so the discard doesn't itself cost a full
     // G-buffer refetch.
     GpuPipeline       resolve_pipeline_;
+    // task #227: same resolve shader built with -DTS_KENSHI_FULL=1 (full-layer Kenshi-parity blend);
+    // used only while the DEBUG kenshi_blend toggle is on, so the default pipeline is untouched.
+    GpuPipeline       resolve_kenshi_pipeline_;
+    bool              resolve_kenshi_ready_ = false;
     int  w_ = 0, h_ = 0;
     bool ready_ = false;
 };
