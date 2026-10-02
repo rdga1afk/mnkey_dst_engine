@@ -150,10 +150,21 @@ bool BiomeRegistry::LoadFromFile(const char* path) {
                             // Missing (older biome_table.txt) -> BiomeDef's
                             // in-class default (0.0, no-op) stands.
                             float da = 0.0f, dw = 0.0f;
+                            int consumed5 = 0;
                             if (sscanf(p + 6 + consumed + consumed2 + consumed3 + consumed4,
-                                       "%f %f", &da, &dw) == 2) {
+                                       "%f %f%n", &da, &dw, &consumed5) == 2) {
                                 d.distort_amplitude = da;
                                 d.distort_wavelength = dw;
+                                // Trailing (2026-10-03): 4 overlay mults, fade distance, ground colour rgb.
+                                float ex[8];
+                                if (sscanf(p + 6 + consumed + consumed2 + consumed3 + consumed4 + consumed5,
+                                           "%f %f %f %f %f %f %f %f",
+                                           &ex[0], &ex[1], &ex[2], &ex[3], &ex[4], &ex[5], &ex[6], &ex[7]) == 8) {
+                                    d.overlay_mult_cliff = ex[0]; d.overlay_mult_grass = ex[1];
+                                    d.overlay_mult_dirt  = ex[2]; d.overlay_mult_road  = ex[3];
+                                    d.fade_distance = ex[4];
+                                    d.distant_r = ex[5]; d.distant_g = ex[6]; d.distant_b = ex[7];
+                                }
                             }
                         }
                     }

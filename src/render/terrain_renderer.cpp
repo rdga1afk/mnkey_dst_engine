@@ -335,7 +335,7 @@ void TerrainRenderer::UploadBiomeLayersTex()
         SDL_GPUTextureCreateInfo ti{};
         ti.type                 = SDL_GPU_TEXTURETYPE_2D;
         ti.format               = SDL_GPU_TEXTUREFORMAT_R32G32B32A32_UINT;
-        ti.width                = (Uint32)(count * 7);
+        ti.width                = (Uint32)(count * 9); // 9 texels/biome: 28 shared slots + 8 Kenshi-path-only (overlay mults, fade, ground colour)
         ti.height                = 1;
         ti.layer_count_or_depth = 1;
         ti.num_levels           = 1;
@@ -357,11 +357,11 @@ void TerrainRenderer::UploadBiomeLayersTex()
     // (row index) instead of zone_idx -- see that function's own doc
     // comment for the full slot layout (base/slope/cliff/grass/dirt/road
     // indices, tiling, distortion, slope/cliff blend bands, biome_id).
-    const int W = count * 7, H = 1;
+    const int W = count * 9, H = 1;
     std::vector<uint32_t> packed((size_t)W * H * 4, 0u);
     for (int b = 0; b < count; ++b) {
         const BiomeDef& d = BiomeRegistry::Get().ForIndex(b);
-        uint32_t slots[28] = {};
+        uint32_t slots[36] = {};
         slots[0] = (uint32_t)d.tex_base;
         slots[1] = (uint32_t)d.tex_slope;
         slots[2] = (uint32_t)d.tex_cliff;
@@ -390,10 +390,20 @@ void TerrainRenderer::UploadBiomeLayersTex()
         memcpy(&slots[25], &d.cliff_max,  sizeof(uint32_t));
         memcpy(&slots[26], &d.cliff_fade, sizeof(uint32_t));
         slots[27] = (uint32_t)d.biome_id;
+        // Kenshi-path-only slots (read by TS_BiomeLayer; the zone texture keeps 28):
+        memcpy(&slots[28], &d.overlay_mult_cliff, sizeof(uint32_t));
+        memcpy(&slots[29], &d.overlay_mult_grass, sizeof(uint32_t));
+        memcpy(&slots[30], &d.overlay_mult_dirt,  sizeof(uint32_t));
+        memcpy(&slots[31], &d.overlay_mult_road,  sizeof(uint32_t));
+        float fade_inv = d.fade_distance > 0.0f ? 1.0f / d.fade_distance : 0.0f; // distant.a
+        memcpy(&slots[32], &fade_inv,     sizeof(uint32_t));
+        memcpy(&slots[33], &d.distant_r,  sizeof(uint32_t));
+        memcpy(&slots[34], &d.distant_g,  sizeof(uint32_t));
+        memcpy(&slots[35], &d.distant_b,  sizeof(uint32_t));
 
-        for (int slot = 0; slot < 28; ++slot) {
+        for (int slot = 0; slot < 36; ++slot) {
             int t = slot / 4, c = slot % 4;
-            size_t texel_idx = (size_t)(b * 7 + t);
+            size_t texel_idx = (size_t)(b * 9 + t);
             packed[texel_idx * 4 + (size_t)c] = slots[slot];
         }
     }
