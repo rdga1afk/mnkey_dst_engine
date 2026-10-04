@@ -120,8 +120,15 @@ public:
     };
     void SetS7(const S7State& s) { s7_ = s; }
 
+    // "terrain_units10" (docs/TERRAIN_SURFACE_PLAN_2026-10-02.md): Kenshi ground UV scale (x10 finer than the
+    // metre-based 1/5000) + analytic live mip in the resolve. pix_scale = 2*tan(fovy/2); the shader divides by the
+    // G-buffer height to get radians per pixel. Set each frame BEFORE DrawShadingResolve.
+    void SetGroundUnits(bool on, float pix_scale) { units10_ = on; pix_scale_ = pix_scale; }
+
 private:
     S7State s7_;
+    bool  units10_ = false;
+    float pix_scale_ = 0.f;
     bool CreateTextures(int w, int h);
 
     GpuTexture       gbuf_color_;

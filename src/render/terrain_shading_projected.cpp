@@ -172,7 +172,8 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
         fubo.sun_dir_str[0] = sun.dir[0]; fubo.sun_dir_str[1] = sun.dir[1];
         fubo.sun_dir_str[2] = sun.dir[2]; fubo.sun_dir_str[3] = sun.strength;
         fubo.ambient[0]     = sun.ambient[0]; fubo.ambient[1] = sun.ambient[1];
-        fubo.ambient[2]     = sun.ambient[2]; fubo.ambient[3] = 0.f;
+        fubo.ambient[2]     = sun.ambient[2];
+        fubo.ambient[3]     = units10_ ? 1.f : 0.f; // .w = "terrain_units10" flag (the shader's ambient uses .xyz only)
         fubo.world_params[0] = world_origin_x; fubo.world_params[1] = world_origin_z;
         fubo.world_params[2] = world_to_uv;
         // Крок 0 ablation (shade_constant_debug=1.0) / task-terrain-kenshi-
@@ -186,7 +187,7 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
 
         ProjCamUBO cubo{};
         cubo.cam_pos_ws[0] = cam_x; cubo.cam_pos_ws[1] = cam_y;
-        cubo.cam_pos_ws[2] = cam_z; cubo.cam_pos_ws[3] = 0.f;
+        cubo.cam_pos_ws[2] = cam_z; cubo.cam_pos_ws[3] = pix_scale_;
         std::memcpy(cubo.inv_vp, s7_.inv_vp, sizeof(cubo.inv_vp));
         cubo.recon[0] = s7_.world_extent; cubo.recon[1] = s7_.res_texels;
         cubo.recon[2] = (float)s7_.mode;

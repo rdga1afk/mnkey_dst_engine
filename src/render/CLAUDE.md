@@ -51,6 +51,12 @@ bake→stitch→load→draw pipeline не окупав себе проти `Terr
 `CLAUDE_STATE.md` (корінь репо), `docs/CLAUDE_RENDER.md`,
 `docs/CLAUDE_TERRAIN_SEAM.md`.
 
+## Resolve UBO: перевикористані слоти (2026-10-04)
+`TerrainShadingProjected::DrawShadingResolve`: `PatchFrag.ambient.w` = прапорець `terrain_units10`
+(шейдер читає лише `ambient.xyz`), `ScreenspaceCam.cam_pos_ws.w` = `2*tan(fovy/2)` (`SetGroundUnits`).
+НЕ використовувати `PatchFrag._pad`: `vec3 _pad` у std140 вирівнюється до 16, тобто лежить за межами
+80-байтового блока (`static_assert(sizeof(ProjFragUBO)==80)`) -- читання дає нуль/сміття.
+
 ## GPU Debug — обов'язковий порядок перед фіксом шейдера
 ```
 1. fragColor = vec4(N*0.5+0.5, 1.0)   ← нормалі OK?
