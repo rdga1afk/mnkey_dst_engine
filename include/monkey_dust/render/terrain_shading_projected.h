@@ -119,6 +119,8 @@ public:
         int mode = 0;
     };
     void SetS7(const S7State& s) { s7_ = s; }
+    bool        S7Reconstructing() const { return s7_.mode == 1; }
+    const float* S7InvVp() const { return s7_.inv_vp; }
 
     // "terrain_units10" (docs/TERRAIN_SURFACE_PLAN_2026-10-02.md): Kenshi ground UV scale (x10 finer than the
     // metre-based 1/5000) + analytic live mip in the resolve. pix_scale = 2*tan(fovy/2); the shader divides by the

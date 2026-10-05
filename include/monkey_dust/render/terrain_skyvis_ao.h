@@ -58,8 +58,18 @@ public:
     bool IsEnabled() const { return enabled_; }
     void SetEnabled(bool on) { enabled_ = on; }
 
+    // S7 (terrain_s7): the G-buffer pass is depth-only, gbuf_packed is NOT written -- ApplyPass then reconstructs each
+    // pixel's world XZ from gbuf_depth with this inverse view-projection (16 floats, column-major, same layout as the resolve's
+    // ScreenspaceCam.inv_vp). nullptr = read the packed world position (the default non-S7 path). Set every frame BEFORE ApplyPass.
+    void SetS7Recon(const float* inv_vp16) {
+        s7_recon_ = inv_vp16 != nullptr;
+        if (inv_vp16) for (int i = 0; i < 16; ++i) inv_vp_[i] = inv_vp16[i];
+    }
+
 private:
     bool enabled_ = false;
+    bool  s7_recon_ = false;
+    float inv_vp_[16] = {};
     md::GpuDeviceHandle dev_ = nullptr;
 
     // Probe storage -- R8_UNORM, kProbeGridSize x kProbeGridSize, sky-

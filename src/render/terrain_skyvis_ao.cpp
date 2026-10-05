@@ -26,9 +26,10 @@ static_assert(sizeof(SkyVisUpdateUBO) == 64, "must match .comp std140 layout");
 // SkyVisApplyUBO exactly (std140).
 struct SkyVisApplyUBO {
     float probeParams[4]; // x=spacing, y=gridSize, z=mainOrigin.x, w=mainOrigin.y
-    float camParams[4];   // x=camWorldX, y=camWorldZ, z=fadeRadius, w=unused
+    float camParams[4];   // x=camWorldX, y=camWorldZ, z=fadeRadius, w=S7 recon mode (>0.5: world XZ from depth + invVp)
+    float invVp[16];      // S7: inverse view-projection (column-major)
 };
-static_assert(sizeof(SkyVisApplyUBO) == 32, "must match .frag std140 layout");
+static_assert(sizeof(SkyVisApplyUBO) == 96, "must match .frag std140 layout");
 } // namespace
 
 bool TerrainSkyVisAO::Init(md::GpuDeviceHandle dev) {
@@ -221,7 +222,8 @@ void TerrainSkyVisAO::ApplyPass(md::GpuCommandBufferHandle cmd, md::GpuTextureHa
     // apply.frag's smoothstep(fadeRadius*0.8, fadeRadius, ...)) -- pass
     // the half-window itself (in probe-texel units) as fadeRadius.
     ubo.camParams[2] = (float)kProbeGridSize * 0.5f;
-    ubo.camParams[3] = 0.0f;
+    ubo.camParams[3] = s7_recon_ ? 1.0f : 0.0f;
+    for (int i = 0; i < 16; ++i) ubo.invVp[i] = inv_vp_[i];
     cb.PushFragmentUniforms(0, &ubo, sizeof(ubo));
 
     SDL_GPUViewport vp = { 0.f, 0.f, (float)sw, (float)sh, 0.f, 1.f };
