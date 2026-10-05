@@ -127,13 +127,8 @@ void GpuDevice::AdvanceFrameSlot() {
 }
 
 void GpuDevice::BeginFrame() {
-    std::lock_guard<std::mutex> lock(mu_);
-    if (!prev_fence_ || !device_) return;
-    SDL_WaitForGPUFences(device_, true, &prev_fence_, 1);
-    SDL_ReleaseGPUFence(device_, prev_fence_);
-    prev_fence_ = nullptr;
-    // Timeline: fence signaled = GPU finished previous frame.
-    GpuFrameTimeline::Get().OnFenceSignaled();
+    // 2026-10-05: no fence wait here any more -- SubmitFrame() retires the previous frame's fence right AFTER submitting
+    // the next one, so CPU recording of frame N+1 overlaps GPU execution of frame N (docs/FRAME_AUDIT_2026-09-27.md #4).
 }
 
 void GpuDevice::Submit(SDL_GPUCommandBuffer* cmd) {
@@ -179,6 +174,23 @@ void GpuDevice::Submit(SDL_GPUCommandBuffer* cmd) {
     // Timeline: record submit timestamp for latency measurement.
     GpuFrameTimeline::Get().OnSubmit();
     cmd_buffer_active_ = false;
+}
+
+void GpuDevice::SubmitFrame(SDL_GPUCommandBuffer* cmd) {
+    if (sync_timing_) { Submit(cmd); return; } // serialized timing mode: unchanged
+    std::lock_guard<std::mutex> lock(mu_);
+    // Submit this frame FIRST so the GPU never idles between frames...
+    SDL_GPUFence* f = SDL_SubmitGPUCommandBufferAndAcquireFence(cmd);
+    GpuFrameTimeline::Get().OnSubmit();
+    cmd_buffer_active_ = false;
+    // ...then retire the previous frame (wait for it to finish, then release the fence -- never release an unsignaled
+    // fence, see Submit()'s doc comment / docs/SDLGPU_FENCE_OBJECT_LEAK_BUG.md).
+    if (prev_fence_ && device_) {
+        SDL_WaitForGPUFences(device_, true, &prev_fence_, 1);
+        SDL_ReleaseGPUFence(device_, prev_fence_);
+        GpuFrameTimeline::Get().OnFenceSignaled();
+    }
+    prev_fence_ = f;
 }
 
 SDL_GPUFence* GpuDevice::SubmitAndAcquireFence(SDL_GPUCommandBuffer* cmd) {

@@ -67,12 +67,20 @@ public:
     // Current triple-buffer slot (0..2). Per-frame SSBOs/RingBuffers use this.
     int  FrameSlot() const { return frame_slot_; }
 
-    // Wait for previous frame's fence, then release it.
-    // Call once at the top of each frame BEFORE AdvanceFrameSlot.
+    // Top of each frame, BEFORE AdvanceFrameSlot. Since 2026-10-05 this no longer waits for the previous frame's fence
+    // (see SubmitFrame): the CPU records frame N+1 while the GPU still executes frame N.
     void BeginFrame();
 
     // Submit the command buffer and acquire a fence for next-frame sync.
     void Submit(SDL_GPUCommandBuffer* cmd);
+
+    // The per-frame render submit (2026-10-05, CPU/GPU pipelining): submit THIS frame first, then wait for the
+    // PREVIOUS frame's fence and release it. At most two frames are in flight, the GPU always has the next frame queued
+    // while the CPU records the one after. Safe because every CPU-written per-frame resource is triple-slotted
+    // (FrameSlot(): SSBO / TransformSoA / RingBuffer) or cycled (GpuVertexBuffer), uploads happen inside the frame's own
+    // command buffer, and persistent-resource resizes WaitForIdle() first. With SetSyncTiming(true) it behaves like
+    // Submit(). Utility one-shot Submit() calls keep their wait-for-previous semantics.
+    void SubmitFrame(SDL_GPUCommandBuffer* cmd);
 
     // Synchronous one-shot fence cycle -- distinct from Submit() above,
     // which is deliberately async (fence released a whole frame late in

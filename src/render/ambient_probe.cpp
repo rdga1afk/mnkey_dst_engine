@@ -72,6 +72,11 @@ void AmbientProbeSystem::Upload() {
     ssbo_.Upload(probes_, static_cast<int>(count_ * sizeof(AmbientProbe)));
 }
 
+void AmbientProbeSystem::UploadInCmd(md::GpuCommandBufferHandle cmd) {
+    if (count_ == 0) return;
+    ssbo_.UploadInCmd(cmd, probes_, static_cast<int>(count_ * sizeof(AmbientProbe)));
+}
+
 void AmbientProbeSystem::Clear() {
     count_ = 0;
     memset(probes_, 0, sizeof(probes_));

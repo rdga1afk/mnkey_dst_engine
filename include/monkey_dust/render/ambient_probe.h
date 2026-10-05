@@ -60,6 +60,8 @@ public:
 
     // Upload probes_ to GPU SSBO. One staging copy per call.
     void Upload();
+    // Same data, as a copy pass INSIDE `cmd` (slotted SSBO, no extra submit). Must be called while no render pass is open.
+    void UploadInCmd(md::GpuCommandBufferHandle cmd);
 
     // Remove all probes (keeps SSBO allocated).
     void Clear();

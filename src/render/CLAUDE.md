@@ -57,6 +57,14 @@ bake→stitch→load→draw pipeline не окупав себе проти `Terr
 НЕ використовувати `PatchFrag._pad`: `vec3 _pad` у std140 вирівнюється до 16, тобто лежить за межами
 80-байтового блока (`static_assert(sizeof(ProjFragUBO)==80)`) -- читання дає нуль/сміття.
 
+## CPU/GPU конвеєр: `SubmitFrame` (2026-10-05)
+Кадровий submit -- `GpuDevice::SubmitFrame(cmd)`: СПОЧАТКУ submit кадру N+1, ПОТІМ очікування fence кадру N (макс. 2 кадри
+в польоті, GPU завжди має наступний кадр у черзі). `BeginFrame()` більше не чекає. Безпечно, бо всі щокадрові
+CPU-записувані ресурси потрійно слотовані (`FrameSlot()`: `SSBO`, `TransformSoA`, `GpuRingBuffer`) або `cycle=true`
+(`GpuVertexBuffer`), аплоади йдуть усередині cmd кадру (`UploadInCmd`), а ресеайз персистентних цілей (depth/G-buffer/
+upscale) робить `WaitForIdle()` першим. НЕ додавати щокадрові `Submit()` (разові утиліти чекають fence попереднього
+кадру і вбивають конвеєр) і НЕ писати у не-слотований transfer-буфер з CPU щокадру.
+
 ## GPU Debug — обов'язковий порядок перед фіксом шейдера
 ```
 1. fragColor = vec4(N*0.5+0.5, 1.0)   ← нормалі OK?
