@@ -1,5 +1,6 @@
 #include <monkey_dust/render/render_pass_graph.h>
 #include <monkey_dust/platform/md_fs.h>
+#include <monkey_dust/platform/md_log.h>
 #include <cstdio>
 #include <cstring>
 
@@ -25,8 +26,8 @@ RenderPassGraph& RenderPassGraph::Get() {
 bool RenderPassGraph::Register(const char* name, bool default_enabled) {
     if (!name || !name[0]) return false;
     if (count_ >= MAX_PASSES) {
-        fprintf(stderr, "[RenderPassGraph] MAX_PASSES=%d reached, cannot register '%s'\n",
-                MAX_PASSES, name);
+        MD_LOG(MD_LOG_ERROR, "[RenderPassGraph] MAX_PASSES=%d reached, cannot register '%s' (its toggle will NOT work: IsEnabled() of an unknown name is true)",
+               MAX_PASSES, name);
         return false;
     }
     uint32_t h = Hash(name);
@@ -40,6 +41,8 @@ bool RenderPassGraph::Register(const char* name, bool default_enabled) {
     e.enabled = default_enabled;
     defaults_[count_] = default_enabled;
     ++count_;
+    // Startup list of every registered pass (verifies what actually got registered, in order).
+    fprintf(stdout, "[RenderPassGraph] registered #%d '%s' default=%s\n", count_, name, default_enabled ? "on" : "off"); // stdout like the JSON lines: MD_LOG INFO is swallowed by the console hook
     return true;
 }
 
@@ -133,8 +136,20 @@ bool RenderPassGraph::LoadFromJSON(const char* path) {
 
 // ── IsEnabled ────────────────────────────────────────────────────────────────
 
+void RenderPassGraph::WarnUnknownOnce(const char* what, const char* name) const {
+    const uint32_t h = Hash(name);
+    for (int i = 0; i < warned_unknown_count_; ++i)
+        if (warned_unknown_[i] == h) return;
+    if (warned_unknown_count_ < MAX_PASSES) warned_unknown_[warned_unknown_count_++] = h;
+    MD_LOG(MD_LOG_WARNING, "[RenderPassGraph] %s on unregistered pass '%s' (IsEnabled stays true, SetEnabled is ignored)", what, name);
+}
+
 bool RenderPassGraph::IsEnabled(const char* name) const {
-    return IsEnabled(Hash(name));
+    const uint32_t h = Hash(name);
+    for (int i = 0; i < count_; ++i)
+        if (passes_[i].hash == h) return passes_[i].enabled;
+    WarnUnknownOnce("IsEnabled()", name);
+    return true;  // unknown pass -> enabled (opt-out model, unchanged)
 }
 
 bool RenderPassGraph::IsEnabled(uint32_t h) const {
@@ -146,7 +161,10 @@ bool RenderPassGraph::IsEnabled(uint32_t h) const {
 // ── SetEnabled ───────────────────────────────────────────────────────────────
 
 void RenderPassGraph::SetEnabled(const char* name, bool enabled) {
-    SetEnabled(Hash(name), enabled);
+    const uint32_t h = Hash(name);
+    for (int i = 0; i < count_; ++i)
+        if (passes_[i].hash == h) { passes_[i].enabled = enabled; return; }
+    WarnUnknownOnce("SetEnabled()", name);
 }
 
 void RenderPassGraph::SetEnabled(uint32_t h, bool enabled) {

@@ -23,7 +23,7 @@
 // JSON format:
 //   { "passes": { "shadow": true, "ssao": false } }
 //
-// MAX_PASSES = 16, MAX_RESOURCE_BINDINGS = 4 per pass.
+// MAX_PASSES = 32, MAX_RESOURCE_BINDINGS = 4 per pass.
 //
 // NOT implemented, by decision not oversight (docs/GRANITE_CONTINUATION_DECISION.md
 // §3, 2026-08-30): automatic execution-order scheduling (RenderFrame's pass
@@ -74,7 +74,9 @@ class RenderPassGraph {
 public:
     static RenderPassGraph& Get();
 
-    static constexpr int MAX_PASSES = 16;
+    // 2026-10-08: 16 -> 32. At 16 the graph was already full (18 passes registered), Register() failed silently and IsEnabled() of the
+    // unregistered 'evsm_shadow'/'skyvis_ao' stayed true, so md.set_render_pass_enabled() on them was a no-op (docs/FRAME_AUDIT_2026-09-27.md).
+    static constexpr int MAX_PASSES = 32;
 
     // Register a pass. Returns false if MAX_PASSES exceeded or duplicate.
     bool Register(const char* name, bool default_enabled = true);
@@ -105,6 +107,12 @@ public:
     // Iteration.
     int                     PassCount()      const { return count_; }
     const RenderPassEntry&  GetPass(int idx) const { return passes_[idx]; }
+
+    // Names/hashes already warned about by IsEnabled()/SetEnabled() on an unregistered pass (one log line each).
+    // Fixed array, no heap; mutable because IsEnabled() is const.
+    mutable uint32_t warned_unknown_[MAX_PASSES] = {};
+    mutable int      warned_unknown_count_ = 0;
+    void WarnUnknownOnce(const char* what, const char* name) const;
 
     // Reset to registered defaults.
     void Reset();
