@@ -244,12 +244,13 @@ bool TerrainWorldHeightmap::Init(md::GpuDeviceHandle dev) {
             nubo.world_params[3] = height_min_;
             // Debug/A-B switch (Kenshi divergence fix, docs/TERRAIN_SURFACE_PLAN_2026-10-02.md): the bake runs once at load, so an
             // environment variable at start is enough. 0 = as before (one-sided forward difference, half-texel shifted),
-            // 1 = central difference, 2 = Sobel 3x3. Default 0 = bit-identical to the previous bake.
+            // 1 = central difference, 2 = Sobel 3x3, 3 = Kenshi 6-neighbour triangle fan (docs/research/KENSHI_TERRAIN_NORMAL_RE.md).
+            // Default 0 = bit-identical to the previous bake.
             {
                 const char* m = std::getenv("MD_NORMAL_BAKE");
-                int mode = (m && m[0] >= '0' && m[0] <= '2') ? (m[0] - '0') : 0;
+                int mode = (m && m[0] >= '0' && m[0] <= '3') ? (m[0] - '0') : 0;
                 nubo.mode_params[0] = (float)mode;
-                fprintf(stderr, "[TerrainWorldHeightmap] normal bake mode %d (MD_NORMAL_BAKE: 0 forward, 1 central, 2 Sobel 3x3)\n", mode);
+                fprintf(stderr, "[TerrainWorldHeightmap] normal bake mode %d (MD_NORMAL_BAKE: 0 forward, 1 central, 2 Sobel 3x3, 3 Kenshi fan)\n", mode);
             }
             pass.PushUniforms(0, &nubo, sizeof(nubo));
 
@@ -268,6 +269,31 @@ bool TerrainWorldHeightmap::Init(md::GpuDeviceHandle dev) {
             md::GpuDevice::Get().ReleaseFence(fence);
         }
         bake_pipeline.Destroy();
+
+        // Debug (verification of the bake against a CPU reference): MD_NORMAL_BAKE_DUMP=<file> writes the raw R8G8_SNORM texture (N*N*2 bytes, row-major, row = z).
+        if (const char* dump_path = std::getenv("MD_NORMAL_BAKE_DUMP")) {
+            const Uint32 bytes = (Uint32)N * (Uint32)N * 2u;
+            SDL_GPUTransferBufferCreateInfo tbi{};
+            tbi.usage = SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD;
+            tbi.size  = bytes;
+            SDL_GPUTransferBuffer* tb = SDL_CreateGPUTransferBuffer(dev, &tbi);
+            md::GpuCommandBufferHandle dcmd = SDL_AcquireGPUCommandBuffer(dev);
+            SDL_GPUCopyPass* cp = SDL_BeginGPUCopyPass(dcmd);
+            SDL_GPUTextureRegion reg{};
+            reg.texture = normal_tex_.SDLTexture(); reg.w = (Uint32)N; reg.h = (Uint32)N; reg.d = 1;
+            SDL_GPUTextureTransferInfo dst{};
+            dst.transfer_buffer = tb; dst.pixels_per_row = (Uint32)N; dst.rows_per_layer = (Uint32)N;
+            SDL_DownloadFromGPUTexture(cp, &reg, &dst);
+            SDL_EndGPUCopyPass(cp);
+            md::GpuFenceHandle dfence = md::GpuDevice::Get().SubmitAndAcquireFence(dcmd);
+            if (dfence) { md::GpuDevice::Get().WaitForFence(dfence); md::GpuDevice::Get().ReleaseFence(dfence); }
+            if (void* mp = SDL_MapGPUTransferBuffer(dev, tb, false)) {
+                if (FILE* f = fopen(dump_path, "wb")) { fwrite(mp, 1, bytes, f); fclose(f); }
+                SDL_UnmapGPUTransferBuffer(dev, tb);
+                fprintf(stderr, "[TerrainWorldHeightmap] normal texture dumped: %s (%u bytes)\n", dump_path, bytes);
+            }
+            SDL_ReleaseGPUTransferBuffer(dev, tb);
+        }
 
         fprintf(stderr, "[TerrainWorldHeightmap] normal bake done: %dx%d RG8_SNORM, %u mips\n", N, N, normal_num_levels);
     }
