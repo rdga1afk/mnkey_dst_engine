@@ -17,7 +17,7 @@ namespace {
 // NormalBakeUBO exactly (std140).
 struct NormalBakeUBO {
     float world_params[4]; // x=worldExtent_m, y=resTexels, z=heightRange_m, w=heightMin_m
-    float mode_params[4];  // x = MD_NORMAL_BAKE mode: 0 one-sided forward difference (default), 1 central difference, 2 Sobel 3x3
+    float mode_params[4];  // x = MD_NORMAL_BAKE mode: 0 one-sided forward difference, 1 central difference, 2 Sobel 3x3, 3 Kenshi fan (default)
 };
 // Kenshi's real world is a fixed 64x64 zone grid (documented in
 // terrain_gen.h's own "Terrain Atlas API" comment) -- not derived from
@@ -245,10 +245,10 @@ bool TerrainWorldHeightmap::Init(md::GpuDeviceHandle dev) {
             // Debug/A-B switch (Kenshi divergence fix, docs/TERRAIN_SURFACE_PLAN_2026-10-02.md): the bake runs once at load, so an
             // environment variable at start is enough. 0 = as before (one-sided forward difference, half-texel shifted),
             // 1 = central difference, 2 = Sobel 3x3, 3 = Kenshi 6-neighbour triangle fan (docs/research/KENSHI_TERRAIN_NORMAL_RE.md).
-            // Default 0 = bit-identical to the previous bake.
+            // Default 3 (Kenshi formula, verified over the full map); 0 = the previous bake.
             {
                 const char* m = std::getenv("MD_NORMAL_BAKE");
-                int mode = (m && m[0] >= '0' && m[0] <= '3') ? (m[0] - '0') : 0;
+                int mode = (m && m[0] >= '0' && m[0] <= '3') ? (m[0] - '0') : 3;
                 nubo.mode_params[0] = (float)mode;
                 fprintf(stderr, "[TerrainWorldHeightmap] normal bake mode %d (MD_NORMAL_BAKE: 0 forward, 1 central, 2 Sobel 3x3, 3 Kenshi fan)\n", mode);
             }
