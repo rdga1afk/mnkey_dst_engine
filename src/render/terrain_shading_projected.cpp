@@ -11,9 +11,9 @@
 // with max_anisotropy = N for tex_ground / tex_ground_nml (N = 1: gradients without anisotropy, to separate the two costs).
 int g_terrain_ground_aniso_level = 0;
 // Divergence #14 (md.set_terrain_ambientmap): Kenshi's regional ambientmap.png multiplies the sun (2*alpha) and the ambient light (rgb) in
-// TS_ApplyLighting (deferred.hlsl:197,213-214). Default false until the shader sample is verified against the PNG. Carried to the shader as
+// TS_ApplyLighting (deferred.hlsl:197,213-214). Default true (owner decision 2026-10-09, shader sample verified against the PNG). Carried to the shader as
 // +1600 on |pix_scale| (bit4), only when the texture loaded.
-bool g_terrain_ambientmap = false;
+bool g_terrain_ambientmap = true; // owner decision 2026-10-09: ON (verified against the PNG, scripts/verify_ambientmap.py)
 
 namespace {
 // One sampler per level, created lazily and kept for the process lifetime (a handful of 64-byte objects; the device outlives them).
