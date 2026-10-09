@@ -13,6 +13,31 @@
 #include <cmath>
 
 namespace {
+
+// Debug: downloads mip 0 of an NxN texture (bpp bytes/texel) to a raw file, row-major, row = z.
+void DumpTexture(md::GpuDeviceHandle dev, SDL_GPUTexture* tex, int N, Uint32 bpp, const char* path, const char* what) {
+    const Uint32 bytes = (Uint32)N * (Uint32)N * bpp;
+    SDL_GPUTransferBufferCreateInfo tbi{};
+    tbi.usage = SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD;
+    tbi.size  = bytes;
+    SDL_GPUTransferBuffer* tb = SDL_CreateGPUTransferBuffer(dev, &tbi);
+    md::GpuCommandBufferHandle dcmd = SDL_AcquireGPUCommandBuffer(dev);
+    SDL_GPUCopyPass* cp = SDL_BeginGPUCopyPass(dcmd);
+    SDL_GPUTextureRegion reg{};
+    reg.texture = tex; reg.w = (Uint32)N; reg.h = (Uint32)N; reg.d = 1;
+    SDL_GPUTextureTransferInfo dst{};
+    dst.transfer_buffer = tb; dst.pixels_per_row = (Uint32)N; dst.rows_per_layer = (Uint32)N;
+    SDL_DownloadFromGPUTexture(cp, &reg, &dst);
+    SDL_EndGPUCopyPass(cp);
+    md::GpuFenceHandle dfence = md::GpuDevice::Get().SubmitAndAcquireFence(dcmd);
+    if (dfence) { md::GpuDevice::Get().WaitForFence(dfence); md::GpuDevice::Get().ReleaseFence(dfence); }
+    if (void* mp = SDL_MapGPUTransferBuffer(dev, tb, false)) {
+        if (FILE* f = fopen(path, "wb")) { fwrite(mp, 1, bytes, f); fclose(f); }
+        SDL_UnmapGPUTransferBuffer(dev, tb);
+        fprintf(stderr, "[TerrainWorldHeightmap] %s texture dumped: %s (%u bytes)\n", what, path, bytes);
+    }
+    SDL_ReleaseGPUTransferBuffer(dev, tb);
+}
 // Field order matches shaders/terrain_worldmap_normal_bake.comp's
 // NormalBakeUBO exactly (std140).
 struct NormalBakeUBO {
@@ -159,6 +184,8 @@ bool TerrainWorldHeightmap::Init(md::GpuDeviceHandle dev) {
 
     fprintf(stderr, "[TerrainWorldHeightmap] ready: %dx%d R16_UNORM, %u mips, height=[%.2f,%.2f]m, extent=%.1fm\n",
             N, N, kNumLevels, height_min_, height_max_, world_extent_);
+    if (const char* hp = std::getenv("MD_HEIGHT_DUMP"))  // debug: raw R16_UNORM height texture, N*N*2 bytes
+        DumpTexture(dev, tex_.SDLTexture(), N, 2u, hp, "height");
 
     // Full-variant Phase 3 (serene-pondering-teapot.md): bake the
     // world-wide normal texture now, once, right after the height texture
@@ -270,30 +297,9 @@ bool TerrainWorldHeightmap::Init(md::GpuDeviceHandle dev) {
         }
         bake_pipeline.Destroy();
 
-        // Debug (verification of the bake against a CPU reference): MD_NORMAL_BAKE_DUMP=<file> writes the raw R8G8_SNORM texture (N*N*2 bytes, row-major, row = z).
-        if (const char* dump_path = std::getenv("MD_NORMAL_BAKE_DUMP")) {
-            const Uint32 bytes = (Uint32)N * (Uint32)N * 2u;
-            SDL_GPUTransferBufferCreateInfo tbi{};
-            tbi.usage = SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD;
-            tbi.size  = bytes;
-            SDL_GPUTransferBuffer* tb = SDL_CreateGPUTransferBuffer(dev, &tbi);
-            md::GpuCommandBufferHandle dcmd = SDL_AcquireGPUCommandBuffer(dev);
-            SDL_GPUCopyPass* cp = SDL_BeginGPUCopyPass(dcmd);
-            SDL_GPUTextureRegion reg{};
-            reg.texture = normal_tex_.SDLTexture(); reg.w = (Uint32)N; reg.h = (Uint32)N; reg.d = 1;
-            SDL_GPUTextureTransferInfo dst{};
-            dst.transfer_buffer = tb; dst.pixels_per_row = (Uint32)N; dst.rows_per_layer = (Uint32)N;
-            SDL_DownloadFromGPUTexture(cp, &reg, &dst);
-            SDL_EndGPUCopyPass(cp);
-            md::GpuFenceHandle dfence = md::GpuDevice::Get().SubmitAndAcquireFence(dcmd);
-            if (dfence) { md::GpuDevice::Get().WaitForFence(dfence); md::GpuDevice::Get().ReleaseFence(dfence); }
-            if (void* mp = SDL_MapGPUTransferBuffer(dev, tb, false)) {
-                if (FILE* f = fopen(dump_path, "wb")) { fwrite(mp, 1, bytes, f); fclose(f); }
-                SDL_UnmapGPUTransferBuffer(dev, tb);
-                fprintf(stderr, "[TerrainWorldHeightmap] normal texture dumped: %s (%u bytes)\n", dump_path, bytes);
-            }
-            SDL_ReleaseGPUTransferBuffer(dev, tb);
-        }
+        // Debug (verification against a CPU reference): MD_NORMAL_BAKE_DUMP=<file> writes the raw R8G8_SNORM texture (N*N*2 bytes, row = z).
+        if (const char* dump_path = std::getenv("MD_NORMAL_BAKE_DUMP"))
+            DumpTexture(dev, normal_tex_.SDLTexture(), N, 2u, dump_path, "normal");
 
         fprintf(stderr, "[TerrainWorldHeightmap] normal bake done: %dx%d RG8_SNORM, %u mips\n", N, N, normal_num_levels);
     }
