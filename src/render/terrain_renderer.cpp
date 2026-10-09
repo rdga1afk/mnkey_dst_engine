@@ -297,6 +297,23 @@ bool TerrainRenderer::InitBiomeBlend(const char* path)
 #endif
 }
 
+bool TerrainRenderer::InitAmbientMap(const char* path)
+{
+#ifdef MD_SDL_GPU
+    GpuSamplerDesc sd;
+    sd.min_filter = GpuSamplerDesc::Filter::LINEAR;
+    sd.mag_filter = GpuSamplerDesc::Filter::LINEAR;
+    sd.wrap_s     = GpuSamplerDesc::Wrap::CLAMP_TO_EDGE;
+    sd.wrap_t     = GpuSamplerDesc::Wrap::CLAMP_TO_EDGE;
+    sd.gen_mipmap = false;
+    sd.flip_v     = false;
+    return LoadTerrainTexture(tex_ambient_map_, path, sd, ambient_map_ready_, "ambient map");
+#else
+    (void)path;
+    return false;
+#endif
+}
+
 bool TerrainRenderer::InitKbi1BlendLookup(const char* path)
 {
 #ifdef MD_SDL_GPU
@@ -497,6 +514,8 @@ void TerrainRenderer::Shutdown() {
     ground_baked_ready_ = false;
     tex_biome_blend_.Shutdown();
     biome_blend_ready_ = false;
+    tex_ambient_map_.Shutdown();
+    ambient_map_ready_ = false;
     tex_overlay_mask_.Shutdown();
     overlay_mask_ready_ = false;
     tex_loaded_         = false;

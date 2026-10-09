@@ -10,6 +10,10 @@
 // shader flag): 0 = off (the DDS arrays' own LINEAR samplers, textureLod in the shader); N >= 1 = textureGrad in the shader and a LINEAR sampler
 // with max_anisotropy = N for tex_ground / tex_ground_nml (N = 1: gradients without anisotropy, to separate the two costs).
 int g_terrain_ground_aniso_level = 0;
+// Divergence #14 (md.set_terrain_ambientmap): Kenshi's regional ambientmap.png multiplies the sun (2*alpha) and the ambient light (rgb) in
+// TS_ApplyLighting (deferred.hlsl:197,213-214). Default false until the shader sample is verified against the PNG. Carried to the shader as
+// +1600 on |pix_scale| (bit4), only when the texture loaded.
+bool g_terrain_ambientmap = false;
 
 namespace {
 // One sampler per level, created lazily and kept for the process lifetime (a handful of 64-byte objects; the device outlives them).
@@ -92,10 +96,9 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
     rd.vert_uniform_bufs  = 0;
     rd.vert_samplers      = 0;
     rd.frag_uniform_bufs  = 2;  // set=3 binding=0 ProjFragUBO, binding=1 ProjCamUBO
-    rd.frag_samplers      = 14; // set=2: tex_colour,tex_ground,tex_ground_baked,tex_overlay_mask,tex_ground_nml (task #12), tex_detail_array,tex_detail_tint (КРОК3 2026-09-17); gbufPacked,gbufDepth; zoneGroundLayersTex (texture, not SSBO, since 2026-08-09); texSteepnessSmoothed (2026-09-24, bake/live cliff_w single-source-of-truth); tex_biome_blend/kbi1LookupTex/biomeLayersTex (task-terrain-kenshi-parity, 2026-09-26). БОРГ-TERRAIN-2 (2026-09-13): was 10 -- vtIndirection/vtAtlas removed, dead VT cache-hit path never called. 2026-09-26: was 11 -- task #141's zone-corner cliff bake atlas (3 samplers) removed then task-terrain-kenshi-parity's 3 samplers added back, see CLAUDE_HISTORY.md.
+    rd.frag_samplers      = 15; // set=2: tex_colour,tex_ground,tex_ground_baked,tex_overlay_mask,tex_ground_nml (task #12), tex_detail_array,tex_detail_tint (КРОК3 2026-09-17); gbufPacked,gbufDepth; zoneGroundLayersTex (texture, not SSBO, since 2026-08-09); texSteepnessSmoothed (2026-09-24, bake/live cliff_w single-source-of-truth); tex_biome_blend/kbi1LookupTex/biomeLayersTex (task-terrain-kenshi-parity, 2026-09-26). БОРГ-TERRAIN-2 (2026-09-13): was 10 -- vtIndirection/vtAtlas removed, dead VT cache-hit path never called. 2026-09-26: was 11 -- task #141's zone-corner cliff bake atlas (3 samplers) removed then task-terrain-kenshi-parity's 3 samplers added back, see CLAUDE_HISTORY.md.
     // 2026-09-19 (docs/RESOLVE_OPT.md session finding): AmbientProbeBuf,
-    // binding=11 (2026-09-26: was 14, shifted -3 after removing the
-    // corner-bake atlas's 3 samplers; after the 11 samplers 0-10 above) --
+    // binding=15 (was 14 until the ambientmap sampler took 14, 2026-10-09; after the 15 samplers 0-14 above) --
     // see terrain_shading_common.glsl's TS_HAS_AMBIENT_PROBE doc comment.
     // Was 0 since БОРГ-TERRAIN-2 (2026-09-13, vtPageMeta removed with TerrainVtPageCache).
     rd.frag_storage_bufs  = 1;
@@ -216,7 +219,8 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
 
         ProjCamUBO cubo{};
         cubo.cam_pos_ws[0] = cam_x; cubo.cam_pos_ws[1] = cam_y;
-        cubo.cam_pos_ws[2] = cam_z; cubo.cam_pos_ws[3] = pix_scale_;
+        cubo.cam_pos_ws[2] = cam_z; cubo.cam_pos_ws[3] = (g_terrain_ambientmap && ground.AmbientMapReady())
+            ? (pix_scale_ < 0.f ? pix_scale_ - 1600.f : pix_scale_ + 1600.f) : pix_scale_; // bit4 = ambientmap (see g_terrain_ambientmap)
         std::memcpy(cubo.inv_vp, s7_.inv_vp, sizeof(cubo.inv_vp));
         cubo.recon[0] = s7_.world_extent; cubo.recon[1] = s7_.res_texels;
         cubo.recon[2] = (float)s7_.mode;
@@ -296,6 +300,14 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
             if (!kenshi_bindings[i].texture || !kenshi_bindings[i].sampler) return;
         }
         pv.BindFragmentSamplers(11, kenshi_bindings, 3);
+
+        // Divergence #14: binding=14, Kenshi's ambientmap.png. Falls back to the (always loaded) biome-blend texture as a type-matching
+        // dummy when the file is missing -- the shader only reads it when bit4 of |pix_scale| is set, which needs AmbientMapReady().
+        SDL_GPUTextureSamplerBinding ambient_binding[1] = {
+            ground.AmbientMapReady() ? SDL_GPUTextureSamplerBinding{ ground.AmbientMapTexture(), ground.AmbientMapSampler() }
+                                     : SDL_GPUTextureSamplerBinding{ ground.BiomeBlendTexture(), ground.BiomeBlendSampler() },
+        };
+        pv.BindFragmentSamplers(14, ambient_binding, 1);
 
         // 2026-09-19 (docs/RESOLVE_OPT.md session finding): directional
         // ambient via AmbientProbeSystem, binding=14 (2026-09-26: was 11,

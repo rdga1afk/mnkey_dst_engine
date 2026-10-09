@@ -90,6 +90,11 @@ public:
     // selection resolves zone/chunk-boundary blending directly).
     bool InitBiomeBlend(const char* path);
 
+    // Kenshi's regional light-multiplier map (md_ambientmap.png = data/newland/land/overlaymaps/ambientmap.png, 1024x1024 RGBA over the whole
+    // world, deferred.hlsl:166-167,197,213-214: sun *= 2*alpha, environment light *= rgb). LINEAR, CLAMP -- Kenshi's deferred.material gives the
+    // texture_unit only `tex_address_mode clamp` (default bilinear filtering). Resolve-only, behind md.set_terrain_ambientmap.
+    bool InitAmbientMap(const char* path);
+
     // Load the Kenshi grass/dirt/road paint mask (md_overlay_mask.png,
     // tools/md_stitch_overlay_mask.py — R=grass, G=grass2, B=dirt, A=road,
     // same UV space as tex_colour/InitKenshiOverlay). Was only consumed
@@ -177,6 +182,9 @@ public:
     SDL_GPUSampler* BiomeLayersSampler() const { return biome_layers_sampler_; }
     md::GpuTextureHandle BiomeBlendTexture() const { return tex_biome_blend_.SDLTexture(); }
     SDL_GPUSampler* BiomeBlendSampler() const { return tex_biome_blend_.SDLSampler(); }
+    md::GpuTextureHandle AmbientMapTexture() const { return tex_ambient_map_.SDLTexture(); }
+    SDL_GPUSampler* AmbientMapSampler() const { return tex_ambient_map_.SDLSampler(); }
+    bool AmbientMapReady() const { return ambient_map_ready_; }
 
     // Upload the per-zone (64x64=4096) ground-layer lookup table: 27 of 28
     // uint32 per zone used -- [0..5] base,slope,cliff,grass,dirt,road
@@ -213,6 +221,8 @@ private:
     bool        steepness_smoothed_ready_ = false;
     GpuTexture  tex_biome_blend_;       // real Kenshi blendMap 1:1 copy, R/G/B/A = 4 independent binary blend-weight masks (see InitBiomeBlend's doc comment) -- consumed by the Kenshi-parity path (task-terrain-kenshi-parity, 2026-09-26)
     bool        biome_blend_ready_ = false;
+    GpuTexture  tex_ambient_map_;       // Kenshi ambientmap.png (regional sun/env multiplier), see InitAmbientMap
+    bool        ambient_map_ready_ = false;
     GpuTexture  tex_overlay_mask_;      // R=grass, G=grass2, B=dirt, A=road (see InitOverlayMask)
     bool        overlay_mask_ready_ = false;
 
