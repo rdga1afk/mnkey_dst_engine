@@ -6,6 +6,35 @@
 #include <monkey_dust/platform/md_log.h>
 #include <cstring>
 
+// Divergence #7 prototype (md.set_terrain_ground_aniso, game/src/scripting/lua_scenario_api.cpp; read by npc_render_frame_prep.cpp for the
+// shader flag): 0 = off (the DDS arrays' own LINEAR samplers, textureLod in the shader); N >= 1 = textureGrad in the shader and a LINEAR sampler
+// with max_anisotropy = N for tex_ground / tex_ground_nml (N = 1: gradients without anisotropy, to separate the two costs).
+int g_terrain_ground_aniso_level = 0;
+
+namespace {
+// One sampler per level, created lazily and kept for the process lifetime (a handful of 64-byte objects; the device outlives them).
+SDL_GPUSampler* GroundAnisoSampler(int level) {
+    static SDL_GPUSampler* cache[17] = {};
+    if (level < 1 || level > 16) return nullptr;
+    if (!cache[level]) {
+        SDL_GPUSamplerCreateInfo si = {};
+        si.min_filter        = SDL_GPU_FILTER_LINEAR;
+        si.mag_filter        = SDL_GPU_FILTER_LINEAR;
+        si.mipmap_mode       = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
+        si.address_mode_u    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
+        si.address_mode_v    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
+        si.address_mode_w    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
+        si.min_lod           = 0.f;
+        si.max_lod           = 15.f; // Vulkan clamps to the image's real mip count (same upper bound the DDS array loader uses: ref_mips-1)
+        si.enable_anisotropy = level > 1;
+        si.max_anisotropy    = (float)level;
+        cache[level] = SDL_CreateGPUSampler(md::GpuDevice::Get().SDLDevice(), &si);
+    }
+    return cache[level];
+}
+}
+
+
 // Mirrors terrain_patch_renderer.cpp's PatchFragUBO / terrain_baked_renderer.
 // cpp's BakedPatchFragUBO -- each pipeline file keeps its own copy of these
 // small POD UBO structs rather than sharing one header (established
@@ -199,6 +228,12 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
         // tint) added 2026-09-17.
         SDL_GPUTextureSamplerBinding ground_bindings[7];
         ground.GetSharedGroundSamplers(ground_bindings);
+        if (g_terrain_ground_aniso_level >= 1) { // slots 1 = tex_ground, 4 = tex_ground_nml (see the 7-binding layout above)
+            if (SDL_GPUSampler* as = GroundAnisoSampler(g_terrain_ground_aniso_level)) {
+                ground_bindings[1].sampler = as;
+                ground_bindings[4].sampler = as;
+            }
+        }
         // All 7 must be checked, not just index 0 -- unlike slots 0/2/3/6
         // (plain sampler2D, always backed by a same-typed 1x1 fallback texture
         // even when their real asset fails to load), slots 1/4/5
