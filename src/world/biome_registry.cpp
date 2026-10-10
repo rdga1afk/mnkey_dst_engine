@@ -6,6 +6,7 @@
 #include <cstring>
 #include <filesystem>
 #include <monkey_dust/io/fcs_gamedata.h>
+#include <monkey_dust/io/kenshi_dir.h>
 
 // Text format (one directive per line):
 //   tex_count <N>
@@ -432,9 +433,7 @@ bool BiomeRegistry::LoadFromFcs(const std::vector<md::fcs::Record>& records, con
 }
 
 std::string BiomeRegistry::ResolveKenshiDir() {
-    if (const char* e = getenv("KENSHI_DIR")) if (*e) return e;
-    if (Exists("tmp_/kenshi/data/gamedata.base")) return "tmp_/kenshi";
-    return "";
+    return md::KenshiDir();
 }
 
 bool BiomeRegistry::LoadFromKenshi(const char* kenshi_dir, const char* terrain_tex_dir) {

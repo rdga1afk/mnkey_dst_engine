@@ -1,4 +1,5 @@
 #include "terrain_gen_internal.h"
+#include <monkey_dust/io/kenshi_dir.h>
 
 // ── Biomemap colour lookup (real Kenshi biome-selection mechanism) ───────────
 // game/data/textures/md_biomemap.png (1024x1024 RGB, converted 1:1 from
@@ -20,7 +21,7 @@ void s_load_biomemap() {
     if (s_biomemap_tried) return;
     s_biomemap_tried = true;
     int comp = 0;
-    s_biomemap = stbi_load("game/data/textures/md_biomemap.png", &s_biomemap_w, &s_biomemap_h, &comp, 3);
+    s_biomemap = stbi_load(md::KenshiLandFile("biomemap.png", "game/data/textures/md_biomemap.png").c_str(), &s_biomemap_w, &s_biomemap_h, &comp, 3);
     if (!s_biomemap)
         fprintf(stderr, "[TerrainGen] md_biomemap.png not found — biome lookup falls back to default\n");
 }
