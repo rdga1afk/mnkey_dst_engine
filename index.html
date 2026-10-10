@@ -247,7 +247,6 @@
     <a href="#ai"        class="nav-link"><span class="nav-icon">🧠</span><span class="l-en">AI</span><span class="l-uk">AI</span></a>
     <a href="#gameplay"  class="nav-link"><span class="nav-icon">🎮</span><span class="l-en">Gameplay systems</span><span class="l-uk">Ігрові системи</span></a>
     <a href="#tools"     class="nav-link"><span class="nav-icon">🛠️</span><span class="l-en">Editor &amp; tools</span><span class="l-uk">Редактор та інструменти</span></a>
-    <a href="#flare"     class="nav-link"><span class="nav-icon">🗺️</span><span class="l-en">Flare tiles (legacy)</span><span class="l-uk">Тайли Flare (спадок)</span></a>
 
     <div class="nav-section"><span class="l-en">Reference</span><span class="l-uk">Довідка</span></div>
     <a href="#rules"     class="nav-link"><span class="nav-icon">🚫</span><span class="l-en">Rules</span><span class="l-uk">Правила</span></a>
@@ -439,7 +438,6 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"
     <tr><td><code>ai/</code></td><td><span class="l-en">behaviour-tree VM, senses, director, utility scorer</span><span class="l-uk">VM дерев поведінки, сенси, режисер, оцінка корисності</span></td></tr>
     <tr><td><code>combat/</code>, <code>building/</code>, <code>save/</code>, <code>scripting/</code>, <code>audio/</code></td><td><span class="l-en">damage and hit zones, building grid, versioned saves, Lua 5.4 sandbox, miniaudio</span><span class="l-uk">шкода й зони влучання, будівництво, збереження з версіями, пісочниця Lua 5.4, miniaudio</span></td></tr>
     <tr><td><code>platform/</code>, <code>math/</code></td><td><span class="l-en">window, input, timing, job graph, INI/CVar, log, AVX2 helpers</span><span class="l-uk">вікно, ввід, час, граф задач, INI/CVar, лог, AVX2</span></td></tr>
-    <tr><td><code>flare/</code></td><td><span class="l-en">legacy isometric tile renderer (see below); not on the Kenshi world path</span><span class="l-uk">спадковий ізометричний рендер тайлів (нижче); у шляху світу Kenshi не бере участі</span></td></tr>
   </table>
 </section>
 
@@ -558,13 +556,6 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"
   <p class="l-uk"><a href="https://github.com/rdga1bot/mnkey_dst_tools">Репозиторій інструментів</a> (GPL-3.0) містить окремий <code>monkey_dust_editor</code> (Dear ImGui), гаряче перезавантаження шейдерів, драйвер команд живої гри для замірів (<code>qa/game_cmd_driver.py</code>), конвертери й випікачі на Python. Сам контент Kenshi редагується у FCS, не тут.</p>
 </section>
 
-<!-- ═══ FLARE ═══ -->
-<section class="doc-section" id="flare">
-  <h2><span class="l-en">Flare tiles (legacy)</span><span class="l-uk">Тайли Flare (спадок)</span></h2>
-  <p class="l-en">Until October 2026 the project was an isometric RPG inspired by the Flare engine. That code remains in <code>flare/</code> (tile map 3D/2D renderers, sprite animation, INI loaders) and <code>md_flare_demo</code> in tools. It is kept working but is not part of the Kenshi world path and is not developed further.</p>
-  <p class="l-uk">До жовтня 2026 проєкт був ізометричною RPG за мотивами рушія Flare. Цей код лишився в <code>flare/</code> (рендер тайлів 3D/2D, анімація спрайтів, INI-завантажувачі) і <code>md_flare_demo</code> в інструментах. Він працює, але в шлях світу Kenshi не входить і далі не розвивається.</p>
-</section>
-
 <!-- ═══ RULES ═══ -->
 <section class="doc-section" id="rules">
   <h2><span class="l-en">Rules</span><span class="l-uk">Правила</span></h2>
@@ -621,7 +612,6 @@ pipeline.Create(d);   // checked by gpu_pipeline_safety_check.h first</code></pr
 <section class="doc-section" id="history">
   <h2><span class="l-en">Project history</span><span class="l-uk">Історія проєкту</span></h2>
   <table>
-    <tr><td>2024 – 2026-07</td><td><span class="l-en">Isometric RPG sandbox inspired by Flare: tile renderer, BT AI, ECS, saves</span><span class="l-uk">Ізометрична RPG-пісочниця за мотивами Flare: рендер тайлів, AI на деревах поведінки, ECS, збереження</span></td></tr>
     <tr><td>2026-07 – 09</td><td><span class="l-en">3D terrain from Kenshi elevation data (offline conversion), SDL_GPU deferred renderer, flecs → gaia-ecs</span><span class="l-uk">3D-ландшафт з даних висот Kenshi (офлайн-конвертація), відкладений рендер на SDL_GPU, flecs → gaia-ecs</span></td></tr>
     <tr><td>2026-10-07 – 10</td><td><span class="l-en">Terrain parity with Kenshi's code (normals, slope bands, mip seams, ambient map)</span><span class="l-uk">Паритет ландшафту з кодом Kenshi (нормалі, смуги схилів, шви мипів, ambient map)</span></td></tr>
     <tr><td>2026-10-10</td><td><span class="l-en"><b>Decision: engine for Kenshi owners.</b> Data read from the install at runtime; FCS, heights and maps already done</span><span class="l-uk"><b>Рішення: рушій для власників Kenshi.</b> Дані читаються з інсталяції під час запуску; FCS, висоти й карти вже зроблено</span></td></tr>

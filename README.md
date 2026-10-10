@@ -115,7 +115,6 @@ Kenshi install (read-only, KENSHI_DIR)
 | `ai/` | Stackless behaviour-tree VM, sense system, director, utility scorer |
 | `combat/`, `building/`, `save/`, `scripting/`, `audio/` | Damage/hit zones, build grid, versioned saves, Lua 5.4 sandbox, miniaudio |
 | `platform/` | Window/input/timing, job graph, INI/CVar, logging, AVX2 helpers |
-| `flare/` | Older isometric tile renderer and loaders, kept from the project's earlier direction; not used by the Kenshi world path |
 
 Conventions: C++17; POD components; `gpu_pipeline_safety_check.h` rejects pipeline layouts known to crash the Intel Gen9 ANV driver before they are created. The full subsystem reference is on the [docs site](https://rdga1afk.github.io/mnkey_dst_engine/).
 
@@ -225,7 +224,6 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"   # тек�
 | `ai/` | VM дерев поведінки без стеку, сенси, режисер, оцінка корисності |
 | `combat/`, `building/`, `save/`, `scripting/`, `audio/` | Шкода й зони влучання, будівництво, збереження з версіями, пісочниця Lua 5.4, miniaudio |
 | `platform/` | Вікно, ввід, час, граф задач, INI/CVar, лог, AVX2 |
-| `flare/` | Старіший ізометричний рендер тайлів з попереднього напряму проєкту; шлях світу Kenshi його не використовує |
 
 ### Правове
 - **Kenshi** — торгова марка Lo-Fi Games. Проєкт не пов'язаний з Lo-Fi Games і не схвалений ними. Файли гри не поширюються; потрібна власна копія.
