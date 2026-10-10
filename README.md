@@ -45,7 +45,7 @@ summary: "Public engine README (EN + UA): native Linux engine that renders Kensh
 | Towns (Ogre `.mesh`), foliage | Planned for Nov 2026 |
 | Steam library auto-detection | Not yet: set `KENSHI_DIR` |
 | Workshop mods | Code path exists, **not yet tested on real Workshop data** |
-| **Performance, 1080p, terrain-only frames, HD 520** | **51–66 ms** per frame today. Target ≤ 16.7 ms. This is the main open problem |
+| **Performance, 1080p, terrain-only frames, HD 520** | Real frame interval **19.8 / 20.3 / 33.0 ms** at three fixed points (50 / 49 / 30 FPS, GPU at 1000 MHz). Target ≤ 16.7 ms. This is the main open problem |
 
 ### Goal by ~2026-12-10
 **Kenshi's world on Linux at 60 FPS on an HD 520**, native 1920×1080: terrain + towns + foliage, no NPCs.
@@ -164,7 +164,7 @@ index.html             documentation site (GitHub Pages)
 | Міста (Ogre `.mesh`), рослини | План на листопад 2026 |
 | Автопошук бібліотеки Steam | Ще ні: задайте `KENSHI_DIR` |
 | Моди з Workshop | Код є, **на справжніх даних Workshop ще не перевірено** |
-| **Продуктивність, 1080p, кадри з землею, HD 520** | Зараз **51–66 мс** на кадр. Ціль ≤ 16,7 мс. Це головна відкрита проблема |
+| **Продуктивність, 1080p, кадри з землею, HD 520** | Реальний інтервал кадру **19,8 / 20,3 / 33,0 мс** у трьох фіксованих точках (50 / 49 / 30 FPS, GPU на 1000 МГц). Ціль ≤ 16,7 мс. Це головна відкрита проблема |
 
 ### Мета до ~10.12.2026
 **Світ Kenshi під Linux з 60 FPS на HD 520**, нативні 1920×1080: земля + міста + рослини, без NPC.
