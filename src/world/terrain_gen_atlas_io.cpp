@@ -1,4 +1,7 @@
 #include "terrain_gen_internal.h"
+#include <monkey_dust/io/tiff.h>
+#include <monkey_dust/world/biome_def.h>
+#include <filesystem>
 
 // ── Terrain Atlas ─────────────────────────────────────────────────────────────
 // 2026-07-19: on-disk format switched from a single 260MB float32 .r32 blob
@@ -58,7 +61,41 @@ static void s_atlas_derive_paths(const char* base, char* r16_out, char* edits_ou
 // scanning (the file carries no per-zone range, only the single global
 // TERRAIN_HEIGHT_SCALE_M). 8-byte header (magic, zone count) — see
 // tools/md_hmap_io.py's save_atlas_tiled for the writer.
+// Kenshi's own heightmap, read at startup from the player's install (data/newland/land/fullmap.tif, 16385^2 uint16):
+// the atlas is its every-second sample, 129 per zone (zone (zx,zy) vertex (row,col) = tif[(zy*128+row)*2][(zx*128+col)*2]).
+// Verified sample for sample against world_hmap.r16 (tests/test_tiff.cpp). One 129-row band per zone row, then split into zones.
+static bool s_atlas_raw_from_kenshi(std::vector<uint16_t>& raw) {
+    const std::string dir = BiomeRegistry::ResolveKenshiDir();
+    if (dir.empty()) return false;
+    const std::string tif = dir + "/data/newland/land/fullmap.tif";
+    if (!std::filesystem::exists(tif)) return false;
+    md::tiff::Image img; std::string err;
+    if (!img.Open(tif.c_str(), err)) { fprintf(stderr, "[TerrainAtlas] %s: %s\n", tif.c_str(), err.c_str()); return false; }
+    constexpr uint32_t SIDE_TIF = (uint32_t)ATLAS_ZONES * 256 + 1; // 16385
+    if (img.Width() != SIDE_TIF || img.Height() != SIDE_TIF || img.Bits() != 16) {
+        fprintf(stderr, "[TerrainAtlas] %s: %ux%u %u-bit, expected %ux%u 16-bit\n", tif.c_str(), img.Width(), img.Height(), img.Bits(), SIDE_TIF, SIDE_TIF);
+        return false;
+    }
+    const int band_w = ATLAS_ZONES * (ATLAS_VERTS - 1) + 1; // 8193 samples across
+    raw.assign((size_t)ATLAS_R16_SIZE * ATLAS_R16_SIZE, 0);
+    std::vector<uint16_t> band;
+    for (int zy = 0; zy < ATLAS_ZONES; ++zy) {
+        if (!img.Window(0, (uint32_t)zy * 256, (uint32_t)band_w, ATLAS_VERTS, 2, band, err)) {
+            fprintf(stderr, "[TerrainAtlas] %s: %s\n", tif.c_str(), err.c_str());
+            return false;
+        }
+        for (int row = 0; row < ATLAS_VERTS; ++row)
+            for (int zx = 0; zx < ATLAS_ZONES; ++zx)
+                memcpy(&raw[(size_t)(zy * ATLAS_VERTS + row) * ATLAS_R16_SIZE + zx * ATLAS_VERTS],
+                       &band[(size_t)row * band_w + zx * (ATLAS_VERTS - 1)], ATLAS_VERTS * sizeof(uint16_t));
+    }
+    fprintf(stdout, "[TerrainAtlas] heights read from %s\n", tif.c_str());
+    return true;
+}
+
 static bool s_atlas_load_r16_base(const char* r16_path) {
+    std::vector<uint16_t> raw;
+    if (!s_atlas_raw_from_kenshi(raw)) {
     FILE* f = fopen(r16_path, "rb");
     if (!f) return false;
     uint32_t magic = 0, zones = 0;
@@ -68,12 +105,13 @@ static bool s_atlas_load_r16_base(const char* r16_path) {
         fclose(f);
         return false;
     }
-    std::vector<uint16_t> raw((size_t)ATLAS_R16_SIZE * ATLAS_R16_SIZE);
+    raw.resize((size_t)ATLAS_R16_SIZE * ATLAS_R16_SIZE);
     bool ok = fread(raw.data(), 2, raw.size(), f) == raw.size();
     fclose(f);
     if (!ok) {
         fprintf(stderr, "[TerrainAtlas] %s: truncated (expected %zu uint16 samples)\n", r16_path, raw.size());
         return false;
+    }
     }
     for (int zy = 0; zy < ATLAS_ZONES; ++zy) {
         for (int zx = 0; zx < ATLAS_ZONES; ++zx) {
