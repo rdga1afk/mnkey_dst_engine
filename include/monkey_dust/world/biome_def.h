@@ -1,5 +1,8 @@
 #pragma once
 #include <cstdint>
+#include <string>
+#include <vector>
+#include <monkey_dust/io/fcs.h>
 
 // Generic, data-driven biome registry. Contains NO game/IP-specific content —
 // real per-biome data (ground texture paths, colours, per-zone parameters)
@@ -106,6 +109,26 @@ public:
     // biome_registry.cpp. Returns false (logs a warning, leaves any
     // previously-loaded state intact) if the file is missing/malformed.
     bool LoadFromFile(const char* path);
+
+    // Same table text as LoadFromFile, from memory (`origin` only names the source in the log).
+    bool LoadFromText(const char* text, const char* origin);
+
+    // The biome table built from the FCS BIOMES records (Kenshi's own game data) instead of read from a file. `records` are the RAW
+    // BIOMES records of every file in load order, NOT merged (a mod's record that only changes a few fields is a separate, incomplete
+    // record and is skipped like any record without a base texture or an `index`) -- exactly what the offline generator
+    // (private/md_gen_biome_table.py) did, so the result is the same table, text for text. `terrain_tex_dir` is where the ground
+    // textures live (the diffuse list is built in first-use order, normal maps are paired by file name and must exist there).
+    static std::string BuildTableFromFcs(const std::vector<md::fcs::Record>& records, const char* terrain_tex_dir);
+    bool LoadFromFcs(const std::vector<md::fcs::Record>& records, const char* terrain_tex_dir);
+
+    // Reads the load order of the Kenshi folder `kenshi_dir` (core files, mods.cfg mods, Workshop), keeps every file's BIOMES records
+    // and calls LoadFromFcs. Returns false (state untouched) if the folder is not a Kenshi data folder or no biome could be built.
+    bool LoadFromKenshi(const char* kenshi_dir, const char* terrain_tex_dir);
+    // The Kenshi folder to use: $KENSHI_DIR, else the permanent local copy `tmp_/kenshi` when it holds data/gamedata.base, else "".
+    static std::string ResolveKenshiDir();
+    // The startup entry point: biomes from the Kenshi folder's FCS data (ResolveKenshiDir) when it is there, else from the generated
+    // table file `fallback_table` (the same data, see LoadFromFcs). Logs which one was used.
+    bool LoadPreferFcs(const char* fallback_table, const char* terrain_tex_dir);
 
     bool Loaded() const { return biome_count_ > 0; }
 

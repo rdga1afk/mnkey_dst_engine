@@ -1,7 +1,11 @@
 #include <monkey_dust/world/biome_def.h>
 #include <monkey_dust/platform/md_log.h>
 #include <cstdio>
+#include <cstdlib>
+#include <algorithm>
 #include <cstring>
+#include <filesystem>
+#include <monkey_dust/io/fcs_gamedata.h>
 
 // Text format (one directive per line):
 //   tex_count <N>
@@ -21,17 +25,33 @@
 // authoritative field-by-field rationale).
 
 bool BiomeRegistry::LoadFromFile(const char* path) {
-    FILE* f = fopen(path, "r");
+    FILE* f = fopen(path, "rb");
     if (!f) {
         MD_LOG(MD_LOG_WARNING, "[BiomeRegistry] cannot open %s — biome data not loaded", path);
         return false;
     }
+    std::string text;
+    char buf[4096];
+    size_t got;
+    while ((got = fread(buf, 1, sizeof buf, f)) > 0) text.append(buf, got);
+    fclose(f);
+    return LoadFromText(text.c_str(), path);
+}
 
+bool BiomeRegistry::LoadFromText(const char* text, const char* path) {
     tex_count_   = 0;
     biome_count_ = 0;
 
     char line[512];
-    while (fgets(line, sizeof(line), f)) {
+    const char* cur = text;
+    while (*cur) {
+        // one line at a time, truncated to the buffer like fgets did
+        size_t n = strcspn(cur, "\n");
+        size_t m = n < sizeof(line) - 2 ? n : sizeof(line) - 2;
+        memcpy(line, cur, m);
+        line[m] = '\n';
+        line[m + 1] = '\0';
+        cur += n + (cur[n] == '\n' ? 1 : 0);
         char* p = line;
         while (*p == ' ' || *p == '\t') ++p;
         if (*p == '#' || *p == '\n' || *p == '\r' || *p == '\0') continue;
@@ -174,7 +194,6 @@ bool BiomeRegistry::LoadFromFile(const char* path) {
             continue;
         }
     }
-    fclose(f);
 
     if (biome_count_ > 0) default_ = biomes_[0].def;
     fprintf(stdout, "[BiomeRegistry] loaded %d biomes, %d ground textures from %s\n",
@@ -215,4 +234,232 @@ const char* BiomeRegistry::GroundTexPath(int idx) const {
 const char* BiomeRegistry::GroundNmlPath(int idx) const {
     if (idx < 0 || idx >= tex_count_) return "";
     return nml_paths_[idx];
+}
+
+// ── Biome table from the FCS BIOMES records ──────────────────────────────────────────────────────────────────────────────────────
+// A port of private/md_gen_biome_table.py's table construction (same field mapping, same two-pass first-use texture order, same
+// number formats), so that the text built here is the text the generator wrote; LoadFromText then parses both the same way.
+// Load time only (std::string / std::vector / std::filesystem on purpose).
+namespace {
+
+// Two ground textures the real data refers to that do not exist under those names in the extracted texture set.
+const char* SubstituteTexture(const std::string& fn) {
+    static const struct { const char* from; const char* to; } T[] = {
+        {"WadiGravel_DIF.dds", "WadiGravel_DIF_HI.dds"},
+        {"grass_green-01_diffusespecular.dds", "Flat_Land_DIF.dds"},
+        {"RockGravelMix2_DIF.dds", "ScarredRock_DIF.dds"},
+    };
+    for (const auto& t : T) if (fn == t.from) return t.to;
+    return nullptr;
+}
+
+const std::string* PropStr(const md::fcs::Record& r, const char* key) {
+    for (const auto& kv : r.files) if (kv.first == key) return &kv.second;
+    for (const auto& kv : r.strings) if (kv.first == key) return &kv.second;
+    return nullptr;
+}
+
+// numeric field: floats first, then ints (the generator's props dict held both)
+bool PropNum(const md::fcs::Record& r, const char* key, double& out) {
+    for (const auto& kv : r.floats) if (kv.first == key) { out = (double)kv.second; return true; }
+    for (const auto& kv : r.ints) if (kv.first == key) { out = (double)kv.second; return true; }
+    return false;
+}
+bool PropInt(const md::fcs::Record& r, const char* key, int32_t& out) {
+    for (const auto& kv : r.ints) if (kv.first == key) { out = kv.second; return true; }
+    for (const auto& kv : r.floats) if (kv.first == key) { out = (int32_t)kv.second; return true; }
+    return false;
+}
+double PropF(const md::fcs::Record& r, const char* key, double def) { double v; return PropNum(r, key, v) ? v : def; }
+
+// os.path.basename(v.strip().replace('\\', '/')), then the substitution table; "" when the field is empty/absent
+std::string TexFilename(const md::fcs::Record& r, const char* field) {
+    const std::string* v = PropStr(r, field);
+    if (!v) return "";
+    size_t a = 0, b = v->size();
+    while (a < b && isspace((unsigned char)(*v)[a])) ++a;
+    while (b > a && isspace((unsigned char)(*v)[b - 1])) --b;
+    std::string s = v->substr(a, b - a);
+    if (s.empty()) return "";
+    for (char& c : s) if (c == '\\') c = '/';
+    size_t slash = s.rfind('/');
+    std::string fn = slash == std::string::npos ? s : s.substr(slash + 1);
+    if (fn.empty()) return "";
+    const char* sub = SubstituteTexture(fn);
+    return sub ? sub : fn;
+}
+
+std::string ReplaceAll(std::string s, const std::string& from, const std::string& to) {
+    for (size_t p = 0; (p = s.find(from, p)) != std::string::npos; p += to.size()) s.replace(p, from.size(), to);
+    return s;
+}
+
+bool Exists(const std::string& path) { std::error_code ec; return std::filesystem::exists(path, ec); }
+
+// Best-effort DIF -> NML file name; "" when none (the synthetic flat normal is used then)
+std::string NormalFor(const std::string& dif, const std::string& dir) {
+    std::string cands[2] = {ReplaceAll(dif, "_DIF", "_NML"), ReplaceAll(dif, "DIF", "NML")};
+    for (const auto& c : cands) if (c != dif && Exists(dir + "/" + c)) return c;
+    // legacy names (no DIF marker) ship <stem>_n.dds / <stem>_NML.dds; only DXT1 files fit the normal array
+    size_t dot = dif.rfind('.');
+    std::string stem = dot == std::string::npos ? dif : dif.substr(0, dot);
+    std::string ext = dot == std::string::npos ? "" : dif.substr(dot);
+    for (const char* suffix : {"_n", "_NML"}) {
+        std::string c = stem + suffix + ext;
+        FILE* f = fopen((dir + "/" + c).c_str(), "rb");
+        if (!f) continue;
+        char h[128] = {};
+        size_t got = fread(h, 1, 128, f);
+        fclose(f);
+        if (got >= 88 && memcmp(h + 84, "DXT1", 4) == 0) return c;
+    }
+    return "";
+}
+
+std::string Slug(const std::string& name) {
+    std::string o; bool us = false;
+    for (unsigned char c : name) {
+        char l = (c >= 'A' && c <= 'Z') ? (char)(c + 32) : (char)c;
+        if ((l >= 'a' && l <= 'z') || (l >= '0' && l <= '9')) { if (us && !o.empty()) o += '_'; us = false; o += l; }
+        else us = true;
+    }
+    return o.empty() ? "biome" : o;
+}
+
+void ColorRef(int32_t v, int& r, int& g, int& b) { r = (v >> 16) & 0xFF; g = (v >> 8) & 0xFF; b = v & 0xFF; }
+
+std::string Fmt(const char* f, double v) { char b[64]; snprintf(b, sizeof b, f, v); return b; }
+
+} // namespace
+
+std::string BiomeRegistry::BuildTableFromFcs(const std::vector<md::fcs::Record>& records, const char* terrain_tex_dir) {
+    const std::string dir = terrain_tex_dir ? terrain_tex_dir : "";
+    std::vector<std::string> tex_list, nml_list;
+    auto get_or_add = [&](const std::string& fn) -> int {
+        for (size_t i = 0; i < tex_list.size(); ++i) if (tex_list[i] == fn) return (int)i;
+        tex_list.push_back(fn);
+        nml_list.push_back(NormalFor(fn, dir));
+        return (int)tex_list.size() - 1;
+    };
+    std::vector<const md::fcs::Record*> biomes_raw;
+    for (const auto& r : records) if (r.kind == md::fcs::ITEM_BIOMES) biomes_raw.push_back(&r);
+
+    // pass 1: the master texture list in first-use order, base/slope/vertical/grass/dirt/road per biome until one slot is empty
+    static const char* const kSlots[6] = {"texture base", "texture slope", "texture vertical", "texture grass", "texture dirt", "texture road"};
+    // (the generator's first pass also reserved the NAMES of the biomes that had all six slots and an index, so the second pass
+    // numbers those again as "<name>_2" -- reproduced because the slugs are part of the table)
+    std::vector<std::string> seen;
+    auto reserve_name = [&](const std::string& name) {
+        std::string key = name;
+        int n = 2;
+        while (std::find(seen.begin(), seen.end(), key) != seen.end()) key = name + "_" + std::to_string(n++);
+        seen.push_back(key);
+        return key;
+    };
+    for (const auto* r : biomes_raw) {
+        bool all_slots = true;
+        for (int k = 0; k < 6; ++k) {
+            std::string fn = TexFilename(*r, kSlots[k]);
+            if (fn.empty()) { all_slots = false; break; }
+            get_or_add(fn);
+        }
+        int32_t idx_val;
+        if (all_slots && PropInt(*r, "index", idx_val)) reserve_name(r->name);
+    }
+
+    // pass 2: the biomes (an empty slope/vertical/grass/dirt falls back to base, road to dirt)
+    std::string biome_lines;
+    int biome_count = 0;
+    for (const auto* rp : biomes_raw) {
+        const md::fcs::Record& r = *rp;
+        std::string base_fn = TexFilename(r, "texture base");
+        if (base_fn.empty()) continue;
+        auto resolve = [&](const char* field, int fallback) { std::string fn = TexFilename(r, field); return fn.empty() ? fallback : get_or_add(fn); };
+        int base_idx = get_or_add(base_fn);
+        int slope_idx = resolve("texture slope", base_idx);
+        int cliff_idx = resolve("texture vertical", base_idx);
+        int grass_idx = resolve("texture grass", base_idx);
+        int dirt_idx = resolve("texture dirt", base_idx);
+        int road_idx = resolve("texture road", dirt_idx);
+        int32_t idx_val;
+        if (!PropInt(r, "index", idx_val)) continue;
+        int cr, cg, cb; ColorRef(idx_val, cr, cg, cb);
+        int gr = cr, gg = cg, gb = cb;
+        int32_t gv; bool has_ground = PropInt(r, "ground colour", gv);
+        if (has_ground) ColorRef(gv, gr, gg, gb);
+        std::string key = reserve_name(r.name);
+
+        auto tile = [&](const char* kx, const char* ky) { return std::make_pair(PropF(r, kx, 1.0), PropF(r, ky, 1.0)); };
+        auto base_t = tile("tiling X 0", "tiling Y 0"), slope_t = tile("tiling X 1", "tiling Y 1"), cliff_t = tile("tiling X 2", "tiling Y 2");
+        auto dirt_t = tile("tiling X dirt", "tiling Y dirt"), grass_t = tile("tiling X grass", "tiling Y grass"), road_t = tile("tiling X road", "tiling Y road");
+        double sb[3] = {PropF(r, "slope min 1", 15.0) / 100.0, PropF(r, "slope max 1", 55.0) / 100.0, PropF(r, "slope fade 1", 12.0) / 100.0};
+        double cb2[3] = {PropF(r, "slope min 2", 50.0) / 100.0, PropF(r, "slope max 2", 100.0) / 100.0, PropF(r, "slope fade 2", 15.0) / 100.0};
+        double brightness = PropF(r, "brightness fix", 1.0);
+        double da = PropF(r, "distort amplitude", 0.0), dw = PropF(r, "distort wavelength", 1000.0);
+        double om[4] = {PropF(r, "overlay mult vertical", 1.0), PropF(r, "overlay mult grass", 1.0), PropF(r, "overlay mult dirt", 1.0), PropF(r, "overlay mult road", 1.0)};
+        double fade = PropF(r, "fade distance", 4000.0);
+        int dr = 0xC0, dg = 0xA0, db = 0x40;
+        if (has_ground) { dr = gr; dg = gg; db = gb; }
+
+        std::string line = "biome " + Slug(key);
+        for (int t : {base_idx, slope_idx, cliff_idx, grass_idx, dirt_idx, road_idx}) line += " " + std::to_string(t);
+        line += " " + Fmt("%.3f", gr / 255.0 * 0.55) + " " + Fmt("%.3f", gg / 255.0 * 0.55) + " " + Fmt("%.3f", gb / 255.0 * 0.55);
+        line += " " + Fmt("%.3f", gr / 255.0) + " " + Fmt("%.3f", gg / 255.0) + " " + Fmt("%.3f", gb / 255.0);
+        line += " " + std::to_string(cr) + " " + std::to_string(cg) + " " + std::to_string(cb);
+        for (const auto& pr : {base_t, slope_t, cliff_t, dirt_t, grass_t, road_t}) line += " " + Fmt("%.3f", pr.first) + " " + Fmt("%.3f", pr.second);
+        for (double v : {sb[0], sb[1], sb[2], cb2[0], cb2[1], cb2[2]}) line += " " + Fmt("%.4f", v);
+        line += " " + Fmt("%.3f", brightness) + " " + Fmt("%.4f", da) + " " + Fmt("%.4f", dw);
+        for (double v : om) line += " " + Fmt("%.4f", v);
+        line += " " + Fmt("%.1f", fade) + " " + Fmt("%.4f", dr / 255.0) + " " + Fmt("%.4f", dg / 255.0) + " " + Fmt("%.4f", db / 255.0);
+        biome_lines += line + "\n";
+        ++biome_count;
+    }
+
+    std::string out = "tex_count " + std::to_string(tex_list.size()) + "\n";
+    for (size_t i = 0; i < tex_list.size(); ++i) {
+        std::string nml = nml_list[i].empty() ? "tmp_/kenshi_re/terrain_textures/_MD_Flat_Normal_NML.dds" : dir + "/" + nml_list[i];
+        out += "tex " + std::to_string(i) + "|" + dir + "/" + tex_list[i] + "|" + nml + "\n";
+    }
+    out += "biome_count " + std::to_string(biome_count) + "\n" + biome_lines;
+    return out;
+}
+
+bool BiomeRegistry::LoadFromFcs(const std::vector<md::fcs::Record>& records, const char* terrain_tex_dir) {
+    std::string text = BuildTableFromFcs(records, terrain_tex_dir);
+    BiomeRegistry probe;
+    if (!probe.LoadFromText(text.c_str(), "FCS BIOMES")) return false;
+    return LoadFromText(text.c_str(), "FCS BIOMES");
+}
+
+std::string BiomeRegistry::ResolveKenshiDir() {
+    if (const char* e = getenv("KENSHI_DIR")) if (*e) return e;
+    if (Exists("tmp_/kenshi/data/gamedata.base")) return "tmp_/kenshi";
+    return "";
+}
+
+bool BiomeRegistry::LoadFromKenshi(const char* kenshi_dir, const char* terrain_tex_dir) {
+    md::fcs::Install inst(kenshi_dir ? kenshi_dir : "");
+    std::string why;
+    if (!inst.Check(why, false)) { MD_LOG(MD_LOG_WARNING, "[BiomeRegistry] %s", why.c_str()); return false; }
+    md::fcs::LoadOrder order; md::fcs::Error err;
+    if (!inst.LoadOrderFor(order, err)) { MD_LOG(MD_LOG_WARNING, "[BiomeRegistry] %s", err.Message().c_str()); return false; }
+    std::vector<md::fcs::Record> biomes;
+    for (const auto& f : order.files) {
+        md::fcs::File file;
+        if (!md::fcs::ReadFile(f.path, file, err)) {
+            if (f.core) { MD_LOG(MD_LOG_WARNING, "[BiomeRegistry] %s: %s", f.name.c_str(), err.Message().c_str()); return false; }
+            MD_LOG(MD_LOG_WARNING, "[BiomeRegistry] mod %s skipped: %s", f.name.c_str(), err.Message().c_str());
+            continue;
+        }
+        for (auto& r : file.records) if (r.kind == md::fcs::ITEM_BIOMES) biomes.push_back(std::move(r));
+    }
+    fprintf(stdout, "[BiomeRegistry] FCS: %zu BIOMES records from %zu files of %s\n", biomes.size(), order.files.size(), kenshi_dir);
+    return LoadFromFcs(biomes, terrain_tex_dir);
+}
+
+bool BiomeRegistry::LoadPreferFcs(const char* fallback_table, const char* terrain_tex_dir) {
+    std::string dir = ResolveKenshiDir();
+    if (!dir.empty() && LoadFromKenshi(dir.c_str(), terrain_tex_dir)) return true;
+    MD_LOG(MD_LOG_INFO, "[BiomeRegistry] no usable Kenshi FCS data (%s) -- loading %s", dir.empty() ? "none found" : dir.c_str(), fallback_table);
+    return LoadFromFile(fallback_table);
 }
