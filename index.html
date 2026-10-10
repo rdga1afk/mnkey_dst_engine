@@ -336,7 +336,7 @@
     <tr><td><span class="l-en">Steam auto-detection · Workshop mods on real data</span><span class="l-uk">Автопошук Steam · моди Workshop на справжніх даних</span></td>
         <td><span class="badge next">not yet</span></td></tr>
     <tr><td><b><span class="l-en">Frame time, 1080p, terrain frames, HD 520</span><span class="l-uk">Час кадру, 1080p, кадри з землею, HD 520</span></b></td>
-        <td><b>19.8 / 20.3 / 33.0 ms</b> <span class="l-en">real frame interval at three points (50 / 49 / 30 FPS), target ≤ 16.7 ms — the main open problem</span><span class="l-uk">реальний інтервал кадру в трьох точках (50 / 49 / 30 FPS), ціль ≤ 16,7 мс — головна відкрита проблема</span></td></tr>
+        <td><b>34.2 / 35.0 / 61.7 ms</b> <span class="l-en">real frame interval at native 1920×1056 in three points (29 / 29 / 16 FPS), target ≤ 16.7 ms — the main open problem</span><span class="l-uk">реальний інтервал кадру в нативних 1920×1056 у трьох точках (29 / 29 / 16 FPS), ціль ≤ 16,7 мс — головна відкрита проблема</span></td></tr>
   </table>
 </section>
 
@@ -501,13 +501,13 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"
     <li>Only on <b>terrain-dominated frames</b>: scenarios place the camera with <code>set_camera_pose_world</code> and check <code>md.terrain_pixel_fraction()</code> ≥ 80 %.</li>
     <li><code>RenderPassGraph</code> switches any registered pass on or off at runtime (<code>md.set_render_pass_enabled</code>); with <code>md.get_gpu_ms()</code> this splits frame cost pass by pass without rebuilding.</li>
     <li>A/B comparisons run in one process, several interleaved blocks (ABBA), to cancel GPU clock drift.</li>
-    <li>Real frame interval (1080p, HD 520, back-to-back frames, GPU 1000 MHz): south_hive 19.8 ms, worst_24_12 20.3 ms, owner_point 33.0 ms. Serialized GPU time at 300 MHz (43 / 43 / 54 ms) is not a frame-rate figure.</li>
+    <li>Real frame interval (native 1920×1056, HD 520, back-to-back frames, GPU 1000 MHz): south_hive 34.2 ms, worst_24_12 35.0 ms, owner_point 61.7 ms. Earlier figures were taken below native resolution or at the idle GPU clock and are withdrawn.</li>
   </ul>
   <ul class="l-uk">
     <li>Лише на <b>кадрах, де переважає земля</b>: сценарії ставлять камеру через <code>set_camera_pose_world</code> і перевіряють <code>md.terrain_pixel_fraction()</code> ≥ 80 %.</li>
     <li><code>RenderPassGraph</code> вмикає й вимикає будь-який зареєстрований прохід під час роботи (<code>md.set_render_pass_enabled</code>); разом з <code>md.get_gpu_ms()</code> це розкладає ціну кадру по проходах без перезбірки.</li>
     <li>Порівняння A/B — в одному процесі, кількома чергованими блоками (ABBA), щоб прибрати дрейф частот GPU.</li>
-    <li>Реальний інтервал кадру (1080p, HD 520, кадри підряд, GPU 1000 МГц): south_hive 19,8 мс, worst_24_12 20,3 мс, owner_point 33,0 мс. Серіалізований час GPU на 300 МГц (43 / 43 / 54 мс) — не частота кадрів.</li>
+    <li>Реальний інтервал кадру (нативні 1920×1056, HD 520, кадри підряд, GPU 1000 МГц): south_hive 34,2 мс, worst_24_12 35,0 мс, owner_point 61,7 мс. Попередні цифри зняті нижче за нативну роздільність або на частоті простою GPU й відкликані.</li>
   </ul>
 </section>
 
