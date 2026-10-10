@@ -219,6 +219,7 @@ engine/
     editor/                ← EditorPanelRegistry (MAX_PANELS=16)
     flare/                 ← tile map, sprite animation, renderer
     hot/                   ← gameplay_module.h (libgameplay.so BT-binding hot-reload; the separate editor-panel .so hot-reload was removed 2026-09-17)
+    io/                    ← FCS reader (md::fcs): v15–v17 .base/.mod, mods.cfg load order, record merge (port of Project Okran, MIT)
     math/                  ← md_fast_math.h, sin_lut.h (rsqrtps fast-math helpers)
     platform/math_types.h  ← Vec3/Mat4 (GLM switch -DUSE_GLM)
     nav/                   ← PathCache, CrowdSystem
@@ -237,6 +238,10 @@ engine/
   src/                     ← implementation units
   tests/                   ← Google Test suite
 ```
+
+## Kenshi data (runtime, user-owned install)
+
+`monkey_dust/io/fcs.h`, `fcs_gamedata.h` read Forgotten Construction Set files (`gamedata.base`, `*.mod`) from the user's own Kenshi installation; the engine ships no Kenshi data. `BiomeRegistry::LoadFromKenshi` builds the biome table from BIOMES records. Tests that need real data run only when `KENSHI_DIR` is set. The FCS reader and merge rules are a behavioural port of [Project Okran](https://github.com/brayniac6-glitch/Project-Okran) (MIT) — see [THIRD_PARTY.md](THIRD_PARTY.md).
 
 ---
 

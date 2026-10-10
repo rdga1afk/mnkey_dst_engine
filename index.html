@@ -215,6 +215,7 @@
     <a href="#intro"        class="nav-link"><span class="nav-icon">🎯</span> Що таке monkey_dust</a>
     <a href="#sdlgpu"       class="nav-link"><span class="nav-icon">🏆</span> SDL_GPU (поточний бекенд)</a>
     <a href="#quickstart"   class="nav-link"><span class="nav-icon">🚀</span> Швидкий старт</a>
+    <a href="#kenshi-data"  class="nav-link"><span class="nav-icon">🗂️</span> Kenshi: дані з інсталяції</a>
     <a href="#structure"    class="nav-link"><span class="nav-icon">📁</span> Monorepo структура</a>
     <a href="#build"        class="nav-link"><span class="nav-icon">⚙️</span> Збірка (CMake)</a>
 
@@ -482,6 +483,19 @@ bash scripts/compile_shaders.sh</code></pre>
     <div class="callout-title">Split-readiness правило</div>
     <code>engine/</code> не має жодного <code>#include</code> з <code>game/</code> або <code>tools/</code>. Нові компоненти → <code>engine/include/monkey_dust/</code>. Game файли = forwarding wrappers.
   </div>
+</section>
+
+<!-- ═══ KENSHI DATA (2026-10-10) ═══ -->
+<section class="doc-section" id="kenshi-data">
+  <h2>🗂️ Напрям: рушій для власників Kenshi (2026-10-10)</h2>
+  <p>Рішення власника від 10.10.2026: рушій читає дані з <strong>встановленої копії Kenshi гравця</strong> під час запуску (модель OpenMW). Файли гри не поширюються. План: <code>docs/PLAN_KENSHI_ENGINE.md</code> (основне репо).</p>
+  <ul>
+    <li><strong>Читач FCS</strong> (<code>engine/src/io/fcs.cpp</code>, <code>fcs_gamedata.cpp</code>, простір імен <code>md::fcs</code>): формати v15/v16/v17, порядок завантаження з <code>mods.cfg</code> / <code>mods/</code> / Steam Workshop, злиття записів за <code>string_id</code>. Перевірено: усі <code>data/*.base|*.mod</code> читаються до кінця файлу; 20 481 запис і 394 766 значень полів збігаються з <code>kenshi_fcs.db</code> (0 розбіжностей, 136 біомів). Тест із даними запускається лише за наявності <code>KENSHI_DIR</code>.</li>
+    <li><strong>Біоми з FCS під час запуску:</strong> <code>BiomeRegistry::LoadPreferFcs</code> будує таблицю з записів BIOMES (<code>$KENSHI_DIR</code> або <code>tmp_/kenshi</code>); без Kenshi — запасний <code>game/data/biome_table.txt</code>. Перевірка: текст таблиці й усі <code>BiomeDef</code> (74 біоми, 124 текстури) ідентичні, кадр гри побайтово збігається з запасним шляхом.</li>
+    <li><strong>Атрибуція:</strong> читач FCS і правила злиття — поведінковий порт Project Okran (MIT); заголовки файлів і <code>engine/THIRD_PARTY.md</code>. Таблицю завдань AI (<code>task_def.rs</code>) не переносимо.</li>
+    <li><strong>Далі:</strong> камера <code>pass_ablation</code> (кадри, де переважає земля) → читання карт (<code>fullmap.tif</code>, <code>blendmap.png</code> тощо) з теки гри → біом для кожного пікселя за <code>blendMap</code> → Ogre <code>.mesh</code>/<code>.skeleton</code>.</li>
+    <li><strong>Видимість:</strong> основне репо приватне і таким лишається (у ньому похідні дані Kenshi та <code>re/</code>); публічні <code>engine</code> і <code>tools</code> не містять файлів Kenshi.</li>
+  </ul>
 </section>
 
 <!-- ═══ BUILD ═══ -->
