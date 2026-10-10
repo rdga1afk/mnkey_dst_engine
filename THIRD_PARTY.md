@@ -11,6 +11,8 @@ This file lists code and designs ported or adapted into this repository from oth
   `src/io/mods.rs` (load order, `mods.cfg`, mod lookup) and `src/data/gamedata.rs` (record merging). The format
   details (field order, length checks, v17 header tail, merge rules) follow Okran; the code is written in C++ in this
   project's style, nothing is compiled from Okran.
+- `engine/src/io/tiff.cpp` and `include/monkey_dust/io/tiff.h` are a C++ port of the behaviour of Okran's `src/io/tiff.rs`
+  (uncompressed greyscale little-endian TIFF, 8/16 bit, strips, windowed reads by seeking).
 - Licence text:
 
 ```
