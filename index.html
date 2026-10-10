@@ -453,8 +453,8 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"
     <tr><td><code>tiff.h</code></td><td><span class="l-en">uncompressed greyscale TIFF, 8/16 bit, windowed reads</span><span class="l-uk">TIFF без стиснення, 8/16 біт, читання вікнами</span></td><td><span class="l-en"><code>fullmap.tif</code>: 0 differences</span><span class="l-uk"><code>fullmap.tif</code>: 0 відмінностей</span></td></tr>
     <tr><td><code>kenshi_dir.h</code></td><td><code>KenshiDir()</code>, <code>KenshiLandFile()</code></td><td>—</td></tr>
   </table>
-  <p class="l-en">FCS, load order, merge and TIFF are C++ ports of the behaviour of <a href="https://github.com/brayniac6-glitch/Project-Okran">Project Okran</a> (MIT); see <code>THIRD_PARTY.md</code>. FCS slope values are divided by 100, as Kenshi's own code does (<code>kenshi_x64.exe</code> 0x140a158f9).</p>
-  <p class="l-uk">FCS, порядок, злиття й TIFF — перенесення на C++ поведінки <a href="https://github.com/brayniac6-glitch/Project-Okran">Project Okran</a> (MIT); див. <code>THIRD_PARTY.md</code>. Значення схилів з FCS діляться на 100, як у коді Kenshi (<code>kenshi_x64.exe</code> 0x140a158f9).</p>
+  <p class="l-en">FCS slope values are divided by 100, as Kenshi's own code does (<code>kenshi_x64.exe</code> 0x140a158f9).</p>
+  <p class="l-uk">Значення схилів з FCS діляться на 100, як у коді Kenshi (<code>kenshi_x64.exe</code> 0x140a158f9).</p>
 </section>
 
 <!-- ═══ TERRAIN ═══ -->
@@ -572,7 +572,6 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"
     <h3>Kenshi data and third-party code</h3>
     <ul>
       <li>No Kenshi files in public repositories or releases.</li>
-      <li>Project Okran (MIT) code may be ported to C++ by behaviour, with a file header and a line in <code>THIRD_PARTY.md</code>. Okran is a map, not the truth: every ported module is checked numerically on real Kenshi data.</li>
       <li>Kenshi shader text is never copied; only formulas are re-implemented.</li>
       <li>Every claim about Kenshi is backed by its code or data (address, file and line, or a number), not by screenshots.</li>
     </ul>
@@ -588,7 +587,6 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"
     <h3>Дані Kenshi і сторонній код</h3>
     <ul>
       <li>Жодних файлів Kenshi в публічних репозиторіях і релізах.</li>
-      <li>Код Project Okran (MIT) можна переносити на C++ за поведінкою, із заголовком у файлі й рядком у <code>THIRD_PARTY.md</code>. Okran — карта, а не правда: кожен перенесений модуль перевіряється числом на справжніх даних Kenshi.</li>
       <li>Текст шейдерів Kenshi не копіюється; відтворюються лише формули.</li>
       <li>Кожне твердження про Kenshi підтверджується її кодом або даними (адреса, файл і рядок, число), а не скриншотами.</li>
     </ul>
@@ -642,7 +640,6 @@ pipeline.Create(d);   // checked by gpu_pipeline_safety_check.h first</code></pr
     <tr><td><code>engine/</code></td><td>MIT</td><td><span class="l-en">public</span><span class="l-uk">публічний</span></td></tr>
     <tr><td><code>tools/</code></td><td>GPL-3.0</td><td><span class="l-en">public</span><span class="l-uk">публічний</span></td></tr>
     <tr><td><span class="l-en">game</span><span class="l-uk">гра</span></td><td><span class="l-en">proprietary</span><span class="l-uk">власницька</span></td><td><span class="l-en">private</span><span class="l-uk">приватний</span></td></tr>
-    <tr><td>Project Okran</td><td>MIT</td><td><span class="l-en">behaviour ports: FCS, load order, merge, TIFF (<code>THIRD_PARTY.md</code>)</span><span class="l-uk">перенесення поведінки: FCS, порядок, злиття, TIFF (<code>THIRD_PARTY.md</code>)</span></td></tr>
     <tr><td>SDL3 + SDL_GPU</td><td>zlib</td><td><span class="l-en">window, input, rendering</span><span class="l-uk">вікно, ввід, рендер</span></td></tr>
     <tr><td>gaia-ecs 1.0.0</td><td>MIT</td><td>ECS</td></tr>
     <tr><td>Jolt Physics</td><td>MIT</td><td><span class="l-en">physics</span><span class="l-uk">фізика</span></td></tr>

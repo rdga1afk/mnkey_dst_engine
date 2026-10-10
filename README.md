@@ -130,7 +130,7 @@ index.html             documentation site (GitHub Pages)
 
 ### Legal and third-party code
 - **Kenshi** is a trademark of Lo-Fi Games. This project is not affiliated with or endorsed by Lo-Fi Games. No game files are distributed; you need your own copy.
-- **Project Okran** ([MIT](https://github.com/brayniac6-glitch/Project-Okran)): the FCS reader, mod load order, record merge and TIFF reader are C++ ports of the *behaviour* of Okran's Rust code. Details and the licence text: [THIRD_PARTY.md](THIRD_PARTY.md).
+- Third-party code and its licences: [THIRD_PARTY.md](THIRD_PARTY.md).
 - Kenshi's shader code is never copied; where parity is needed, only formulas are re-implemented.
 - **Licence:** MIT, see [LICENSE](LICENSE). The game executable and its sources are proprietary and not part of this repository.
 
@@ -229,6 +229,6 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"   # тек�
 
 ### Правове
 - **Kenshi** — торгова марка Lo-Fi Games. Проєкт не пов'язаний з Lo-Fi Games і не схвалений ними. Файли гри не поширюються; потрібна власна копія.
-- **Project Okran** ([MIT](https://github.com/brayniac6-glitch/Project-Okran)): читач FCS, порядок модів, злиття записів і читач TIFF — перенесення на C++ *поведінки* їхнього коду на Rust. Подробиці й текст ліцензії: [THIRD_PARTY.md](THIRD_PARTY.md).
+- Сторонній код і його ліцензії: [THIRD_PARTY.md](THIRD_PARTY.md).
 - Код шейдерів Kenshi не копіюється; де потрібен паритет, відтворюються лише формули.
 - **Ліцензія:** MIT, див. [LICENSE](LICENSE). Виконуваний файл гри і його код — власницькі й не входять до цього репозиторію.
