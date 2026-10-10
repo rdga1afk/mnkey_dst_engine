@@ -11,7 +11,7 @@ summary: "Public engine README (EN + UA): native Linux engine that renders Kensh
 
 # monkey_dust Engine
 
-**A native Linux C++17 engine that renders the world of [Kenshi](https://lofigames.com/) from your own installed copy of the game, built to run at 60 FPS on weak integrated GPUs (target: Intel HD 520).**
+**A native Linux C++17 engine that renders the world of [Kenshi](https://lofigames.com/) from your own installed copy of the game, aimed at weak integrated GPUs (test platform: Intel HD 520).**
 
 [English](#english) · [Українською](#українською) · [Docs site](https://rdga1afk.github.io/mnkey_dst_engine/)
 
@@ -24,7 +24,7 @@ summary: "Public engine README (EN + UA): native Linux engine that renders Kensh
 
 ### What this is
 - A **rendering engine for Kenshi's world on Linux**, native (no Wine/Proton at runtime), SDL3 + SDL_GPU (Vulkan).
-- Its niche is **weak hardware**: full 1920×1080 at 60 FPS on an Intel HD 520 laptop iGPU.
+- Its niche is **weak hardware**: the Intel HD 520 laptop iGPU is the test platform (the 60 FPS goal and its gates are in Status below).
 - Content is edited with Kenshi's own editor, the **Forgotten Construction Set (FCS)**. Mods load in Kenshi's own order.
 
 ### What this is not (yet)
@@ -143,7 +143,7 @@ index.html             documentation site (GitHub Pages)
 
 ### Що це
 - **Рушій, що рендерить світ Kenshi під Linux**, нативно (без Wine/Proton під час роботи), SDL3 + SDL_GPU (Vulkan).
-- Ніша — **слабке залізо**: повні 1920×1080 з 60 FPS на вбудованій Intel HD 520.
+- Ніша — **слабке залізо**: вбудована Intel HD 520 — тестова платформа (ціль 60 FPS і її ворота — у розділі «Стан» нижче).
 - Контент редагується власним редактором Kenshi, **Forgotten Construction Set (FCS)**. Моди вантажаться в порядку Kenshi.
 
 ### Чим це (поки) не є
