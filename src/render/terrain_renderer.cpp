@@ -188,7 +188,8 @@ bool TerrainRenderer::InitDetailArray(const char* dir)
     sd.gen_mipmap = false;
 
     const BiomeRegistry& biomes = BiomeRegistry::Get();
-    const int tex_count = biomes.GroundTexCount();
+    // the bake has 124 layers; the Kenshi data now names more textures (127). No shader reads this array (#138), it only has to exist as a binding.
+    const int tex_count = biomes.GroundTexCount() < 124 ? biomes.GroundTexCount() : 124;
     char path_buf[BiomeRegistry::MAX_TEXTURES][160];
     const char* path_ptrs[BiomeRegistry::MAX_TEXTURES];
     for (int i = 0; i < tex_count; ++i) {

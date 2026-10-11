@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <algorithm>
 #include <cstring>
+#include <unordered_map>
 #include <filesystem>
 #include <monkey_dust/io/fcs_gamedata.h>
 #include <monkey_dust/io/kenshi_dir.h>
@@ -243,17 +244,6 @@ const char* BiomeRegistry::GroundNmlPath(int idx) const {
 // Load time only (std::string / std::vector / std::filesystem on purpose).
 namespace {
 
-// Two ground textures the real data refers to that do not exist under those names in the extracted texture set.
-const char* SubstituteTexture(const std::string& fn) {
-    static const struct { const char* from; const char* to; } T[] = {
-        {"WadiGravel_DIF.dds", "WadiGravel_DIF_HI.dds"},
-        {"grass_green-01_diffusespecular.dds", "Flat_Land_DIF.dds"},
-        {"RockGravelMix2_DIF.dds", "ScarredRock_DIF.dds"},
-    };
-    for (const auto& t : T) if (fn == t.from) return t.to;
-    return nullptr;
-}
-
 const std::string* PropStr(const md::fcs::Record& r, const char* key) {
     for (const auto& kv : r.files) if (kv.first == key) return &kv.second;
     for (const auto& kv : r.strings) if (kv.first == key) return &kv.second;
@@ -273,7 +263,7 @@ bool PropInt(const md::fcs::Record& r, const char* key, int32_t& out) {
 }
 double PropF(const md::fcs::Record& r, const char* key, double def) { double v; return PropNum(r, key, v) ? v : def; }
 
-// os.path.basename(v.strip().replace('\\', '/')), then the substitution table; "" when the field is empty/absent
+// os.path.basename(v.strip().replace('\\', '/')); "" when the field is empty/absent
 std::string TexFilename(const md::fcs::Record& r, const char* field) {
     const std::string* v = PropStr(r, field);
     if (!v) return "";
@@ -286,8 +276,7 @@ std::string TexFilename(const md::fcs::Record& r, const char* field) {
     size_t slash = s.rfind('/');
     std::string fn = slash == std::string::npos ? s : s.substr(slash + 1);
     if (fn.empty()) return "";
-    const char* sub = SubstituteTexture(fn);
-    return sub ? sub : fn;
+    return fn;
 }
 
 std::string ReplaceAll(std::string s, const std::string& from, const std::string& to) {
@@ -296,6 +285,35 @@ std::string ReplaceAll(std::string s, const std::string& from, const std::string
 }
 
 bool Exists(const std::string& path) { std::error_code ec; return std::filesystem::exists(path, ec); }
+
+// Ogre-style resource lookup (what Kenshi does, and Project-Okran io/resources.rs): a texture the data names is found by its file name anywhere
+// under <install>/data, whatever stale folder the stored path has; lower-case name -> the first path in sorted order. Built once per load.
+std::string g_data_root;
+std::unordered_map<std::string, std::filesystem::path> g_data_index;
+void IndexData(const std::string& kenshi_dir) {
+    g_data_root = kenshi_dir;
+    g_data_index.clear();
+    std::error_code ec;
+    const std::filesystem::path data = std::filesystem::path(kenshi_dir) / "data";
+    for (std::filesystem::recursive_directory_iterator it(data, std::filesystem::directory_options::skip_permission_denied, ec), end; !ec && it != end; it.increment(ec)) {
+        if (!it->is_regular_file(ec)) continue;
+        std::string name = it->path().filename().string();
+        for (char& c : name) c = (char)tolower((unsigned char)c);
+        std::filesystem::path rel = std::filesystem::relative(it->path(), data, ec);
+        auto f = g_data_index.find(name);
+        if (f == g_data_index.end()) g_data_index.emplace(name, rel);
+        else if (rel.compare(f->second) < 0) f->second = rel;
+    }
+}
+// Full path of texture file `fn`: next to `dir` first, else by name under <install>/data; "" when the install has no such file.
+std::string ResolveTexture(const std::string& dir, const std::string& fn) {
+    if (Exists(dir + "/" + fn)) return dir + "/" + fn;
+    std::string name = fn;
+    for (char& c : name) c = (char)tolower((unsigned char)c);
+    auto f = g_data_index.find(name);
+    if (f == g_data_index.end()) return "";
+    return (std::filesystem::path(g_data_root) / "data" / f->second).string();
+}
 
 // Best-effort DIF -> NML file name; "" when none (the synthetic flat normal is used then)
 std::string NormalFor(const std::string& dif, const std::string& dir) {
@@ -335,11 +353,20 @@ std::string Fmt(const char* f, double v) { char b[64]; snprintf(b, sizeof b, f, 
 
 std::string BiomeRegistry::BuildTableFromFcs(const std::vector<md::fcs::Record>& records, const char* terrain_tex_dir) {
     const std::string dir = terrain_tex_dir ? terrain_tex_dir : "";
-    std::vector<std::string> tex_list, nml_list;
+    std::vector<std::string> tex_list, nml_list, dif_path, nml_path;
     auto get_or_add = [&](const std::string& fn) -> int {
         for (size_t i = 0; i < tex_list.size(); ++i) if (tex_list[i] == fn) return (int)i;
         tex_list.push_back(fn);
-        nml_list.push_back(NormalFor(fn, dir));
+        std::string full = ResolveTexture(dir, fn);
+        if (full.empty()) {
+            MD_LOG(MD_LOG_ERROR, "[BiomeRegistry] ground texture %s is not in the Kenshi install (no substitution; white placeholder)", fn.c_str());
+            full = "game/data/textures/_MD_Missing_DIF.dds";
+        }
+        dif_path.push_back(full);
+        const std::string tdir = std::filesystem::path(full).parent_path().string();
+        std::string nml = NormalFor(fn, tdir);
+        nml_list.push_back(nml);
+        nml_path.push_back(nml.empty() ? std::string() : tdir + "/" + nml);
         return (int)tex_list.size() - 1;
     };
     std::vector<const md::fcs::Record*> biomes_raw;
@@ -418,8 +445,8 @@ std::string BiomeRegistry::BuildTableFromFcs(const std::vector<md::fcs::Record>&
 
     std::string out = "tex_count " + std::to_string(tex_list.size()) + "\n";
     for (size_t i = 0; i < tex_list.size(); ++i) {
-        std::string nml = nml_list[i].empty() ? "tmp_/kenshi_re/terrain_textures/_MD_Flat_Normal_NML.dds" : dir + "/" + nml_list[i];
-        out += "tex " + std::to_string(i) + "|" + dir + "/" + tex_list[i] + "|" + nml + "\n";
+        std::string nml = nml_path[i].empty() ? "game/data/textures/_MD_Flat_Normal_NML.dds" : nml_path[i];
+        out += "tex " + std::to_string(i) + "|" + dif_path[i] + "|" + nml + "\n";
     }
     out += "biome_count " + std::to_string(biome_count) + "\n" + biome_lines;
     return out;
@@ -438,6 +465,7 @@ std::string BiomeRegistry::ResolveKenshiDir() {
 
 bool BiomeRegistry::LoadFromKenshi(const char* kenshi_dir, const char* terrain_tex_dir) {
     md::fcs::Install inst(kenshi_dir ? kenshi_dir : "");
+    IndexData(kenshi_dir ? kenshi_dir : "");
     std::string why;
     if (!inst.Check(why, false)) { MD_LOG(MD_LOG_WARNING, "[BiomeRegistry] %s", why.c_str()); return false; }
     md::fcs::LoadOrder order; md::fcs::Error err;

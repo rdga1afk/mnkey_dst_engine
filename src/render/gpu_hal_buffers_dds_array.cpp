@@ -1,3 +1,4 @@
+#include <vector>
 #include "gpu_hal_buffers_internal.h"
 #include <monkey_dust/render/gpu_hal_free_functions.h>
 
@@ -72,6 +73,7 @@ bool GpuTexture::InitFromDDSArray(const char* const* paths, int count,
     }
 
     int ref_w = 0, ref_h = 0, ref_mips = 0; bool ref_bc3 = false, ref_bc1 = false;
+    std::vector<uint8_t> shifted((size_t)count, 0); // 1 = half-size layer stored one mip level lower (see below)
     uint32_t ref_doff = 0;
     bool ok = true;
 
@@ -88,6 +90,12 @@ bool GpuTexture::InitFromDDSArray(const char* const* paths, int count,
             ok = false; break;
         }
         if (i == 0) { ref_w=w; ref_h=h; ref_mips=m; ref_bc3=bc3; ref_bc1=bc1; ref_doff=doff; }
+        else if (w*2==ref_w && h*2==ref_h && m==ref_mips-1 && bc3==ref_bc3 && bc1==ref_bc1) {
+            // A half-size texture (Kenshi mixes 2048 and 1024 ground textures): its own mip chain is stored one level lower, file level k in
+            // array level k+1, so the GPU's lod-1 pick reads the original pixels (same texel density per screen pixel). Only the closest
+            // view (array level 0, a 2x2 tiling of the file's level 0, bytes copied unchanged) differs from Kenshi.
+            shifted[i] = 1;
+        }
         else if (w!=ref_w||h!=ref_h||m!=ref_mips||bc3!=ref_bc3||bc1!=ref_bc1) {
             fprintf(stderr, "[GpuTexture] DDS array: size mismatch (i=%d) '%s' w=%d h=%d m=%d bc3=%d bc1=%d vs ref w=%d h=%d m=%d bc3=%d bc1=%d\n",
                     i, paths[i], w, h, m, bc3, bc1, ref_w, ref_h, ref_mips, ref_bc3, ref_bc1);
@@ -154,7 +162,21 @@ bool GpuTexture::InitFromDDSArray(const char* const* paths, int count,
     if (mapped) {
         uint32_t dst_off = 0;
         for (int i=0;i<count;++i) {
-            memcpy(mapped + dst_off, (const uint8_t*)layers[i].buf + ref_doff, layer_stride);
+            if (!shifted[i]) {
+                memcpy(mapped + dst_off, (const uint8_t*)layers[i].buf + ref_doff, layer_stride);
+            } else {
+                // level 0 of the array layer: the file's level 0 tiled 2x2 (block rows/columns copied as they are); levels 1.. = the file's levels 0..
+                const uint8_t* src = (const uint8_t*)layers[i].buf + ref_doff;
+                const size_t bw = (size_t)((ref_w / 2 + 3) / 4), bh = (size_t)((ref_h / 2 + 3) / 4); // source level-0 size in blocks
+                const size_t row_bytes = bw * (size_t)block_bytes;
+                uint8_t* dst = mapped + dst_off;
+                for (size_t r = 0; r < bh * 2; ++r) {
+                    const uint8_t* srow = src + (r % bh) * row_bytes;
+                    memcpy(dst + r * row_bytes * 2, srow, row_bytes);
+                    memcpy(dst + r * row_bytes * 2 + row_bytes, srow, row_bytes);
+                }
+                memcpy(dst + mip_sz[0], src, layer_stride - mip_sz[0]);
+            }
             dst_off += (uint32_t)layer_stride;
         }
         GpuUnmapTransfer(tb);
