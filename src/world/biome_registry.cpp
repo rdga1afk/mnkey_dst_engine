@@ -470,15 +470,20 @@ bool BiomeRegistry::LoadFromKenshi(const char* kenshi_dir, const char* terrain_t
     if (!inst.Check(why, false)) { MD_LOG(MD_LOG_WARNING, "[BiomeRegistry] %s", why.c_str()); return false; }
     md::fcs::LoadOrder order; md::fcs::Error err;
     if (!inst.LoadOrderFor(order, err)) { MD_LOG(MD_LOG_WARNING, "[BiomeRegistry] %s", err.Message().c_str()); return false; }
+    // The merged game data: a mod record with the same string id changes only the fields it lists (Okran GameDataContainer::apply_file), so a
+    // texture the base names stale (WadiGravel_DIF.dds) is the mod's (WadiGravel_DIF_HI.dds). Concatenating the raw records lost those overrides.
+    md::fcs::GameDataContainer gd;
+    if (!gd.Load(order, err)) { MD_LOG(MD_LOG_WARNING, "[BiomeRegistry] %s", err.Message().c_str()); return false; }
     std::vector<md::fcs::Record> biomes;
-    for (const auto& f : order.files) {
-        md::fcs::File file;
-        if (!md::fcs::ReadFile(f.path, file, err)) {
-            if (f.core) { MD_LOG(MD_LOG_WARNING, "[BiomeRegistry] %s: %s", f.name.c_str(), err.Message().c_str()); return false; }
-            MD_LOG(MD_LOG_WARNING, "[BiomeRegistry] mod %s skipped: %s", f.name.c_str(), err.Message().c_str());
-            continue;
-        }
-        for (auto& r : file.records) if (r.kind == md::fcs::ITEM_BIOMES) biomes.push_back(std::move(r));
+    for (const md::fcs::GameData* g : gd.OfType(md::fcs::ITEM_BIOMES)) {
+        md::fcs::Record r;
+        r.kind = g->kind; r.name = g->name; r.string_id = g->string_id;
+        for (const auto& kv : g->bools) r.bools.emplace_back(kv.first, kv.second);
+        for (const auto& kv : g->floats) r.floats.emplace_back(kv.first, kv.second);
+        for (const auto& kv : g->ints) r.ints.emplace_back(kv.first, kv.second);
+        for (const auto& kv : g->strings) r.strings.emplace_back(kv.first, kv.second);
+        for (const auto& kv : g->files) r.files.emplace_back(kv.first, kv.second);
+        biomes.push_back(std::move(r));
     }
     fprintf(stdout, "[BiomeRegistry] FCS: %zu BIOMES records from %zu files of %s\n", biomes.size(), order.files.size(), kenshi_dir);
     return LoadFromFcs(biomes, terrain_tex_dir);
