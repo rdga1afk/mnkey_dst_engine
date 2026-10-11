@@ -456,7 +456,17 @@ bool BiomeRegistry::LoadFromFcs(const std::vector<md::fcs::Record>& records, con
     std::string text = BuildTableFromFcs(records, terrain_tex_dir);
     BiomeRegistry probe;
     if (!probe.LoadFromText(text.c_str(), "FCS BIOMES")) return false;
-    return LoadFromText(text.c_str(), "FCS BIOMES");
+    const bool ok = LoadFromText(text.c_str(), "FCS BIOMES");
+    if (ok && std::getenv("MD_BIOME_DUMP")) { // diagnostics: per-biome slope / cliff bands (the FCS fields x 0.01), id = index in this table
+        int zero_cliff = 0, zero_slope = 0;
+        for (int i = 0; i < biome_count_; ++i) {
+            const BiomeDef& d = biomes_[i].def;
+            zero_cliff += d.cliff_max <= 0.f; zero_slope += d.slope_max <= 0.f;
+            fprintf(stdout, "[BiomeDump] id=%d %s slope=[%.3f %.3f %.3f] cliff=[%.3f %.3f %.3f] tex base/slope/cliff/grass/dirt/road = %s | %s | %s | %s | %s | %s\n", i, biomes_[i].slug, d.slope_min, d.slope_max, d.slope_fade, d.cliff_min, d.cliff_max, d.cliff_fade, GroundTexPath(d.tex_base), GroundTexPath(d.tex_slope), GroundTexPath(d.tex_cliff), GroundTexPath(d.tex_grass), GroundTexPath(d.tex_dirt), GroundTexPath(d.tex_road));
+        }
+        fprintf(stdout, "[BiomeDump] %d biomes, cliff_max<=0: %d, slope_max<=0: %d\n", biome_count_, zero_cliff, zero_slope);
+    }
+    return ok;
 }
 
 std::string BiomeRegistry::ResolveKenshiDir() {
