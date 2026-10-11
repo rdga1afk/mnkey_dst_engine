@@ -89,7 +89,7 @@ Mods are read exactly as Kenshi reads them: `data/mods.cfg` order, then `mods/` 
 | Repository | Visibility | Licence | Contents |
 |---|---|---|---|
 | [`mnkey_dst_engine`](https://github.com/rdga1afk/mnkey_dst_engine) (this) | public | MIT | Engine library: Kenshi data readers, renderer, world, ECS, physics, AI |
-| [`mnkey_dst_tools`](https://github.com/rdga1bot/mnkey_dst_tools) | public | GPL-3.0 | Editor, QA/measurement scripts, offline converters |
+| [`mnkey_dst_tools`](https://github.com/rdga1afk/mnkey_dst_tools) | public | GPL-3.0 | Editor, QA/measurement scripts, offline converters |
 | `mnkey_dst` | private | proprietary | Game executable, shaders, tests, research. Includes the two above as submodules |
 
 **Data flow at startup:**
@@ -206,7 +206,7 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"   # тек�
 | Репозиторій | Доступ | Ліцензія | Вміст |
 |---|---|---|---|
 | [`mnkey_dst_engine`](https://github.com/rdga1afk/mnkey_dst_engine) (цей) | публічний | MIT | Бібліотека рушія: читачі даних Kenshi, рендер, світ, ECS, фізика, AI |
-| [`mnkey_dst_tools`](https://github.com/rdga1bot/mnkey_dst_tools) | публічний | GPL-3.0 | Редактор, скрипти замірів і QA, офлайн-конвертери |
+| [`mnkey_dst_tools`](https://github.com/rdga1afk/mnkey_dst_tools) | публічний | GPL-3.0 | Редактор, скрипти замірів і QA, офлайн-конвертери |
 | `mnkey_dst` | приватний | власницька | Виконуваний файл гри, шейдери, тести, дослідження. Два репо вище — його підмодулі |
 
 **Потік даних під час запуску:** див. схему в англійському розділі вище: інсталяція Kenshi (лише читання) → `io/` → `world/` → `render/` → SDL_GPU / Vulkan.
