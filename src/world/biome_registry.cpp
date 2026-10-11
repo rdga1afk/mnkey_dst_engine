@@ -462,7 +462,7 @@ bool BiomeRegistry::LoadFromFcs(const std::vector<md::fcs::Record>& records, con
         for (int i = 0; i < biome_count_; ++i) {
             const BiomeDef& d = biomes_[i].def;
             zero_cliff += d.cliff_max <= 0.f; zero_slope += d.slope_max <= 0.f;
-            fprintf(stdout, "[BiomeDump] id=%d %s slope=[%.3f %.3f %.3f] cliff=[%.3f %.3f %.3f] tex base/slope/cliff/grass/dirt/road = %s | %s | %s | %s | %s | %s\n", i, biomes_[i].slug, d.slope_min, d.slope_max, d.slope_fade, d.cliff_min, d.cliff_max, d.cliff_fade, GroundTexPath(d.tex_base), GroundTexPath(d.tex_slope), GroundTexPath(d.tex_cliff), GroundTexPath(d.tex_grass), GroundTexPath(d.tex_dirt), GroundTexPath(d.tex_road));
+            fprintf(stdout, "[BiomeDump] id=%d %s slope=[%.3f %.3f %.3f] cliff=[%.3f %.3f %.3f] tile base/slope/cliff/grass/dirt/road = (%.2f,%.2f) (%.2f,%.2f) (%.2f,%.2f) (%.2f,%.2f) (%.2f,%.2f) (%.2f,%.2f) tex base/slope/cliff/grass/dirt/road = %s | %s | %s | %s | %s | %s\n", i, biomes_[i].slug, d.slope_min, d.slope_max, d.slope_fade, d.cliff_min, d.cliff_max, d.cliff_fade, d.tile_base_x, d.tile_base_y, d.tile_slope_x, d.tile_slope_y, d.cliff_tiling_x, d.cliff_tiling_y, d.tile_grass_x, d.tile_grass_y, d.tile_dirt_x, d.tile_dirt_y, d.tile_road_x, d.tile_road_y, GroundTexPath(d.tex_base), GroundTexPath(d.tex_slope), GroundTexPath(d.tex_cliff), GroundTexPath(d.tex_grass), GroundTexPath(d.tex_dirt), GroundTexPath(d.tex_road));
         }
         fprintf(stdout, "[BiomeDump] %d biomes, cliff_max<=0: %d, slope_max<=0: %d\n", biome_count_, zero_cliff, zero_slope);
     }
