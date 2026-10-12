@@ -68,7 +68,7 @@ bool TerrainShadingProjected::CreateTextures(int w, int h) {
     gs.mag_filter = GpuSamplerDesc::Filter::NEAREST;
     gs.wrap_s = GpuSamplerDesc::Wrap::CLAMP_TO_EDGE;
     gs.wrap_t = GpuSamplerDesc::Wrap::CLAMP_TO_EDGE;
-    if (!gbuf_color_.InitRenderTarget(w, h, gs, SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT)) {
+    if (!gbuf_color_.InitRenderTarget(w, h, gs, SDL_GPU_TEXTUREFORMAT_R16G16B16A16_UINT)) {
         MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] gbuf_color_ create failed");
         return false;
     }
@@ -137,7 +137,7 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
     }
 
     ready_ = true;
-    MD_LOG(MD_LOG_INFO, "[TerrainShadingProjected] ready %dx%d (RGBA32F gbuffer + isolated D32_FLOAT)", w, h);
+    MD_LOG(MD_LOG_INFO, "[TerrainShadingProjected] ready %dx%d (RGBA16_UINT gbuffer + isolated D32_FLOAT)", w, h);
     return true;
 }
 

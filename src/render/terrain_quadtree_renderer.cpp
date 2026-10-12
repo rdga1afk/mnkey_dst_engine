@@ -63,7 +63,7 @@ bool TerrainQuadtreeRenderer::Init(md::GpuDeviceHandle /*dev*/) {
     pd.frag_uniform_bufs = 0;
     pd.frag_samplers     = 0;
     pd.frag_storage_bufs = 0;
-    pd.color_format = SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT;
+    pd.color_format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_UINT; // #142 phase 1b: 8 B/px G-buffer (terrain_gbuf_pack.glsl)
     if (!gbuffer_pipeline_.Create(pd)) {
         MD_LOG(MD_LOG_WARNING, "[TerrainQuadtreeRenderer] pipeline create failed");
         return false;
@@ -140,7 +140,7 @@ bool TerrainQuadtreeRenderer::InitBatched(md::GpuDeviceHandle dev) {
     pd.frag_uniform_bufs = 0;
     pd.frag_samplers     = 0; // category dead (see .frag's doc comment) -- no samplers needed
     pd.frag_storage_bufs = 0;
-    pd.color_format = SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT;
+    pd.color_format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_UINT; // #142 phase 1b: 8 B/px G-buffer (terrain_gbuf_pack.glsl)
     if (!batched_pipeline_.Create(pd)) {
         MD_LOG(MD_LOG_WARNING, "[TerrainQuadtreeRenderer] batched pipeline create failed");
         return false;
