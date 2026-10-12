@@ -106,13 +106,6 @@ public:
                              bool shade_constant_debug = false,
                              bool kenshi_blend_debug = false);
 
-    // #142 phase 1a: split Kenshi ground shading. Draws the biome blend as two fullscreen passes (albedo, normal) into offscreen targets;
-    // while it has run this frame (returns true) DrawShadingResolve with kenshi_blend_debug is only the lighting pass reading them.
-    // Call after EndGBufferPass, outside any render pass. Returns false (resolve stays monolithic) if the split pipelines are unavailable.
-    bool RunBiomePasses(md::GpuCommandBufferHandle cmd, float cam_x, float cam_y, float cam_z,
-                        float world_origin_x, float world_origin_z, float world_to_uv, const TerrainRenderer& ground);
-    void ClearBiomeSplit() { biome_split_active_ = false; }
-
     // S7 (docs/TERRAIN_SURFACE_PLAN_2026-10-02.md): the G-buffer pass can be depth-only
     // (no colour target); DrawShadingResolve then reconstructs world position from the
     // G-buffer depth (inv_vp) and the normal from the world normal texture. Set by
@@ -135,13 +128,6 @@ public:
     void SetGroundUnits(bool on, float pix_scale) { units10_ = on; pix_scale_ = pix_scale; }
 
 private:
-    void DrawFullscreen(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, GpuPipeline& pipeline,
-                        const TerrainRenderer::SunParams& sun,
-                        float cam_x, float cam_y, float cam_z,
-                        float world_origin_x, float world_origin_z, float world_to_uv,
-                        float fog_far, const float fog_color[3], float fog_near,
-                        const TerrainRenderer& ground,
-                        bool shade_constant_debug, bool kenshi_blend_debug, bool with_biome_rts);
     S7State s7_;
     bool  units10_ = false;
     float pix_scale_ = 0.f;
@@ -170,11 +156,6 @@ private:
     // used only while the DEBUG kenshi_blend toggle is on, so the default pipeline is untouched.
     GpuPipeline       resolve_kenshi_pipeline_;
     bool              resolve_kenshi_ready_ = false;
-    // #142 phase 1a: split Kenshi path -- albedo / normal passes into offscreen RGBA16F targets, then the lighting-only resolve.
-    GpuPipeline       resolve_kenshi_a_pipeline_, resolve_kenshi_n_pipeline_, resolve_kenshi_l_pipeline_;
-    bool              resolve_kenshi_a_ready_ = false, resolve_kenshi_n_ready_ = false, resolve_kenshi_l_ready_ = false;
-    GpuTexture        albedo_rt_, normal_rt_;
-    bool              biome_split_active_ = false;
     int  w_ = 0, h_ = 0;
     bool ready_ = false;
 };
