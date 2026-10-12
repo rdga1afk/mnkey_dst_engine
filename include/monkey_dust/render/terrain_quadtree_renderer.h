@@ -214,6 +214,9 @@ private:
     GpuPipeline batched_depth_only_pipeline_;
     GpuStaticBuffer filled_ibo_;
     uint32_t filled_index_count_ = 0;
+public:
+    uint32_t FilledTrianglesPerNode() const { return filled_index_count_ / 3; } // #142: triangles drawn per visible node (every node shares one IBO)
+private:
     bool ready_ = false;
     bool forward_ready_ = false;
     bool batched_ready_ = false;
