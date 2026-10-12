@@ -72,6 +72,10 @@ bool TerrainShadingProjected::CreateTextures(int w, int h) {
         MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] gbuf_color_ create failed");
         return false;
     }
+    if (!albedo_rt_.InitRenderTarget(w, h, gs, SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT) ||
+        !normal_rt_.InitRenderTarget(w, h, gs, SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT)) {
+        MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] biome split targets create failed (split path off)");
+    }
     gbuf_depth_.Init(w, h, /*shadow_border=*/false);
     if (!gbuf_depth_.SDLTexture()) {
         MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] gbuf_depth_ create failed");
@@ -114,6 +118,24 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
         MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] kenshi resolve variant create failed (debug toggle falls back)");
     }
 
+    // #142 phase 1a split variants: the albedo / normal passes have no depth target and write RGBA16F; the lighting pass is the
+    // resolve (depth-tested into the main pass) reading the two targets through the blend-map / KBI1 sampler slots (11, 12).
+    {
+        GpuPipeline::Desc sd = rd;
+        sd.has_depth_target = false;
+        sd.raster.depth_test = false;
+        sd.color_format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
+        sd.frag_path = "shaders/terrain_shading_screenspace_kenshi_a.frag";
+        resolve_kenshi_a_ready_ = resolve_kenshi_a_pipeline_.Create(sd);
+        sd.frag_path = "shaders/terrain_shading_screenspace_kenshi_n.frag";
+        resolve_kenshi_n_ready_ = resolve_kenshi_n_pipeline_.Create(sd);
+        GpuPipeline::Desc ld = rd;
+        ld.frag_path = "shaders/terrain_shading_screenspace_kenshi_l.frag";
+        resolve_kenshi_l_ready_ = resolve_kenshi_l_pipeline_.Create(ld);
+        if (!resolve_kenshi_a_ready_ || !resolve_kenshi_n_ready_ || !resolve_kenshi_l_ready_)
+            MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] split Kenshi pipelines unavailable (a=%d n=%d l=%d)", (int)resolve_kenshi_a_ready_, (int)resolve_kenshi_n_ready_, (int)resolve_kenshi_l_ready_);
+    }
+
     ready_ = true;
     MD_LOG(MD_LOG_INFO, "[TerrainShadingProjected] ready %dx%d (RGBA32F gbuffer + isolated D32_FLOAT)", w, h);
     return true;
@@ -132,6 +154,7 @@ void TerrainShadingProjected::EnsureSize(md::GpuDeviceHandle dev, int w, int h) 
     if (!ready_ || (w == w_ && h == h_) || w <= 0 || h <= 0) return;
     gbuf_depth_.Shutdown();
     gbuf_color_.Shutdown();
+    albedo_rt_.Shutdown(); normal_rt_.Shutdown();
     CreateTextures(w, h);
 }
 
@@ -139,6 +162,9 @@ void TerrainShadingProjected::Shutdown() {
     resolve_pipeline_.Destroy();
     resolve_kenshi_pipeline_.Destroy();
     resolve_kenshi_ready_ = false;
+    resolve_kenshi_a_pipeline_.Destroy(); resolve_kenshi_n_pipeline_.Destroy(); resolve_kenshi_l_pipeline_.Destroy();
+    resolve_kenshi_a_ready_ = resolve_kenshi_n_ready_ = resolve_kenshi_l_ready_ = false;
+    albedo_rt_.Shutdown(); normal_rt_.Shutdown();
     gbuf_depth_.Shutdown();
     gbuf_color_.Shutdown();
     ready_ = false;
@@ -177,6 +203,139 @@ void TerrainShadingProjected::EndGBufferPass() {
     // need to remember between calls).
 }
 
+void TerrainShadingProjected::DrawFullscreen(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, GpuPipeline& pipeline,
+                                              const TerrainRenderer::SunParams& sun,
+                                              float cam_x, float cam_y, float cam_z,
+                                              float world_origin_x, float world_origin_z, float world_to_uv,
+                                              float fog_far, const float fog_color[3], float fog_near,
+                                              const TerrainRenderer& ground,
+                                              bool shade_constant_debug, bool kenshi_blend_debug, bool with_biome_rts) {
+    GpuPassView pv = GpuPassView::FromRaw(rp, cmd);
+    pv.BindPipeline(&pipeline);
+
+    ProjFragUBO fubo{};
+    fubo.sun_dir_str[0] = sun.dir[0]; fubo.sun_dir_str[1] = sun.dir[1];
+    fubo.sun_dir_str[2] = sun.dir[2]; fubo.sun_dir_str[3] = sun.strength;
+    fubo.ambient[0]     = sun.ambient[0]; fubo.ambient[1] = sun.ambient[1];
+    fubo.ambient[2]     = sun.ambient[2];
+    fubo.ambient[3]     = units10_ ? 1.f : 0.f; // .w = "terrain_units10" flag (the shader's ambient uses .xyz only)
+    fubo.world_params[0] = world_origin_x; fubo.world_params[1] = world_origin_z;
+    fubo.world_params[2] = world_to_uv;
+    // Крок 0 ablation (shade_constant_debug=1.0) / task-terrain-kenshi-
+    // parity (kenshi_blend_debug=2.0, checked first in the shader) --
+    // see header doc comment.
+    fubo.world_params[3] = kenshi_blend_debug ? 2.f : (shade_constant_debug ? 1.f : 0.f);
+    fubo.fog_color_near[0] = fog_color[0]; fubo.fog_color_near[1] = fog_color[1];
+    fubo.fog_color_near[2] = fog_color[2]; fubo.fog_color_near[3] = fog_near;
+    fubo.fog_far = fog_far;
+    GpuPushFragmentUniforms(cmd, 0, &fubo, sizeof(fubo));
+
+    ProjCamUBO cubo{};
+    cubo.cam_pos_ws[0] = cam_x; cubo.cam_pos_ws[1] = cam_y;
+    cubo.cam_pos_ws[2] = cam_z; cubo.cam_pos_ws[3] = (g_terrain_ambientmap && ground.AmbientMapReady())
+        ? (pix_scale_ < 0.f ? pix_scale_ - 1600.f : pix_scale_ + 1600.f) : pix_scale_; // bit4 = ambientmap (see g_terrain_ambientmap)
+    std::memcpy(cubo.inv_vp, s7_.inv_vp, sizeof(cubo.inv_vp));
+    cubo.recon[0] = s7_.world_extent; cubo.recon[1] = s7_.res_texels;
+    cubo.recon[2] = (float)s7_.mode;
+    GpuPushFragmentUniforms(cmd, 1, &cubo, sizeof(cubo));
+
+    // set=2: same 7 shared ground samplers the normal forward terrain draw
+    // binds (TerrainPatchRenderer::DrawBatch) -- index 4 (tex_ground_nml)
+    // added task #12 (2026-09-03); index 5/6 (КРОК 3 packed detail array +
+    // tint) added 2026-09-17.
+    SDL_GPUTextureSamplerBinding ground_bindings[7];
+    ground.GetSharedGroundSamplers(ground_bindings);
+    if (g_terrain_ground_aniso_level >= 1) { // slots 1 = tex_ground, 4 = tex_ground_nml (see the 7-binding layout above)
+        if (SDL_GPUSampler* as = GroundAnisoSampler(g_terrain_ground_aniso_level)) {
+            ground_bindings[1].sampler = as;
+            ground_bindings[4].sampler = as;
+        }
+    }
+    // All 7 must be checked, not just index 0 -- unlike slots 0/2/3/6
+    // (plain sampler2D, always backed by a same-typed 1x1 fallback texture
+    // even when their real asset fails to load), slots 1/4/5
+    // (tex_ground_array, tex_ground_nml_array, tex_detail_array, all
+    // sampler2DArray in the shader) have no fallback of a matching image
+    // type in FillSamplerBindings and fall back to nullptr/nullptr.
+    for (int i = 0; i < 7; ++i) {
+        if (!ground_bindings[i].texture || !ground_bindings[i].sampler) return;
+    }
+    pv.BindFragmentSamplers(0, ground_bindings, 7);
+    // No SSBO left in this set (БОРГ-TERRAIN-2, 2026-09-13: vtPageMeta
+    // removed with the rest of TerrainVtPageCache) -- zoneGroundLayers is
+    // a texture, not an SSBO, since 2026-08-09.
+
+    // set=1: this class's own G-buffer (packed world-pos/normal + dedicated depth).
+    const bool s7_recon = (s7_.mode == 1 && s7_.normal_tex && s7_.normal_samp);
+    SDL_GPUTextureSamplerBinding gbuf_bindings[2] = {
+        // S7 mode 1: binding 7 carries the world normal texture (gbuf_color_ is not written).
+        s7_recon ? SDL_GPUTextureSamplerBinding{ s7_.normal_tex, s7_.normal_samp }
+                 : SDL_GPUTextureSamplerBinding{ gbuf_color_.SDLTexture(), gbuf_color_.SDLSampler() },
+        { gbuf_depth_.SDLTexture(), gbuf_depth_.SDLSampler() },
+    };
+    pv.BindFragmentSamplers(7, gbuf_bindings, 2);
+
+    // Zone ground-layer lookup -- binding=9 (КРОК 3, 2026-09-17: was 7,
+    // shifted +2 after inserting tex_detail_array/tex_detail_tint above),
+    // texture not SSBO since 2026-08-09 (Filament-blocker reduction, see
+    // ZoneGroundLayersTexture's header doc comment). Continues the same
+    // contiguous sampler run.
+    SDL_GPUTextureSamplerBinding zone_binding[1] = {
+        { ground.ZoneGroundLayersTexture(), ground.ZoneGroundLayersSampler() },
+    };
+    pv.BindFragmentSamplers(9, zone_binding, 1);
+
+    // bake/live cliff_w single-source-of-truth (2026-09-24), binding=10
+    // (2026-09-26: was 13, shifted -3 after removing task #141's
+    // zone-corner cliff bake atlas -- see CLAUDE_HISTORY.md) --
+    // continues the same contiguous sampler run. See terrain_
+    // shading_screenspace.frag's texSteepnessSmoothed doc comment.
+    SDL_GPUTextureSamplerBinding steepness_binding[1] = {
+        { ground.SteepnessSmoothedTexture(), ground.SteepnessSmoothedSampler() },
+    };
+    pv.BindFragmentSamplers(10, steepness_binding, 1);
+
+    // task-terrain-kenshi-parity (2026-09-26): the three Kenshi-parity
+    // biome-blend data sources, binding=11/12/13 -- see terrain_
+    // shading_screenspace.frag's own binding doc comments for the full
+    // rationale. Continues the same contiguous sampler run.
+    SDL_GPUTextureSamplerBinding kenshi_bindings[3] = {
+        { ground.BiomeBlendTexture(),      ground.BiomeBlendSampler() },
+        { ground.Kbi1BlendLookupTexture(), ground.Kbi1BlendLookupSampler() },
+        { ground.BiomeLayersTexture(),     ground.BiomeLayersSampler() },
+    };
+    // Unlike ground_bindings above, these three have no same-typed 1x1
+    // fallback on load failure (LoadTerrainTexture/UploadBiomeLayersTex
+    // leave the handle null rather than substituting a placeholder) --
+    // must check before binding, same reasoning as the ground_bindings
+    // loop's own comment.
+    if (with_biome_rts) { // lighting pass of the split Kenshi path: slots 11/12 carry the albedo / normal targets of RunBiomePasses
+        kenshi_bindings[0] = { albedo_rt_.SDLTexture(), albedo_rt_.SDLSampler() };
+        kenshi_bindings[1] = { normal_rt_.SDLTexture(), normal_rt_.SDLSampler() };
+    }
+    for (int i = 0; i < 3; ++i) {
+        if (!kenshi_bindings[i].texture || !kenshi_bindings[i].sampler) return;
+    }
+    pv.BindFragmentSamplers(11, kenshi_bindings, 3);
+
+    // Divergence #14: binding=14, Kenshi's ambientmap.png. Falls back to the (always loaded) biome-blend texture as a type-matching
+    // dummy when the file is missing -- the shader only reads it when bit4 of |pix_scale| is set, which needs AmbientMapReady().
+    SDL_GPUTextureSamplerBinding ambient_binding[1] = {
+        ground.AmbientMapReady() ? SDL_GPUTextureSamplerBinding{ ground.AmbientMapTexture(), ground.AmbientMapSampler() }
+                                 : SDL_GPUTextureSamplerBinding{ ground.BiomeBlendTexture(), ground.BiomeBlendSampler() },
+    };
+    pv.BindFragmentSamplers(14, ambient_binding, 1);
+
+    // 2026-09-19 (docs/RESOLVE_OPT.md session finding): directional
+    // ambient via AmbientProbeSystem, binding=14 (2026-09-26: was 11,
+    // shifted +3 after adding the 3 Kenshi-parity samplers above) --
+    // see terrain_shading_common.glsl's TS_HAS_AMBIENT_PROBE doc comment.
+    SDL_GPUBuffer* ambient_probe_buf = AmbientProbeSystem::Get().GetSSBO().SDLBuffer();
+    pv.BindFragmentStorageBuffers(0, &ambient_probe_buf, 1);
+
+    pv.Draw(3, 1, 0, 0);
+}
+
 void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd,
                                                    const TerrainRenderer::SunParams& sun,
                                                    float cam_x, float cam_y, float cam_z,
@@ -187,141 +346,38 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
                                                    bool kenshi_blend_debug) {
     if (!ready_) return;
 
-    // RESOLVE_OPT spatial-split plan, Крок 4/6 (docs/RESOLVE_OPT.md,
-    // 2026-09-19): four fullscreen draws instead of one -- each pipeline
-    // discards every category except its own (cheap=0, zone=1, cliff=2,
-    // full=3). Resource bindings (UBOs, samplers) are IDENTICAL for all
-    // four -- only the bound pipeline differs -- but rebound per-draw
-    // rather than assumed to persist across BindPipeline, since that
-    // persistence isn't verified for this HAL wrapper and the cost of
-    // rebinding is negligible next to the fragment-shader win this split
-    // exists for.
-    auto drawOne = [&](GpuPipeline& pipeline) {
-        GpuPassView pv = GpuPassView::FromRaw(rp, cmd);
-        pv.BindPipeline(&pipeline);
+    // RESOLVE_OPT 4-draw split reverted to a single draw -- see resolve_pipeline_'s own doc comment (terrain_shading_projected.h).
+    // #142 phase 1a: when RunBiomePasses ran this frame the Kenshi resolve is only the lighting pass.
+    const bool light_pass = kenshi_blend_debug && biome_split_active_ && resolve_kenshi_l_ready_;
+    GpuPipeline& pl = light_pass ? resolve_kenshi_l_pipeline_ : ((kenshi_blend_debug && resolve_kenshi_ready_) ? resolve_kenshi_pipeline_ : resolve_pipeline_);
+    DrawFullscreen(rp, cmd, pl, sun, cam_x, cam_y, cam_z, world_origin_x, world_origin_z, world_to_uv,
+                   fog_far, fog_color, fog_near, ground, shade_constant_debug, kenshi_blend_debug, light_pass);
+}
 
-        ProjFragUBO fubo{};
-        fubo.sun_dir_str[0] = sun.dir[0]; fubo.sun_dir_str[1] = sun.dir[1];
-        fubo.sun_dir_str[2] = sun.dir[2]; fubo.sun_dir_str[3] = sun.strength;
-        fubo.ambient[0]     = sun.ambient[0]; fubo.ambient[1] = sun.ambient[1];
-        fubo.ambient[2]     = sun.ambient[2];
-        fubo.ambient[3]     = units10_ ? 1.f : 0.f; // .w = "terrain_units10" flag (the shader's ambient uses .xyz only)
-        fubo.world_params[0] = world_origin_x; fubo.world_params[1] = world_origin_z;
-        fubo.world_params[2] = world_to_uv;
-        // Крок 0 ablation (shade_constant_debug=1.0) / task-terrain-kenshi-
-        // parity (kenshi_blend_debug=2.0, checked first in the shader) --
-        // see header doc comment.
-        fubo.world_params[3] = kenshi_blend_debug ? 2.f : (shade_constant_debug ? 1.f : 0.f);
-        fubo.fog_color_near[0] = fog_color[0]; fubo.fog_color_near[1] = fog_color[1];
-        fubo.fog_color_near[2] = fog_color[2]; fubo.fog_color_near[3] = fog_near;
-        fubo.fog_far = fog_far;
-        GpuPushFragmentUniforms(cmd, 0, &fubo, sizeof(fubo));
-
-        ProjCamUBO cubo{};
-        cubo.cam_pos_ws[0] = cam_x; cubo.cam_pos_ws[1] = cam_y;
-        cubo.cam_pos_ws[2] = cam_z; cubo.cam_pos_ws[3] = (g_terrain_ambientmap && ground.AmbientMapReady())
-            ? (pix_scale_ < 0.f ? pix_scale_ - 1600.f : pix_scale_ + 1600.f) : pix_scale_; // bit4 = ambientmap (see g_terrain_ambientmap)
-        std::memcpy(cubo.inv_vp, s7_.inv_vp, sizeof(cubo.inv_vp));
-        cubo.recon[0] = s7_.world_extent; cubo.recon[1] = s7_.res_texels;
-        cubo.recon[2] = (float)s7_.mode;
-        GpuPushFragmentUniforms(cmd, 1, &cubo, sizeof(cubo));
-
-        // set=2: same 7 shared ground samplers the normal forward terrain draw
-        // binds (TerrainPatchRenderer::DrawBatch) -- index 4 (tex_ground_nml)
-        // added task #12 (2026-09-03); index 5/6 (КРОК 3 packed detail array +
-        // tint) added 2026-09-17.
-        SDL_GPUTextureSamplerBinding ground_bindings[7];
-        ground.GetSharedGroundSamplers(ground_bindings);
-        if (g_terrain_ground_aniso_level >= 1) { // slots 1 = tex_ground, 4 = tex_ground_nml (see the 7-binding layout above)
-            if (SDL_GPUSampler* as = GroundAnisoSampler(g_terrain_ground_aniso_level)) {
-                ground_bindings[1].sampler = as;
-                ground_bindings[4].sampler = as;
-            }
-        }
-        // All 7 must be checked, not just index 0 -- unlike slots 0/2/3/6
-        // (plain sampler2D, always backed by a same-typed 1x1 fallback texture
-        // even when their real asset fails to load), slots 1/4/5
-        // (tex_ground_array, tex_ground_nml_array, tex_detail_array, all
-        // sampler2DArray in the shader) have no fallback of a matching image
-        // type in FillSamplerBindings and fall back to nullptr/nullptr.
-        for (int i = 0; i < 7; ++i) {
-            if (!ground_bindings[i].texture || !ground_bindings[i].sampler) return;
-        }
-        pv.BindFragmentSamplers(0, ground_bindings, 7);
-        // No SSBO left in this set (БОРГ-TERRAIN-2, 2026-09-13: vtPageMeta
-        // removed with the rest of TerrainVtPageCache) -- zoneGroundLayers is
-        // a texture, not an SSBO, since 2026-08-09.
-
-        // set=1: this class's own G-buffer (packed world-pos/normal + dedicated depth).
-        const bool s7_recon = (s7_.mode == 1 && s7_.normal_tex && s7_.normal_samp);
-        SDL_GPUTextureSamplerBinding gbuf_bindings[2] = {
-            // S7 mode 1: binding 7 carries the world normal texture (gbuf_color_ is not written).
-            s7_recon ? SDL_GPUTextureSamplerBinding{ s7_.normal_tex, s7_.normal_samp }
-                     : SDL_GPUTextureSamplerBinding{ gbuf_color_.SDLTexture(), gbuf_color_.SDLSampler() },
-            { gbuf_depth_.SDLTexture(), gbuf_depth_.SDLSampler() },
-        };
-        pv.BindFragmentSamplers(7, gbuf_bindings, 2);
-
-        // Zone ground-layer lookup -- binding=9 (КРОК 3, 2026-09-17: was 7,
-        // shifted +2 after inserting tex_detail_array/tex_detail_tint above),
-        // texture not SSBO since 2026-08-09 (Filament-blocker reduction, see
-        // ZoneGroundLayersTexture's header doc comment). Continues the same
-        // contiguous sampler run.
-        SDL_GPUTextureSamplerBinding zone_binding[1] = {
-            { ground.ZoneGroundLayersTexture(), ground.ZoneGroundLayersSampler() },
-        };
-        pv.BindFragmentSamplers(9, zone_binding, 1);
-
-        // bake/live cliff_w single-source-of-truth (2026-09-24), binding=10
-        // (2026-09-26: was 13, shifted -3 after removing task #141's
-        // zone-corner cliff bake atlas -- see CLAUDE_HISTORY.md) --
-        // continues the same contiguous sampler run. See terrain_
-        // shading_screenspace.frag's texSteepnessSmoothed doc comment.
-        SDL_GPUTextureSamplerBinding steepness_binding[1] = {
-            { ground.SteepnessSmoothedTexture(), ground.SteepnessSmoothedSampler() },
-        };
-        pv.BindFragmentSamplers(10, steepness_binding, 1);
-
-        // task-terrain-kenshi-parity (2026-09-26): the three Kenshi-parity
-        // biome-blend data sources, binding=11/12/13 -- see terrain_
-        // shading_screenspace.frag's own binding doc comments for the full
-        // rationale. Continues the same contiguous sampler run.
-        SDL_GPUTextureSamplerBinding kenshi_bindings[3] = {
-            { ground.BiomeBlendTexture(),      ground.BiomeBlendSampler() },
-            { ground.Kbi1BlendLookupTexture(), ground.Kbi1BlendLookupSampler() },
-            { ground.BiomeLayersTexture(),     ground.BiomeLayersSampler() },
-        };
-        // Unlike ground_bindings above, these three have no same-typed 1x1
-        // fallback on load failure (LoadTerrainTexture/UploadBiomeLayersTex
-        // leave the handle null rather than substituting a placeholder) --
-        // must check before binding, same reasoning as the ground_bindings
-        // loop's own comment.
-        for (int i = 0; i < 3; ++i) {
-            if (!kenshi_bindings[i].texture || !kenshi_bindings[i].sampler) return;
-        }
-        pv.BindFragmentSamplers(11, kenshi_bindings, 3);
-
-        // Divergence #14: binding=14, Kenshi's ambientmap.png. Falls back to the (always loaded) biome-blend texture as a type-matching
-        // dummy when the file is missing -- the shader only reads it when bit4 of |pix_scale| is set, which needs AmbientMapReady().
-        SDL_GPUTextureSamplerBinding ambient_binding[1] = {
-            ground.AmbientMapReady() ? SDL_GPUTextureSamplerBinding{ ground.AmbientMapTexture(), ground.AmbientMapSampler() }
-                                     : SDL_GPUTextureSamplerBinding{ ground.BiomeBlendTexture(), ground.BiomeBlendSampler() },
-        };
-        pv.BindFragmentSamplers(14, ambient_binding, 1);
-
-        // 2026-09-19 (docs/RESOLVE_OPT.md session finding): directional
-        // ambient via AmbientProbeSystem, binding=14 (2026-09-26: was 11,
-        // shifted +3 after adding the 3 Kenshi-parity samplers above) --
-        // see terrain_shading_common.glsl's TS_HAS_AMBIENT_PROBE doc comment.
-        SDL_GPUBuffer* ambient_probe_buf = AmbientProbeSystem::Get().GetSSBO().SDLBuffer();
-        pv.BindFragmentStorageBuffers(0, &ambient_probe_buf, 1);
-
-        pv.Draw(3, 1, 0, 0);
-    };
-
-    // RESOLVE_OPT 4-draw split reverted to a single draw -- see
-    // resolve_pipeline_'s own doc comment (terrain_shading_projected.h)
-    // for the full measured rationale.
-    drawOne((kenshi_blend_debug && resolve_kenshi_ready_) ? resolve_kenshi_pipeline_ : resolve_pipeline_);
+// #142 phase 1a: the Kenshi ground shader did not fit SIMD16 (albedo + normal + lighting live at once); the biome blend is split into
+// an albedo pass and a normal pass into two offscreen targets, and the resolve then only reads them for the lighting. Runs after the
+// G-buffer pass, outside any pass. Returns false (and the resolve stays monolithic) when a pipeline is unavailable.
+bool TerrainShadingProjected::RunBiomePasses(md::GpuCommandBufferHandle cmd, float cam_x, float cam_y, float cam_z,
+                                              float world_origin_x, float world_origin_z, float world_to_uv,
+                                              const TerrainRenderer& ground) {
+    biome_split_active_ = false;
+    if (!ready_ || !resolve_kenshi_a_ready_ || !resolve_kenshi_n_ready_ || !resolve_kenshi_l_ready_ || !albedo_rt_.SDLTexture() || !normal_rt_.SDLTexture()) return false;
+    const TerrainRenderer::SunParams sun = TerrainRenderer::SunParams::Default();
+    const float fog_color[3] = {0.f, 0.f, 0.f};
+    struct Pass { GpuTexture* rt; GpuPipeline* pl; } passes[2] = { { &albedo_rt_, &resolve_kenshi_a_pipeline_ }, { &normal_rt_, &resolve_kenshi_n_pipeline_ } };
+    for (const Pass& ps : passes) {
+        GpuCommandBuffer cb;
+        GpuCommandBuffer::ColorPassDesc cpd;
+        cpd.cmd = cmd;
+        cpd.color_tex[0] = ps.rt->SDLTexture();
+        cpd.clear_color[0] = 0.f; cpd.clear_color[1] = 0.f; cpd.clear_color[2] = 0.f; cpd.clear_color[3] = 0.f;
+        cpd.load_color = false; // CLEAR: pixels without terrain stay alpha 0
+        cb.BeginColorPass(cpd);
+        DrawFullscreen(cb.SDLPass(), cmd, *ps.pl, sun, cam_x, cam_y, cam_z, world_origin_x, world_origin_z, world_to_uv,
+                       0.f, fog_color, 0.f, ground, false, true, false);
+        cb.EndPass();
+    }
+    biome_split_active_ = true;
+    return true;
 }
 #endif
