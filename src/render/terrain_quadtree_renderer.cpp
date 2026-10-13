@@ -475,7 +475,7 @@ void TerrainQuadtreeRenderer::UploadLodNodes(md::GpuDeviceHandle dev, SDL_GPUCop
             }
         }
         const int cx = (int)std::lround(cam_x / kCellM), cz = (int)std::lround(cam_z / kCellM);
-        const int lim = (int)(0.35f * kFineW);
+        const int lim = fine_lim_cells_;
         if (!fine_job_active_ && (fine_ox_ < -100000 || std::abs(cx - (fine_ox_ + kFineW / 2)) > lim || std::abs(cz - (fine_oz_ + kFineW / 2)) > lim)) {
             const int ox = std::min(std::max(cx - kFineW / 2, 0), kTifSide - kFineW);
             const int oz = std::min(std::max(cz - kFineW / 2, 0), kTifSide - kFineW);

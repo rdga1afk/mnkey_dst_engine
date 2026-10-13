@@ -230,6 +230,8 @@ public:
     // the LOD's fine height window (R16_UNORM, 1.8 m cells, normalised with HeightMin / HeightRange): the ground cache bake reads heights and normals from it
     bool  LodFineReady() const { return lod_ready_ && fine_tex_ && fine_ox_ >= 0; }
     // true when the fine window holds the heights around (x, z) out to radius r (metres); the window is replaced by a background job after the camera leaves its middle
+    // the camera's drift from the window's centre (cells) that starts a recentre; the default is 70 % of the half width. The ground cache rings need the window to hold their reach.
+    void  SetFineRecentreCells(int cells) { fine_lim_cells_ = cells; }
     bool  LodFineCovers(float x, float z, float r) const { const float c = 1.8f, n = (float)LodFineCells(); return LodFineReady() && x - r >= fine_ox_ * c && z - r >= fine_oz_ * c && x + r <= (fine_ox_ + n - 1.f) * c && z + r <= (fine_oz_ + n - 1.f) * c; }
     SDL_GPUTexture* LodFineTex() const { return fine_tex_; }
     SDL_GPUSampler* LodFineSampler() const { return fine_sampler_; }
@@ -292,6 +294,7 @@ private:
     std::future<std::vector<uint16_t>> fine_job_;
     int fine_job_ox_ = 0, fine_job_oz_ = 0;
     bool fine_job_active_ = false;
+    int fine_lim_cells_ = 537;
     float height_min_ = 0.f, height_range_ = 1.f;
     std::string tif_path_;
 };

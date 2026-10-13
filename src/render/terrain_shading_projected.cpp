@@ -243,7 +243,7 @@ void TerrainShadingProjected::DrawFullscreen(SDL_GPURenderPass* rp, md::GpuComma
         std::memcpy(cubo.inv_vp, s7_.inv_vp, sizeof(cubo.inv_vp));
         // recon = the ground cache ring for the resolve: xy = centre, z = texel size (m), w = ring size (0 = not used). The S7 values that lived here
         // (world extent / resolution / mode) were read by no shader since the 8 B G-buffer.
-        if (ring_use_ && ring_ready_ && ring_valid_) { cubo.recon[0] = ring_cx_; cubo.recon[1] = ring_cz_; cubo.recon[2] = ring_texel_m_; cubo.recon[3] = (ring_count_ > 1 ? -1.f : 1.f) * (float)ring_n_; }
+        if (ring_use_ && ring_ready_ && ring_valid_ && ring_mask_) { cubo.recon[0] = ring_cx_; cubo.recon[1] = ring_cz_; cubo.recon[2] = ring_texel_m_; cubo.recon[3] = (float)(ring_mask_ * 8192 + ring_n_); }
         else { cubo.recon[0] = cubo.recon[1] = cubo.recon[2] = cubo.recon[3] = 0.f; }
     }
     GpuPushFragmentUniforms(cmd, 1, &cubo, sizeof(cubo));
@@ -284,7 +284,7 @@ void TerrainShadingProjected::DrawFullscreen(SDL_GPURenderPass* rp, md::GpuComma
     };
     if (bake) { // the bake variant reads the fine height window at 7 (and has nothing at 8)
         gbuf_bindings[0] = { fw->tex, fw->samp };
-        gbuf_bindings[1] = { fw->tex, fw->samp };
+        gbuf_bindings[1] = (fw->world_tex && fw->world_samp) ? SDL_GPUTextureSamplerBinding{ fw->world_tex, fw->world_samp } : SDL_GPUTextureSamplerBinding{ fw->tex, fw->samp };
     }
     pv.BindFragmentSamplers(7, gbuf_bindings, 2);
 
@@ -354,9 +354,9 @@ void TerrainShadingProjected::DrawFullscreen(SDL_GPURenderPass* rp, md::GpuComma
 }
 
 void TerrainShadingProjected::ConfigureRing(int n, float texel_m, int rings) {
-    rings = std::max(1, std::min(2, rings));
+    rings = std::max(1, std::min(kMaxRings, rings));
     if (n == ring_n_ && texel_m == ring_texel_m_ && rings == ring_count_) return;
-    ring_count_ = rings; ring_have_ = false; ring_building_ = false;
+    ring_count_ = rings; ring_have_ = false; ring_mask_ = 0;
     ring_color_.Shutdown();
     ring_ready_ = false; ring_valid_ = false;
     ring_n_ = n; ring_texel_m_ = texel_m;
@@ -380,55 +380,68 @@ bool TerrainShadingProjected::EnsureGroundRing() {
 
 int TerrainShadingProjected::UpdateGroundRing(md::GpuCommandBufferHandle cmd, float cam_x, float cam_y, float cam_z, float world_origin_x, float world_origin_z,
                                                float world_to_uv, const TerrainRenderer& ground, const FineWindow& fw, float target_x, float target_z,
-                                               int budget_texels, bool force_full) {
+                                               int budget_texels, bool force_full, float cam_h, float select_factor) {
     if (!EnsureGroundRing() || !fw.tex || !fw.samp) return 0;
     const int N = ring_n_, mask = N - 1, R = ring_count_;
     const int tx = (int)std::floor(target_x / ring_texel_m_ + 0.5f), tz = (int)std::floor(target_z / ring_texel_m_ + 0.5f);
     struct Rect { int ring, x, y, w, h; };
-    Rect rects[32]; int nr = 0; int texels = 0;
-    auto add = [&](int k, int x, int y, int w, int h) { if (w > 0 && h > 0 && nr < 32) { rects[nr++] = { k, x, y, w, h }; texels += w * h; } };
+    Rect rects[64]; int nr = 0; int texels = 0;
+    auto add = [&](int k, int x, int y, int w, int h) { if (w > 0 && h > 0 && nr < 64) { rects[nr++] = { k, x, y, w, h }; texels += w * h; } };
     // a strip of `len` physical columns (col) / rows of ring k starting at world texel `start`, split where it wraps
     auto strip = [&](int k, bool col, int start, int len) {
         const int s = start & mask, l1 = std::min(len, N - s);
         if (col) { add(k, s, 0, l1, N); add(k, 0, 0, len - l1, N); } else { add(k, 0, s, N, l1); add(k, 0, 0, N, len - l1); }
     };
-    int ci[2][2] = { { ring_ci_x_, ring_ci_z_ }, { ring_ci1_x_, ring_ci1_z_ } };  // centre texel of each ring (ring 1: ceil(c0 / 2), in its own texels)
-    auto derive1 = [&](int c0) { return (c0 + 1) >> 1; };
-    const int rows_per_call = std::max(1, budget_texels / N);
+    auto derive = [](int c0, int k) { return (c0 + ((1 << k) >> 1)) >> k; }; // ring k centre texel; same rule in the resolve shader
+    // ring 0's centre (virtual while ring 0 is inactive) drives all the others
     bool restart = force_full || !ring_have_;
-    if (!restart && !ring_building_ && std::max(std::abs(tx - ring_ci_x_), std::abs(tz - ring_ci_z_)) >= N * 3 / 4) restart = true;
-    if (restart) {
-        ring_ci_x_ = tx; ring_ci_z_ = tz; ring_ci1_x_ = derive1(tx); ring_ci1_z_ = derive1(tz);
-        ring_have_ = true; ring_building_ = true; ring_fill_row_[0] = ring_fill_row_[1] = 0; ring_valid_ = false;
-    } else if (!ring_building_) {
+    if (!restart && std::max(std::abs(tx - ring_ci_x_), std::abs(tz - ring_ci_z_)) >= N * 3 / 4) restart = true;
+    int new_c0x = ring_ci_x_, new_c0z = ring_ci_z_;
+    if (restart) { new_c0x = tx; new_c0z = tz; }
+    else {
         const int kHyst = 8; // ring 0 texels: scroll in batches rather than a sliver every frame
-        const int max_step = std::max(1, budget_texels / (3 * N));
+        const int max_step = std::max(1, budget_texels / (4 * N));
         auto step = [&](int d) { return std::abs(d) >= kHyst ? std::max(-max_step, std::min(max_step, d)) : 0; };
-        const int dx = step(tx - ring_ci_x_), dz = step(tz - ring_ci_z_);
-        if (dx != 0 || dz != 0) {
-            for (int k = 0; k < R; ++k) {
-                const int ox = ci[k][0], oz = ci[k][1];
-                const int nx = k == 0 ? ox + dx : derive1(ring_ci_x_ + dx), nz = k == 0 ? oz + dz : derive1(ring_ci_z_ + dz);
-                const int ddx = nx - ox, ddz = nz - oz;
-                // the physical columns / rows of the texels that left (moving +) or the ones that enter (moving -) are the ones to rebake
-                if (ddx != 0) strip(k, true,  ddx > 0 ? ox - N / 2 : nx - N / 2, std::abs(ddx));
-                if (ddz != 0) strip(k, false, ddz > 0 ? oz - N / 2 : nz - N / 2, std::abs(ddz));
-                if (k == 1) { ring_ci1_x_ = nx; ring_ci1_z_ = nz; }
-            }
-            ring_ci_x_ += dx; ring_ci_z_ += dz;
-        }
+        new_c0x += step(tx - ring_ci_x_); new_c0z += step(tz - ring_ci_z_);
     }
-    if (ring_building_) {
-        int left = force_full ? N * R : rows_per_call;
-        bool done = true;
-        for (int k = 0; k < R; ++k) {
+    // which rings are active: the camera's height decides (a ring much finer than a pixel at the nearest ground is never used)
+    // pix_scale_ carries debug flags as +100 * k (|2 * tan(fovy / 2)| < 50 always), stripped the way the resolve shader does
+    float pixScale = std::fabs(pix_scale_);
+    pixScale -= 100.f * std::floor((pixScale + 50.f) / 100.f);
+    const float hp = (cam_h > 0.f) ? cam_h * pixScale / (float)std::max(h_, 1) : 0.f; // pixel size at the nearest ground, metres
+    bool want[kMaxRings] = {};
+    for (int k = 0; k < R; ++k) {
+        const float t = ring_texel_m_ * (float)(1 << k);
+        want[k] = ring_active_[k] ? (t >= 0.67f * select_factor * hp) : (t >= select_factor * hp);
+        if (k == R - 1) want[k] = true; // the coarsest ring is always on
+    }
+    if (restart) { for (int k = 0; k < R; ++k) { ring_active_[k] = false; ring_fill_row_[k] = 0; } ring_have_ = true; }
+    for (int k = 0; k < R; ++k) {
+        if (!want[k]) { ring_active_[k] = false; ring_fill_row_[k] = 0; continue; }
+        const int nx = derive(new_c0x, k), nz = derive(new_c0z, k);
+        if (!ring_active_[k]) { ring_active_[k] = true; ring_fill_row_[k] = 0; ring_ci_k_[k][0] = nx; ring_ci_k_[k][1] = nz; continue; }
+        const int ox = ring_ci_k_[k][0], oz = ring_ci_k_[k][1];
+        const int ddx = nx - ox, ddz = nz - oz;
+        // the physical columns / rows of the texels that left (moving +) or the ones that enter (moving -) are the ones to rebake
+        if (ddx != 0) strip(k, true,  ddx > 0 ? ox - N / 2 : nx - N / 2, std::abs(ddx));
+        if (ddz != 0) strip(k, false, ddz > 0 ? oz - N / 2 : nz - N / 2, std::abs(ddz));
+        ring_ci_k_[k][0] = nx; ring_ci_k_[k][1] = nz;
+    }
+    ring_ci_x_ = new_c0x; ring_ci_z_ = new_c0z;
+    // refill the rings that are not complete, coarsest first, within the budget
+    {
+        int left = force_full ? N * R : std::max(1, budget_texels / N);
+        for (int k = R - 1; k >= 0; --k) {
+            if (!ring_active_[k] || ring_fill_row_[k] >= N) continue;
             const int rows = std::min(left, N - ring_fill_row_[k]);
+            if (rows <= 0) break;
             add(k, 0, ring_fill_row_[k], N, rows);
             ring_fill_row_[k] += rows; left -= rows;
-            if (ring_fill_row_[k] < N) done = false;
         }
-        if (done) { ring_building_ = false; ring_valid_ = true; }
     }
+    ring_mask_ = 0;
+    for (int k = 0; k < R; ++k) if (ring_active_[k] && ring_fill_row_[k] >= N) ring_mask_ |= 1 << k;
+    ring_valid_ = ring_mask_ != 0;
     ring_cx_ = ring_ci_x_ * ring_texel_m_; ring_cz_ = ring_ci_z_ * ring_texel_m_;
     if (nr == 0) return 0;
 
@@ -447,11 +460,10 @@ int TerrainShadingProjected::UpdateGroundRing(md::GpuCommandBufferHandle cmd, fl
     c.world_origin_x = world_origin_x; c.world_origin_z = world_origin_z; c.world_to_uv = world_to_uv;
     c.fog_far = 1.f; c.fog_color = fog_col; c.fog_near = 0.f;
     c.ground = &ground; c.shade_constant_debug = false; c.kenshi_blend_debug = true;
-    const int cur[2][2] = { { ring_ci_x_, ring_ci_z_ }, { ring_ci1_x_, ring_ci1_z_ } };
     for (int i = 0; i < nr; ++i) {
         const int k = rects[i].ring;
-        float cols[12] = { (float)(cur[k][0] - N / 2), (float)(cur[k][1] - N / 2), ring_texel_m_ * (float)(1 << k), (float)N,
-                           fw.origin_x_m, fw.origin_z_m, fw.hmin, fw.hrange,  (float)fw.cells, fw.cell_m, (float)(k * N), 0.f };
+        float cols[12] = { (float)(ring_ci_k_[k][0] - N / 2), (float)(ring_ci_k_[k][1] - N / 2), ring_texel_m_ * (float)(1 << k), (float)N,
+                           fw.origin_x_m, fw.origin_z_m, fw.hmin, fw.hrange,  (float)fw.cells, fw.cell_m, (float)(k * N), fw.world_cell_m };
         SDL_Rect sc = { rects[i].x, rects[i].y + k * N, rects[i].w, rects[i].h };
         SDL_SetGPUScissor(rp, &sc);
         DrawFullscreen(rp, cmd, bake_pipeline_, c, true, &fw, cols);
