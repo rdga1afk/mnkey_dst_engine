@@ -117,6 +117,9 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
     // #155 step 1: the same variant without the flat-chain skip on cliff_w >= 1 (A/B, SetSkipFlatOnCliff(false)); non-fatal
     rd.frag_path = "shaders/terrain_shading_screenspace_kenshi_noskip.frag";
     resolve_kenshi_noskip_ready_ = resolve_kenshi_noskip_pipeline_.Create(rd);
+    // #155 step 2b: the Kenshi resolve with the ground cache read; the default variant above has no ring code
+    rd.frag_path = "shaders/terrain_shading_screenspace_kenshi_ring.frag";
+    resolve_kenshi_ring_ready_ = resolve_kenshi_ring_pipeline_.Create(rd);
     // #155 step 2: ground cache bake variant: same inputs, one RGBA16UI colour target, no depth
     {
         GpuPipeline::Desc bd = rd;
@@ -155,6 +158,8 @@ void TerrainShadingProjected::Shutdown() {
     resolve_kenshi_ready_ = false;
     resolve_kenshi_noskip_pipeline_.Destroy();
     resolve_kenshi_noskip_ready_ = false;
+    resolve_kenshi_ring_pipeline_.Destroy();
+    resolve_kenshi_ring_ready_ = false;
     bake_pipeline_.Destroy();
     bake_ready_ = false;
     ring_color_.Shutdown();
@@ -233,6 +238,7 @@ void TerrainShadingProjected::DrawFullscreen(SDL_GPURenderPass* rp, md::GpuComma
         // bake: inv_vp holds the ring / fine-window columns (see terrain_shading_screenspace.frag, TS_BAKE); recon is unused there
         std::memset(cubo.inv_vp, 0, sizeof(cubo.inv_vp));
         std::memcpy(cubo.inv_vp, bake_cols, 12 * sizeof(float));
+        cubo.recon[0] = (float)h_; // the screen's height in pixels: the live shader's analytic mip uses the pixel angle (pix_scale / G-buffer height), the bake must too
     } else {
         std::memcpy(cubo.inv_vp, s7_.inv_vp, sizeof(cubo.inv_vp));
         // recon = the ground cache ring for the resolve: xy = centre, z = texel size (m), w = ring size (0 = not used). The S7 values that lived here
@@ -418,6 +424,10 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
     // RESOLVE_OPT 4-draw split reverted to a single draw -- see
     // resolve_pipeline_'s own doc comment (terrain_shading_projected.h)
     // for the full measured rationale.
-    DrawFullscreen(rp, cmd, (kenshi_blend_debug && resolve_kenshi_ready_) ? ((!skip_flat_on_cliff_ && resolve_kenshi_noskip_ready_) ? resolve_kenshi_noskip_pipeline_ : resolve_kenshi_pipeline_) : resolve_pipeline_, c, false, nullptr, nullptr);
+    const bool want_ring_variant = (ring_use_ && ring_ready_ && ring_valid_) || ring_variant_forced_;
+    GpuPipeline* kp = &resolve_kenshi_pipeline_;
+    if (!skip_flat_on_cliff_ && resolve_kenshi_noskip_ready_) kp = &resolve_kenshi_noskip_pipeline_; // the A/B variant keeps its ring code (not used with the cache)
+    else if (want_ring_variant && resolve_kenshi_ring_ready_) kp = &resolve_kenshi_ring_pipeline_;
+    DrawFullscreen(rp, cmd, (kenshi_blend_debug && resolve_kenshi_ready_) ? *kp : resolve_pipeline_, c, false, nullptr, nullptr);
 }
 #endif

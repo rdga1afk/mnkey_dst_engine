@@ -134,6 +134,7 @@ public:
     void BakeGroundRing(md::GpuCommandBufferHandle cmd, float cam_x, float cam_y, float cam_z, float world_origin_x, float world_origin_z,
                         float world_to_uv, const TerrainRenderer& ground, const FineWindow& fw, float cx, float cz);
     void  SetRingUse(bool on) { ring_use_ = on; }
+    void  SetRingVariantForced(bool on) { ring_variant_forced_ = on; } // measurement: the ring shader variant with the cache off
     bool  RingValid() const { return ring_valid_; }
     float RingCx() const { return ring_cx_; }
     float RingCz() const { return ring_cz_; }
@@ -178,6 +179,10 @@ private:
     // #155 step 1: the Kenshi variant that does not skip the flat layer chain where cliff_w >= 1 (pixel-identical output, A/B only)
     GpuPipeline       resolve_kenshi_noskip_pipeline_;
     bool              resolve_kenshi_noskip_ready_ = false;
+    // #155 step 2b: the Kenshi resolve WITH the ground cache read (+233 instructions, SIMD8): used only while the cache is on (or forced); the default Kenshi pipeline has no ring code
+    GpuPipeline       resolve_kenshi_ring_pipeline_;
+    bool              resolve_kenshi_ring_ready_ = false;
+    bool              ring_variant_forced_ = false;
     bool              skip_flat_on_cliff_ = true;
     // #155 step 2 ground cache ring
     GpuPipeline       bake_pipeline_;
