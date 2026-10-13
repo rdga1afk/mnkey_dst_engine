@@ -13,7 +13,8 @@
 bool RenderDocHook_Init();
 
 // Call from a script/console command to capture the NEXT full frame.
-void RenderDocHook_ArmCapture();
+// The capture goes to temp_/captures/<tag>_<time>_frame<N>.rdc (tag defaults to "capture").
+void RenderDocHook_ArmCapture(const char* tag = nullptr);
 
 // Call once per frame, immediately before the frame's render work begins.
 // If a capture is armed, starts it (StartFrameCapture) and clears the arm flag.

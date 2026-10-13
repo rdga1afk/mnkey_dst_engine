@@ -2,11 +2,14 @@
 #include <renderdoc_app.h>
 #include <dlfcn.h>
 #include <cstdio>
+#include <ctime>
+#include <filesystem>
 
 static RENDERDOC_API_1_1_2* s_api = nullptr;
 static bool s_tried = false;
 static bool s_armed = false;
 static bool s_capturing = false;
+static char s_path_template[512] = "";
 
 // 2026-09-05: every diagnostic print here now fflush()es immediately.
 // Root cause of a silent debugging session: stdout is fully-buffered (not
@@ -47,14 +50,18 @@ bool RenderDocHook_Init() {
     return true;
 }
 
-void RenderDocHook_ArmCapture() {
+void RenderDocHook_ArmCapture(const char* tag) {
     if (!RenderDocHook_Init()) {
         fprintf(stdout, "[RenderDocHook] ArmCapture: Init() failed, capture NOT armed\n");
         fflush(stdout);
         return;
     }
+    std::error_code ec;
+    std::filesystem::create_directories("temp_/captures", ec);
+    std::snprintf(s_path_template, sizeof(s_path_template), "temp_/captures/%s_%lld", (tag && *tag) ? tag : "capture", (long long)std::time(nullptr));
+    s_api->SetCaptureFilePathTemplate(s_path_template);
     s_armed = true;
-    fprintf(stdout, "[RenderDocHook] capture armed for next frame\n");
+    fprintf(stdout, "[RenderDocHook] capture armed for next frame -> %s_frame*.rdc\n", s_path_template);
     fflush(stdout);
 }
 
