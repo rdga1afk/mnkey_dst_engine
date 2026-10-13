@@ -213,9 +213,19 @@ public:
     bool InitLod(md::GpuDeviceHandle dev, const TerrainWorldHeightmap& hmap);
     // Starts the background table build on first use (reads the whole fullmap.tif once); true when the pipeline and the tables are ready.
     bool RequestLod(const TerrainWorldHeightmap& hmap) {
-        if (lod_ready_ && !lod_started_) { lod_started_ = true; lod_tree_.BuildAsync(tif_path_.c_str(), hmap.WorldExtent(), 980.0f); }
+        if (lod_ready_ && !lod_started_) { lod_started_ = true; lod_tree_.BuildAsync(tif_path_.c_str(), hmap.WorldExtent(), 980.0f, lod_cells_); }
         return lod_ready_ && lod_tree_.Ready();
     }
+    // Patch size (quads per node edge): 16 or 64. A change restarts the background table build (LOD is not ready until it finishes -> flat tiling meanwhile).
+    void SetLodPatch(int cells) {
+        cells = (cells == 64) ? 64 : 16;
+        if (cells == lod_cells_) return;
+        lod_cells_ = cells;
+        if (lod_started_) lod_tree_.BuildAsync(tif_path_.c_str(), 29491.2f, 980.0f, lod_cells_);
+    }
+    int  LodPatch() const { return lod_cells_; }
+    // LOD was asked for but cannot work: no Kenshi directory / fullmap.tif (logged as an error). Callers that measure must stop on it.
+    bool LodUnavailable() const { return lod_init_failed_ || lod_tree_.Failed(); }
     bool IsLodReady() const { return lod_ready_ && lod_tree_.Ready(); }
     int  SelectLod(const float cam[3], const float frustum_planes[16], const md::TerrainLodParams& p, md::TerrainLodNode* out, int max_out) const {
         return lod_tree_.Select(cam, frustum_planes, p, out, max_out);
@@ -225,7 +235,7 @@ public:
     void BeginBatchedLod(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, const TerrainWorldHeightmap& hmap, const float* vp16,
                          float cam_x, float cam_y, float cam_z);
     void DrawBatchedLod(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, int count);
-    uint32_t LodTrianglesPerNode() const { return lod_index_count_ / 3; }
+    uint32_t LodTrianglesPerNode() const { return (lod_cells_ == 64 ? lod_index_count64_ : lod_index_count_) / 3; }
 
 private:
     GpuPipeline gbuffer_pipeline_;
@@ -257,6 +267,10 @@ private:
     GpuPipeline lod_pipeline_;
     GpuStaticBuffer lod_ibo_;
     uint32_t lod_index_count_ = 0;
+    GpuStaticBuffer lod_ibo64_;
+    uint32_t lod_index_count64_ = 0;
+    int lod_cells_ = 16;
+    bool lod_init_failed_ = false;
     md::GpuTextureHandle fine_tex_ = nullptr;
     SDL_GPUSampler* fine_sampler_ = nullptr;
     int fine_ox_ = -1000000, fine_oz_ = -1000000; // window origin in heightmap cells (1.8 m)

@@ -8,7 +8,7 @@ namespace md {
 
 namespace {
 constexpr int   kSamples   = 16385;   // fullmap.tif side
-constexpr int   kLeafLevel = 10;      // 1024 nodes per side, 16 cells each
+constexpr int   kLeafLevel16 = 10;    // 16-cell patches: 1024 nodes per side at the finest level; 64-cell patches: level 8 (256 per side)
 constexpr float kCellM     = 1.8f;    // heightmap spacing
 
 struct Ctx {
@@ -22,11 +22,13 @@ struct Ctx {
 };
 } // namespace
 
-bool TerrainLodTree::Build(const char* tif_path, float world_extent, float scale_m) {
+bool TerrainLodTree::Build(const char* tif_path, float world_extent, float scale_m, int cells) {
     extent_ = world_extent;
+    cells_ = cells;
+    leaf_ = kLeafLevel16 - (cells == 64 ? 2 : 0);
     md::tiff::Image img;
     std::string err;
-    if (!img.Open(tif_path, err)) { fprintf(stderr, "[TerrainLod] %s: %s\n", tif_path, err.c_str()); return false; }
+    if (!img.Open(tif_path, err)) { fprintf(stderr, "[TerrainLod] ERROR %s: %s -- terrain LOD unavailable, the flat tiling is used\n", tif_path, err.c_str()); return false; }
     if (img.Width() != (uint32_t)kSamples || img.Height() != (uint32_t)kSamples || img.Bits() != 16) {
         fprintf(stderr, "[TerrainLod] %s: %ux%u %u-bit, expected %dx%d 16-bit\n", tif_path, img.Width(), img.Height(), img.Bits(), kSamples, kSamples);
         return false;
@@ -40,21 +42,21 @@ bool TerrainLodTree::Build(const char* tif_path, float world_extent, float scale
         return (float)raw[(size_t)z * kSamples + x] * k;
     };
     const unsigned nthreads = std::max(2u, std::min(4u, std::thread::hardware_concurrency()));
-    for (int L = kMinBuiltLevel; L <= kLeafLevel; ++L) {
+    for (int L = kMinBuiltLevel; L <= leaf_; ++L) {
         Level& lv = lv_[L];
         lv.n = 1 << L;
         const size_t cnt = (size_t)lv.n * lv.n;
         lv.err.assign(cnt, 0.f); lv.ymin.assign(cnt, 1e30f); lv.ymax.assign(cnt, -1e30f);
-        const int   s      = 1 << (kLeafLevel - L); // samples per node-grid step
+        const int   s      = 1 << (leaf_ - L); // samples per node-grid step
         const float floorE = 0.1f * (float)s * kCellM;
         auto work = [&](int j0, int j1) {
             for (int j = j0; j < j1; ++j) {
                 for (int i = 0; i < lv.n; ++i) {
                     float emax = floorE, lo = 1e30f, hi = -1e30f;
-                    for (int b = 0; b <= 16; ++b) {
-                        const int gz = (16 * j + b) * s;
-                        for (int a = 0; a <= 16; ++a) {
-                            const int gx = (16 * i + a) * s;
+                    for (int b = 0; b <= cells; ++b) {
+                        const int gz = (cells * j + b) * s;
+                        for (int a = 0; a <= cells; ++a) {
+                            const int gx = (cells * i + a) * s;
                             const float h0 = H(gx, gz);
                             lo = std::min(lo, h0); hi = std::max(hi, h0);
                             if (!((a | b) & 1)) continue;
@@ -78,16 +80,18 @@ bool TerrainLodTree::Build(const char* tif_path, float world_extent, float scale
         }
         for (auto& th : pool) th.join();
     }
-    fprintf(stdout, "[TerrainLod] tables built from %s (levels %d..%d)\n", tif_path, kMinBuiltLevel, kLeafLevel);
+    fprintf(stdout, "[TerrainLod] tables built from %s (levels %d..%d, %d-cell patches)\n", tif_path, kMinBuiltLevel, leaf_, cells);
     return true;
 }
 
-void TerrainLodTree::BuildAsync(const char* tif_path, float world_extent, float scale_m) {
+void TerrainLodTree::BuildAsync(const char* tif_path, float world_extent, float scale_m, int cells) {
     Join();
     ready_.store(false);
+    failed_.store(false);
     std::string path = tif_path;
-    th_ = std::thread([this, path, world_extent, scale_m]() {
-        const bool ok = Build(path.c_str(), world_extent, scale_m);
+    th_ = std::thread([this, path, world_extent, scale_m, cells]() {
+        const bool ok = Build(path.c_str(), world_extent, scale_m, cells);
+        failed_.store(!ok, std::memory_order_release);
         ready_.store(ok, std::memory_order_release);
     });
 }
@@ -127,7 +131,7 @@ inline float Threshold(const TerrainLodParams& p, float d) {
 int TerrainLodTree::Select(const float cam[3], const float frustum_planes[16], const TerrainLodParams& p, TerrainLodNode* out, int max_out) const {
     if (!Ready()) return 0;
     int count = 0;
-    const int min_level = std::max(p.min_level, kMinBuiltLevel), max_level = std::min(p.max_level, kLeafLevel);
+    const int min_level = std::max(p.min_level, kMinBuiltLevel), max_level = std::min(p.max_level, leaf_);
     // iterative stack: (level, i, j), the parent's screen error (< 0 = none)
     struct Item { int L, i, j; float ep, perr; };
     std::vector<Item> stack;
@@ -154,7 +158,7 @@ int TerrainLodTree::Select(const float cam[3], const float frustum_planes[16], c
                 morph = std::min(std::max(morph, 0.f), 1.f);
             }
             // skirt: the crack against a neighbour of another level is at most about the parent's error (the coarser geometry's deviation)
-            const float spacing = size / 16.f;
+            const float spacing = size / (float)cells_;
             const float skirt = std::min(spacing * 4.f, std::max(2.5f * std::max(n.err, it.perr), 0.3f));
             out[count++] = { n.x0, n.z0, size, morph, skirt, it.L, n.ymin, n.ymax };
         } else {

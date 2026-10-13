@@ -41,8 +41,10 @@ public:
 
     ~TerrainLodTree() { Join(); }
     // Starts the table build on a background thread (returns at once). world_extent: 29491.2 m; scale_m: metres at raw 65535 (980).
-    void BuildAsync(const char* tif_path, float world_extent, float scale_m);
+    // cells: quads per patch edge, 16 or 64 (Kenshi's 'terrain patch size': 16 standard, 64 high quality); 64 = 4x fewer, 16x larger nodes at each spacing.
+    void BuildAsync(const char* tif_path, float world_extent, float scale_m, int cells = 16);
     bool Ready() const { return ready_.load(std::memory_order_acquire); }
+    bool Failed() const { return failed_.load(std::memory_order_acquire); } // the last table build ended in an error (logged)
     void Join();
 
     // frustum_planes: 4 side planes as MdCamera::FrustumPlanes (inside = dot >= 0). Returns the node count written (<= max_out).
@@ -55,11 +57,13 @@ private:
         int n = 0;                          // nodes per side
         std::vector<float> err, ymin, ymax; // n * n, index j * n + i
     };
-    bool Build(const char* tif_path, float world_extent, float scale_m);
+    bool Build(const char* tif_path, float world_extent, float scale_m, int cells);
     Level lv_[kLevels];
     float extent_ = 0.f;
+    int   cells_ = 16, leaf_ = 10; // patch edge in quads, finest level
     std::thread th_;
     std::atomic<bool> ready_{false};
+    std::atomic<bool> failed_{false};
 };
 
 } // namespace md

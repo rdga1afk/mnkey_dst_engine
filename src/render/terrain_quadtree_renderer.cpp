@@ -380,39 +380,46 @@ constexpr int   kFineW        = 1536;       // fine height window side, cells (M
 constexpr float kCellM        = 1.8f;       // fullmap.tif spacing
 constexpr float kHeightScaleM = 980.0f;     // metres at raw 65535 (terrain_gen_atlas_io.cpp TERRAIN_HEIGHT_SCALE_M)
 constexpr int   kTifSide      = 16385;
-constexpr int   kLodGrid      = 17;
-constexpr int   kLodSkirtVerts = 4 * kLodGrid;
 struct LodUBO { float vp[16]; float height_range[4]; float cam_pos_pad[4]; float fine_win[4]; };
 } // namespace
 
 bool TerrainQuadtreeRenderer::InitLod(md::GpuDeviceHandle dev, const TerrainWorldHeightmap& hmap) {
     if (!dev || !batched_ready_) return false;
     const std::string kdir = BiomeRegistry::ResolveKenshiDir();
-    if (kdir.empty()) return false;
+    if (kdir.empty()) {
+        MD_LOG(MD_LOG_ERROR, "[TerrainQuadtreeRenderer] terrain LOD unavailable: Kenshi directory not found (set KENSHI_DIR); the flat tiling is used");
+        lod_init_failed_ = true;
+        return false;
+    }
     tif_path_ = kdir + "/data/newland/land/fullmap.tif";
     height_min_ = hmap.HeightMin();
     height_range_ = std::max(hmap.HeightMax() - hmap.HeightMin(), 1.f);
 
-    // Index buffer: the 16x16 filled grid (same as the flat path) + 4 skirt strips of 16 quads. Skirt bottom vertices are ids 289 + side * 17 + k.
-    std::vector<uint32_t> idx;
-    idx.reserve((16 * 16 + 4 * 16) * 6);
-    auto reg = [](int col, int row) { return (uint32_t)(row * kLodGrid + col); };
-    for (int row = 0; row < 16; ++row)
-        for (int col = 0; col < 16; ++col) {
-            uint32_t i0 = reg(col, row), i1 = reg(col + 1, row), i2 = reg(col, row + 1), i3 = reg(col + 1, row + 1);
-            idx.insert(idx.end(), { i0, i2, i1, i1, i2, i3 });
-        }
-    auto border = [&](int side, int k) -> uint32_t {
-        switch (side) { case 0: return reg(k, 0); case 1: return reg(k, 16); case 2: return reg(0, k); default: return reg(16, k); }
+    // Index buffers (16- and 64-quad patches): the filled grid (same as the flat path) + 4 skirt strips. Skirt bottom vertices are ids (cells+1)^2 + side * (cells+1) + k.
+    auto build_ibo = [](int cells, GpuStaticBuffer& ibo, uint32_t& count) {
+        const int g = cells + 1;
+        std::vector<uint32_t> idx;
+        idx.reserve((size_t)(cells * cells + 4 * cells) * 6);
+        auto reg = [g](int col, int row) { return (uint32_t)(row * g + col); };
+        for (int row = 0; row < cells; ++row)
+            for (int col = 0; col < cells; ++col) {
+                uint32_t i0 = reg(col, row), i1 = reg(col + 1, row), i2 = reg(col, row + 1), i3 = reg(col + 1, row + 1);
+                idx.insert(idx.end(), { i0, i2, i1, i1, i2, i3 });
+            }
+        auto border = [&](int side, int k) -> uint32_t {
+            switch (side) { case 0: return reg(k, 0); case 1: return reg(k, cells); case 2: return reg(0, k); default: return reg(cells, k); }
+        };
+        for (int side = 0; side < 4; ++side)
+            for (int k = 0; k < cells; ++k) {
+                uint32_t a = border(side, k), b = border(side, k + 1);
+                uint32_t a2 = (uint32_t)(g * g + side * g + k), b2 = a2 + 1;
+                idx.insert(idx.end(), { a, a2, b, b, a2, b2 });
+            }
+        ibo.Init(0x8893u /*GL_ELEMENT_ARRAY_BUFFER*/, idx.data(), idx.size() * sizeof(uint32_t));
+        count = (uint32_t)idx.size();
     };
-    for (int side = 0; side < 4; ++side)
-        for (int k = 0; k < 16; ++k) {
-            uint32_t a = border(side, k), b = border(side, k + 1);
-            uint32_t a2 = (uint32_t)(kLodGrid * kLodGrid + side * kLodGrid + k), b2 = a2 + 1;
-            idx.insert(idx.end(), { a, a2, b, b, a2, b2 });
-        }
-    lod_ibo_.Init(0x8893u /*GL_ELEMENT_ARRAY_BUFFER*/, idx.data(), idx.size() * sizeof(uint32_t));
-    lod_index_count_ = (uint32_t)idx.size();
+    build_ibo(16, lod_ibo_, lod_index_count_);
+    build_ibo(64, lod_ibo64_, lod_index_count64_);
 
     // Fine height window texture (R16_UNORM, same normalisation as the world heightmap).
     SDL_GPUTextureCreateInfo ti{};
@@ -480,7 +487,7 @@ void TerrainQuadtreeRenderer::UploadLodNodes(md::GpuDeviceHandle dev, SDL_GPUCop
     // 2. node data: texel A = (origin x, origin z, vertex spacing, morph), texel B = (level, skirt depth, 1 = fine window, 0)
     static float staging[kMaxBatchedNodes * 2 * 4];
     for (int i = 0; i < count; ++i) {
-        const float spacing = nodes[i].size / 16.f;
+        const float spacing = nodes[i].size / (float)lod_cells_;
         float* a = staging + (size_t)i * 8;
         float* b = a + 4;
         a[0] = nodes[i].origin_x; a[1] = nodes[i].origin_z; a[2] = spacing; a[3] = nodes[i].morph;
@@ -517,7 +524,7 @@ void TerrainQuadtreeRenderer::BeginBatchedLod(SDL_GPURenderPass* rp, md::GpuComm
     std::memcpy(ubo.vp, vp16, 64);
     ubo.height_range[0] = hmap.HeightMin(); ubo.height_range[1] = hmap.HeightMax();
     ubo.height_range[2] = hmap.WorldExtent(); ubo.height_range[3] = (float)hmap.Resolution();
-    ubo.cam_pos_pad[0] = cam_x; ubo.cam_pos_pad[1] = cam_y; ubo.cam_pos_pad[2] = cam_z;
+    ubo.cam_pos_pad[0] = cam_x; ubo.cam_pos_pad[1] = cam_y; ubo.cam_pos_pad[2] = cam_z; ubo.cam_pos_pad[3] = (float)lod_cells_;
     ubo.fine_win[0] = (float)fine_ox_; ubo.fine_win[1] = (float)fine_oz_; ubo.fine_win[2] = (float)kFineW; ubo.fine_win[3] = kCellM;
     pv.PushVertexUniforms(0, &ubo, sizeof(ubo));
     SDL_GPUTextureSamplerBinding samp[3] = {
@@ -532,8 +539,9 @@ void TerrainQuadtreeRenderer::DrawBatchedLod(SDL_GPURenderPass* rp, md::GpuComma
     if (!lod_ready_ || count <= 0) return;
     if (count > kMaxBatchedNodes) count = kMaxBatchedNodes;
     GpuPassView pv = GpuPassView::FromRaw(rp, cmd);
-    pv.BindIndexBuffer(&lod_ibo_, SDL_GPU_INDEXELEMENTSIZE_32BIT);
-    pv.DrawIndexed(lod_index_count_, (uint32_t)count, 0, 0, 0);
+    const bool c64 = lod_cells_ == 64;
+    pv.BindIndexBuffer(c64 ? &lod_ibo64_ : &lod_ibo_, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+    pv.DrawIndexed(c64 ? lod_index_count64_ : lod_index_count_, (uint32_t)count, 0, 0, 0);
 }
 
 void TerrainQuadtreeRenderer::Shutdown(md::GpuDeviceHandle dev) {
