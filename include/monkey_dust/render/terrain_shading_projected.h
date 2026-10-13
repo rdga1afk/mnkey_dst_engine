@@ -119,6 +119,7 @@ public:
         int mode = 0;
     };
     void SetS7(const S7State& s) { s7_ = s; }
+    void SetSkipFlatOnCliff(bool on) { skip_flat_on_cliff_ = on; }
     bool        S7Reconstructing() const { return s7_.mode == 1; }
     const float* S7InvVp() const { return s7_.inv_vp; }
 
@@ -156,6 +157,10 @@ private:
     // used only while the DEBUG kenshi_blend toggle is on, so the default pipeline is untouched.
     GpuPipeline       resolve_kenshi_pipeline_;
     bool              resolve_kenshi_ready_ = false;
+    // #155 step 1: the Kenshi variant that does not skip the flat layer chain where cliff_w >= 1 (pixel-identical output, A/B only)
+    GpuPipeline       resolve_kenshi_noskip_pipeline_;
+    bool              resolve_kenshi_noskip_ready_ = false;
+    bool              skip_flat_on_cliff_ = true;
     int  w_ = 0, h_ = 0;
     bool ready_ = false;
 };

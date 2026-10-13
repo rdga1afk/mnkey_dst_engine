@@ -113,6 +113,9 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
     if (!resolve_kenshi_ready_) {
         MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] kenshi resolve variant create failed (debug toggle falls back)");
     }
+    // #155 step 1: the same variant without the flat-chain skip on cliff_w >= 1 (A/B, SetSkipFlatOnCliff(false)); non-fatal
+    rd.frag_path = "shaders/terrain_shading_screenspace_kenshi_noskip.frag";
+    resolve_kenshi_noskip_ready_ = resolve_kenshi_noskip_pipeline_.Create(rd);
 
     ready_ = true;
     MD_LOG(MD_LOG_INFO, "[TerrainShadingProjected] ready %dx%d (RGBA32F gbuffer + isolated D32_FLOAT)", w, h);
@@ -139,6 +142,8 @@ void TerrainShadingProjected::Shutdown() {
     resolve_pipeline_.Destroy();
     resolve_kenshi_pipeline_.Destroy();
     resolve_kenshi_ready_ = false;
+    resolve_kenshi_noskip_pipeline_.Destroy();
+    resolve_kenshi_noskip_ready_ = false;
     gbuf_depth_.Shutdown();
     gbuf_color_.Shutdown();
     ready_ = false;
@@ -322,6 +327,6 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
     // RESOLVE_OPT 4-draw split reverted to a single draw -- see
     // resolve_pipeline_'s own doc comment (terrain_shading_projected.h)
     // for the full measured rationale.
-    drawOne((kenshi_blend_debug && resolve_kenshi_ready_) ? resolve_kenshi_pipeline_ : resolve_pipeline_);
+    drawOne((kenshi_blend_debug && resolve_kenshi_ready_) ? ((!skip_flat_on_cliff_ && resolve_kenshi_noskip_ready_) ? resolve_kenshi_noskip_pipeline_ : resolve_kenshi_pipeline_) : resolve_pipeline_);
 }
 #endif
