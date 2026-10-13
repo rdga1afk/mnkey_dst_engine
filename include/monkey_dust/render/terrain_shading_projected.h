@@ -125,19 +125,25 @@ public:
     // A 2048^2 ring of 4 cm texels centred on the camera holds what the Kenshi ground shader computes before lighting (albedo + tangent-space normal, 8 B
     // per texel in R16G16B16A16_UINT); the resolve reads it (bilinear by hand) inside the ring and runs the live shader outside. Fixed centre: the ring is
     // rebuilt (whole) when the camera leaves its middle, no toroidal scroll yet. Heights / normals come from the LOD's fine height window.
-    static constexpr int   kRingN      = 2048;
-    static constexpr float kRingTexelM = 0.04f;
+    // Size and density are runtime parameters (default 2048 / 4 cm); a change recreates the texture and invalidates the contents.
+    // rings = 1 or 2: ring 1 has twice the texel size (so twice the reach), sits in rows N..2N of the same texture and follows ring 0's centre.
+    void  ConfigureRing(int n, float texel_m, int rings);
+    int   RingN() const { return ring_n_; }
+    int   RingCount() const { return ring_count_; }
+    float RingTexelM() const { return ring_texel_m_; }
     struct FineWindow { SDL_GPUTexture* tex = nullptr; SDL_GPUSampler* samp = nullptr; float origin_x_m = 0.f, origin_z_m = 0.f, hmin = 0.f, hrange = 1.f; int cells = 0; float cell_m = 1.8f; };
     // Creates the ring texture on first use. Returns false when the bake pipeline or the texture is missing (the cache stays off).
     bool EnsureGroundRing();
-    // Bakes the ring centred at (cx, cz) (snapped to the texel grid). Own render pass: call outside any open pass, after the fine window is current.
-    void BakeGroundRing(md::GpuCommandBufferHandle cmd, float cam_x, float cam_y, float cam_z, float world_origin_x, float world_origin_z,
-                        float world_to_uv, const TerrainRenderer& ground, const FineWindow& fw, float cx, float cz);
+    // Keeps the ring centred near (target_x, target_z) (metres). Toroidal: world texel w lives at physical (w & (N-1)), so moving the centre bakes only the
+    // newly exposed column / row strips (scissored fullscreen draws, one render pass that keeps the rest). The first build, or a jump of >= 3/4 of the ring,
+    // refills the ring in row bands of at most budget_texels per call (the resolve runs the live shader until the ring is complete); scrolling is limited
+    // to the same budget per call. force_full bakes the whole ring now, centred exactly (measurement / static frames). Own render pass: call outside any
+    // open pass, after the fine window is current. Returns the number of texels baked this call.
+    int UpdateGroundRing(md::GpuCommandBufferHandle cmd, float cam_x, float cam_y, float cam_z, float world_origin_x, float world_origin_z,
+                         float world_to_uv, const TerrainRenderer& ground, const FineWindow& fw, float target_x, float target_z, int budget_texels, bool force_full);
     void  SetRingUse(bool on) { ring_use_ = on; }
     void  SetRingVariantForced(bool on) { ring_variant_forced_ = on; } // measurement: the ring shader variant with the cache off
     bool  RingValid() const { return ring_valid_; }
-    float RingCx() const { return ring_cx_; }
-    float RingCz() const { return ring_cz_; }
     void  InvalidateRing() { ring_valid_ = false; }
     bool        S7Reconstructing() const { return s7_.mode == 1; }
     const float* S7InvVp() const { return s7_.inv_vp; }
@@ -188,10 +194,17 @@ private:
     GpuPipeline       bake_pipeline_;
     bool              bake_ready_ = false;
     GpuTexture        ring_color_;
+    int               ring_n_ = 2048;
+    int               ring_count_ = 1;
+    int               ring_fill_row_[2] = {0, 0};
+    int               ring_ci1_x_ = 0, ring_ci1_z_ = 0;
+    float             ring_texel_m_ = 0.04f;
     bool              ring_ready_ = false;
     bool              ring_valid_ = false;
     bool              ring_use_ = false;
-    float             ring_cx_ = 0.f, ring_cz_ = 0.f;
+    float             ring_cx_ = 0.f, ring_cz_ = 0.f; // window centre, metres (= ring_ci_ * texel)
+    int               ring_ci_x_ = 0, ring_ci_z_ = 0;  // window centre, world texel index
+    bool              ring_have_ = false, ring_building_ = false;
     struct ResolveCtx {
         const TerrainRenderer::SunParams* sun = nullptr;
         float cam_x = 0.f, cam_y = 0.f, cam_z = 0.f, world_origin_x = 0.f, world_origin_z = 0.f, world_to_uv = 0.f, fog_far = 0.f;
