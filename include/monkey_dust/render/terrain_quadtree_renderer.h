@@ -2,6 +2,9 @@
 #ifdef MD_SDL_GPU
 #include <SDL3/SDL_gpu.h>
 #include <string>
+#include <cstdint>
+#include <future>
+#include <vector>
 #include <monkey_dust/render/gpu_hal_types.h>
 #include <monkey_dust/render/gpu_pipeline.h>
 #include <monkey_dust/render/gpu_static_buffer.h>
@@ -226,6 +229,8 @@ public:
     int  LodPatch() const { return lod_cells_; }
     // the LOD's fine height window (R16_UNORM, 1.8 m cells, normalised with HeightMin / HeightRange): the ground cache bake reads heights and normals from it
     bool  LodFineReady() const { return lod_ready_ && fine_tex_ && fine_ox_ >= 0; }
+    // true when the fine window holds the heights around (x, z) out to radius r (metres); the window is replaced by a background job after the camera leaves its middle
+    bool  LodFineCovers(float x, float z, float r) const { const float c = 1.8f, n = (float)LodFineCells(); return LodFineReady() && x - r >= fine_ox_ * c && z - r >= fine_oz_ * c && x + r <= (fine_ox_ + n - 1.f) * c && z + r <= (fine_oz_ + n - 1.f) * c; }
     SDL_GPUTexture* LodFineTex() const { return fine_tex_; }
     SDL_GPUSampler* LodFineSampler() const { return fine_sampler_; }
     int   LodFineOx() const { return fine_ox_; }
@@ -283,6 +288,10 @@ private:
     md::GpuTextureHandle fine_tex_ = nullptr;
     SDL_GPUSampler* fine_sampler_ = nullptr;
     int fine_ox_ = -1000000, fine_oz_ = -1000000; // window origin in heightmap cells (1.8 m)
+    // the fine window's file read + normalisation runs on a worker (it cost ~38 ms on the render thread at every recentre, ~every 970 m of flight)
+    std::future<std::vector<uint16_t>> fine_job_;
+    int fine_job_ox_ = 0, fine_job_oz_ = 0;
+    bool fine_job_active_ = false;
     float height_min_ = 0.f, height_range_ = 1.f;
     std::string tif_path_;
 };

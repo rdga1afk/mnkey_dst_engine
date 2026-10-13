@@ -1,3 +1,4 @@
+#include <chrono>
 #include <monkey_dust/render/terrain_quadtree_renderer.h>
 #include <monkey_dust/render/gpu_copy_pass.h>
 #include <monkey_dust/render/gpu_pass_view.h>
@@ -451,21 +452,13 @@ bool TerrainQuadtreeRenderer::InitLod(md::GpuDeviceHandle dev, const TerrainWorl
 void TerrainQuadtreeRenderer::UploadLodNodes(md::GpuDeviceHandle dev, SDL_GPUCopyPass* cp, const md::TerrainLodNode* nodes, int count,
                                               float cam_x, float cam_z) {
     if (!lod_ready_ || !dev || !cp) return;
-    // 1. fine window: recentre when the camera leaves the middle 70 % (or on the first frame)
+    // 1. fine window: recentre when the camera leaves the middle 70 % (or on the first frame). The read + normalisation run on a worker; the old window
+    // stays in use until the new one is uploaded.
     {
-        const int cx = (int)std::lround(cam_x / kCellM), cz = (int)std::lround(cam_z / kCellM);
-        const int lim = (int)(0.35f * kFineW);
-        if (fine_ox_ < -100000 || std::abs(cx - (fine_ox_ + kFineW / 2)) > lim || std::abs(cz - (fine_oz_ + kFineW / 2)) > lim) {
-            const int ox = std::min(std::max(cx - kFineW / 2, 0), kTifSide - kFineW);
-            const int oz = std::min(std::max(cz - kFineW / 2, 0), kTifSide - kFineW);
-            md::tiff::Image img; std::string err; std::vector<uint16_t> win;
-            if (img.Open(tif_path_.c_str(), err) && img.Window((uint32_t)ox, (uint32_t)oz, kFineW, kFineW, 1, win, err)) {
-                std::vector<uint16_t> norm(win.size());
-                const float k = kHeightScaleM / 65535.f;
-                for (size_t i = 0; i < win.size(); ++i) {
-                    float v = ((float)win[i] * k - height_min_) / height_range_ * 65535.f + 0.5f;
-                    norm[i] = (uint16_t)std::min(std::max(v, 0.f), 65535.f);
-                }
+        if (fine_job_active_ && fine_job_.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+            std::vector<uint16_t> norm = fine_job_.get();
+            fine_job_active_ = false;
+            if (norm.size() == (size_t)kFineW * kFineW) {
                 const Uint32 bytes = (Uint32)(norm.size() * sizeof(uint16_t));
                 SDL_GPUTransferBufferCreateInfo tbi{}; tbi.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD; tbi.size = bytes;
                 if (SDL_GPUTransferBuffer* tb = GpuCreateTransferBuffer(dev, &tbi)) {
@@ -475,11 +468,33 @@ void TerrainQuadtreeRenderer::UploadLodNodes(md::GpuDeviceHandle dev, SDL_GPUCop
                     SDL_GPUTextureRegion dst{}; dst.texture = fine_tex_; dst.w = kFineW; dst.h = kFineW; dst.d = 1;
                     GpuCopyPass::FromRaw(cp, nullptr).UploadTexture(src, dst, false);
                     GpuReleaseTransferBuffer(dev, tb);
-                    fine_ox_ = ox; fine_oz_ = oz;
+                    fine_ox_ = fine_job_ox_; fine_oz_ = fine_job_oz_;
                 }
             } else {
-                MD_LOG(MD_LOG_WARNING, "[TerrainQuadtreeRenderer] fine window read failed: %s", err.c_str());
+                MD_LOG(MD_LOG_WARNING, "[TerrainQuadtreeRenderer] fine window read failed");
             }
+        }
+        const int cx = (int)std::lround(cam_x / kCellM), cz = (int)std::lround(cam_z / kCellM);
+        const int lim = (int)(0.35f * kFineW);
+        if (!fine_job_active_ && (fine_ox_ < -100000 || std::abs(cx - (fine_ox_ + kFineW / 2)) > lim || std::abs(cz - (fine_oz_ + kFineW / 2)) > lim)) {
+            const int ox = std::min(std::max(cx - kFineW / 2, 0), kTifSide - kFineW);
+            const int oz = std::min(std::max(cz - kFineW / 2, 0), kTifSide - kFineW);
+            fine_job_ox_ = ox; fine_job_oz_ = oz; fine_job_active_ = true;
+            fine_job_ = std::async(std::launch::async, [path = tif_path_, ox, oz, hmin = height_min_, hrange = height_range_]() {
+                std::vector<uint16_t> norm;
+                md::tiff::Image img; std::string err; std::vector<uint16_t> win;
+                if (img.Open(path.c_str(), err) && img.Window((uint32_t)ox, (uint32_t)oz, kFineW, kFineW, 1, win, err)) {
+                    norm.resize(win.size());
+                    const float k = kHeightScaleM / 65535.f;
+                    for (size_t i = 0; i < win.size(); ++i) {
+                        float v = ((float)win[i] * k - hmin) / hrange * 65535.f + 0.5f;
+                        norm[i] = (uint16_t)std::min(std::max(v, 0.f), 65535.f);
+                    }
+                } else {
+                    MD_LOG(MD_LOG_WARNING, "[TerrainQuadtreeRenderer] fine window read failed: %s", err.c_str());
+                }
+                return norm;
+            });
         }
     }
     if (count <= 0) return;
