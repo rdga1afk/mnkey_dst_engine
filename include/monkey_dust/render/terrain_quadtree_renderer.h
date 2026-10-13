@@ -1,12 +1,14 @@
 #pragma once
 #ifdef MD_SDL_GPU
 #include <SDL3/SDL_gpu.h>
+#include <string>
 #include <monkey_dust/render/gpu_hal_types.h>
 #include <monkey_dust/render/gpu_pipeline.h>
 #include <monkey_dust/render/gpu_static_buffer.h>
 #include <monkey_dust/render/terrain_world_heightmap.h>
 #include <monkey_dust/render/terrain_renderer.h>
 #include <monkey_dust/world/terrain_quadtree.h>
+#include <monkey_dust/world/terrain_lod_tree.h>
 
 // 2026-09-05 (docs/TERRAIN_FLAT_LOD_PLAN.md): fixed-depth tiling -- draws
 // ONE TerrainQuadtree::VisibleNode per DrawNode call. Vertex-buffer-less
@@ -204,6 +206,27 @@ public:
                                const TerrainWorldHeightmap& hmap, const float* vp16,
                                float cam_x, float cam_y, float cam_z);
 
+    // ── #154 phase 3: Kenshi-style LOD (md.set_terrain_lod) ──────────────────────────────────────────────────────────────
+    // Quadtree selection by screen-space error (md::TerrainLodTree, tables from fullmap.tif built on a background thread), nodes drawn instanced with
+    // geomorph + skirts + 6-neighbour vertex normals computed in the vertex shader (shaders/terrain_quadtree_batched_lod.vert); the finest level (1.8 m)
+    // reads a 1536^2 window of fullmap.tif around the camera (recentred when the camera leaves its middle 70 %).
+    bool InitLod(md::GpuDeviceHandle dev, const TerrainWorldHeightmap& hmap);
+    // Starts the background table build on first use (reads the whole fullmap.tif once); true when the pipeline and the tables are ready.
+    bool RequestLod(const TerrainWorldHeightmap& hmap) {
+        if (lod_ready_ && !lod_started_) { lod_started_ = true; lod_tree_.BuildAsync(tif_path_.c_str(), hmap.WorldExtent(), 980.0f); }
+        return lod_ready_ && lod_tree_.Ready();
+    }
+    bool IsLodReady() const { return lod_ready_ && lod_tree_.Ready(); }
+    int  SelectLod(const float cam[3], const float frustum_planes[16], const md::TerrainLodParams& p, md::TerrainLodNode* out, int max_out) const {
+        return lod_tree_.Select(cam, frustum_planes, p, out, max_out);
+    }
+    // Inside the caller's open copy pass: recentres the fine window if needed and uploads the node data (2 texels per node, see the .vert).
+    void UploadLodNodes(md::GpuDeviceHandle dev, SDL_GPUCopyPass* cp, const md::TerrainLodNode* nodes, int count, float cam_x, float cam_z);
+    void BeginBatchedLod(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, const TerrainWorldHeightmap& hmap, const float* vp16,
+                         float cam_x, float cam_y, float cam_z);
+    void DrawBatchedLod(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, int count);
+    uint32_t LodTrianglesPerNode() const { return lod_index_count_ / 3; }
+
 private:
     GpuPipeline gbuffer_pipeline_;
     GpuPipeline forward_pipeline_;
@@ -226,5 +249,18 @@ private:
     bool batched_depth_only_ready_ = false;
     md::GpuTextureHandle node_data_tex_     = nullptr;
     SDL_GPUSampler* node_data_sampler_ = nullptr;
+
+    // #154 LOD
+    bool lod_ready_ = false;
+    bool lod_started_ = false;
+    md::TerrainLodTree lod_tree_;
+    GpuPipeline lod_pipeline_;
+    GpuStaticBuffer lod_ibo_;
+    uint32_t lod_index_count_ = 0;
+    md::GpuTextureHandle fine_tex_ = nullptr;
+    SDL_GPUSampler* fine_sampler_ = nullptr;
+    int fine_ox_ = -1000000, fine_oz_ = -1000000; // window origin in heightmap cells (1.8 m)
+    float height_min_ = 0.f, height_range_ = 1.f;
+    std::string tif_path_;
 };
 #endif
