@@ -224,6 +224,15 @@ public:
         if (lod_started_) lod_tree_.BuildAsync(tif_path_.c_str(), 29491.2f, 980.0f, lod_cells_);
     }
     int  LodPatch() const { return lod_cells_; }
+    // the LOD's fine height window (R16_UNORM, 1.8 m cells, normalised with HeightMin / HeightRange): the ground cache bake reads heights and normals from it
+    bool  LodFineReady() const { return lod_ready_ && fine_tex_ && fine_ox_ >= 0; }
+    SDL_GPUTexture* LodFineTex() const { return fine_tex_; }
+    SDL_GPUSampler* LodFineSampler() const { return fine_sampler_; }
+    int   LodFineOx() const { return fine_ox_; }
+    int   LodFineOz() const { return fine_oz_; }
+    int   LodFineCells() const { return 1536; }
+    float LodHeightMin() const { return height_min_; }
+    float LodHeightRange() const { return height_range_; }
     // LOD was asked for but cannot work: no Kenshi directory / fullmap.tif (logged as an error). Callers that measure must stop on it.
     bool LodUnavailable() const { return lod_init_failed_ || lod_tree_.Failed(); }
     bool IsLodReady() const { return lod_ready_ && lod_tree_.Ready(); }

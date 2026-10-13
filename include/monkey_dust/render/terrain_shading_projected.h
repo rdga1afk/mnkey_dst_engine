@@ -120,6 +120,24 @@ public:
     };
     void SetS7(const S7State& s) { s7_ = s; }
     void SetSkipFlatOnCliff(bool on) { skip_flat_on_cliff_ = on; }
+
+    // ── #155 step 2: ground cache, ring 0 (docs/research/TERRAIN_CACHE_DESIGN.md) ───────────────────────────────────────────────────────────────
+    // A 2048^2 ring of 4 cm texels centred on the camera holds what the Kenshi ground shader computes before lighting (albedo + tangent-space normal, 8 B
+    // per texel in R16G16B16A16_UINT); the resolve reads it (bilinear by hand) inside the ring and runs the live shader outside. Fixed centre: the ring is
+    // rebuilt (whole) when the camera leaves its middle, no toroidal scroll yet. Heights / normals come from the LOD's fine height window.
+    static constexpr int   kRingN      = 2048;
+    static constexpr float kRingTexelM = 0.04f;
+    struct FineWindow { SDL_GPUTexture* tex = nullptr; SDL_GPUSampler* samp = nullptr; float origin_x_m = 0.f, origin_z_m = 0.f, hmin = 0.f, hrange = 1.f; int cells = 0; float cell_m = 1.8f; };
+    // Creates the ring texture on first use. Returns false when the bake pipeline or the texture is missing (the cache stays off).
+    bool EnsureGroundRing();
+    // Bakes the ring centred at (cx, cz) (snapped to the texel grid). Own render pass: call outside any open pass, after the fine window is current.
+    void BakeGroundRing(md::GpuCommandBufferHandle cmd, float cam_x, float cam_y, float cam_z, float world_origin_x, float world_origin_z,
+                        float world_to_uv, const TerrainRenderer& ground, const FineWindow& fw, float cx, float cz);
+    void  SetRingUse(bool on) { ring_use_ = on; }
+    bool  RingValid() const { return ring_valid_; }
+    float RingCx() const { return ring_cx_; }
+    float RingCz() const { return ring_cz_; }
+    void  InvalidateRing() { ring_valid_ = false; }
     bool        S7Reconstructing() const { return s7_.mode == 1; }
     const float* S7InvVp() const { return s7_.inv_vp; }
 
@@ -161,7 +179,26 @@ private:
     GpuPipeline       resolve_kenshi_noskip_pipeline_;
     bool              resolve_kenshi_noskip_ready_ = false;
     bool              skip_flat_on_cliff_ = true;
-    int  w_ = 0, h_ = 0;
+    // #155 step 2 ground cache ring
+    GpuPipeline       bake_pipeline_;
+    bool              bake_ready_ = false;
+    GpuTexture        ring_color_;
+    bool              ring_ready_ = false;
+    bool              ring_valid_ = false;
+    bool              ring_use_ = false;
+    float             ring_cx_ = 0.f, ring_cz_ = 0.f;
+    struct ResolveCtx {
+        const TerrainRenderer::SunParams* sun = nullptr;
+        float cam_x = 0.f, cam_y = 0.f, cam_z = 0.f, world_origin_x = 0.f, world_origin_z = 0.f, world_to_uv = 0.f, fog_far = 0.f;
+        const float* fog_color = nullptr;
+        float fog_near = 0.f;
+        const TerrainRenderer* ground = nullptr;
+        bool shade_constant_debug = false, kenshi_blend_debug = false;
+    };
+    // The resource set both the resolve and the bake draw bind (UBOs, 16 samplers, the probe SSBO) + the fullscreen triangle. bake: bindings 7/8 = the fine
+    // window, UBO inv_vp / recon carry the ring (bake_cols: 12 floats = three vec4 columns).
+    void DrawFullscreen(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, GpuPipeline& pipeline, const ResolveCtx& c, bool bake,
+                        const FineWindow* fw, const float* bake_cols);    int  w_ = 0, h_ = 0;
     bool ready_ = false;
 };
 #endif
