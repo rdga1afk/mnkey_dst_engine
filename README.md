@@ -3,7 +3,7 @@ id: kb-engine-readme
 type: reference
 status: active
 date: 2026-05-14
-updated: 2026-10-10
+updated: 2026-10-13
 repo: engine
 tags: [engine, readme, kenshi, sdl-gpu, terrain, public-repo]
 summary: "Public engine README (EN + UA): native Linux engine that renders Kenshi's world from the player's own install; status, goal, build, KENSHI_DIR, mods, architecture, module map, legal"
@@ -45,7 +45,7 @@ summary: "Public engine README (EN + UA): native Linux engine that renders Kensh
 | Towns (Ogre `.mesh`), foliage | Planned for Nov 2026 |
 | Steam library auto-detection | Not yet: set `KENSHI_DIR` |
 | Workshop mods | Code path exists, **not yet tested on real Workshop data** |
-| **Performance, 1080p, terrain-only frames, HD 520** | Real frame interval at native fullscreen 1920×1080 **35.4 / 36.1 / 65.5 ms** at three fixed points (28 / 28 / 15 FPS, GPU at 1000 MHz). Target ≤ 16.7 ms. This is the main open problem |
+| **Performance, 1080p, terrain-only frames, HD 520** | Real frame interval at native fullscreen 1920×1080 (13.10.2026): **23.1 / 20.8 / 25.1 ms** (south_hive / worst_24_12 / owner_point; 43 / 48 / 40 FPS); fixed flight route p99 32.1–32.3 ms. With the terrain LOD (becoming the default, owner decision 13.10): 23.6 / 19.4 / 23.6 ms, route p99 30.3 ms. Target ≤ 16.7 ms. This is the main open problem |
 
 ### Goal by ~2026-12-10
 **Kenshi's world on Linux at 60 FPS on an HD 520**, native 1920×1080: terrain + towns + foliage, no NPCs.
@@ -163,7 +163,7 @@ index.html             documentation site (GitHub Pages)
 | Міста (Ogre `.mesh`), рослини | План на листопад 2026 |
 | Автопошук бібліотеки Steam | Ще ні: задайте `KENSHI_DIR` |
 | Моди з Workshop | Код є, **на справжніх даних Workshop ще не перевірено** |
-| **Продуктивність, 1080p, кадри з землею, HD 520** | Реальний інтервал кадру в нативному повноекранному 1920×1080 **35,4 / 36,1 / 65,5 мс** у трьох фіксованих точках (28 / 28 / 15 FPS, GPU на 1000 МГц). Ціль ≤ 16,7 мс. Це головна відкрита проблема |
+| **Продуктивність, 1080p, кадри з землею, HD 520** | Реальний інтервал кадру в нативному повноекранному 1920×1080 (13.10.2026): **23,1 / 20,8 / 25,1 мс** (south_hive / worst_24_12 / owner_point; 43 / 48 / 40 FPS); фіксований маршрут польоту p99 32,1–32,3 мс. З LOD землі (стає дефолтом, рішення власника 13.10): 23,6 / 19,4 / 23,6 мс, маршрут p99 30,3 мс. Ціль ≤ 16,7 мс. Це головна відкрита проблема |
 
 ### Мета до ~10.12.2026
 **Світ Kenshi під Linux з 60 FPS на HD 520**, нативні 1920×1080: земля + міста + рослини, без NPC.
