@@ -96,13 +96,13 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
     rd.has_depth_target   = true;
     rd.vert_uniform_bufs  = 0;
     rd.vert_samplers      = 0;
-    rd.frag_uniform_bufs  = 2;  // set=3 binding=0 ProjFragUBO, binding=1 ProjCamUBO
+    rd.frag_uniform_bufs  = 3;  // set=3 binding=0 ProjFragUBO, binding=1 ProjCamUBO, binding=2 BiomeParams (the biome table, #167 P0)
     rd.frag_samplers      = 16; // set=2: tex_colour,tex_ground,tex_ground_baked,tex_overlay_mask,tex_ground_nml (task #12), tex_detail_array,tex_detail_tint (КРОК3 2026-09-17); gbufPacked,gbufDepth; zoneGroundLayersTex (texture, not SSBO, since 2026-08-09); texSteepnessSmoothed (2026-09-24, bake/live cliff_w single-source-of-truth); tex_biome_blend/kbi1LookupTex/biomeLayersTex (task-terrain-kenshi-parity, 2026-09-26). БОРГ-TERRAIN-2 (2026-09-13): was 10 -- vtIndirection/vtAtlas removed, dead VT cache-hit path never called. 2026-09-26: was 11 -- task #141's zone-corner cliff bake atlas (3 samplers) removed then task-terrain-kenshi-parity's 3 samplers added back, see CLAUDE_HISTORY.md.
     // 2026-09-19 (docs/RESOLVE_OPT.md session finding): AmbientProbeBuf,
     // binding=15 (was 14 until the ambientmap sampler took 14, 2026-10-09; after the 15 samplers 0-14 above) --
     // see terrain_shading_common.glsl's TS_HAS_AMBIENT_PROBE doc comment.
     // Was 0 since БОРГ-TERRAIN-2 (2026-09-13, vtPageMeta removed with TerrainVtPageCache).
-    rd.frag_storage_bufs  = 1;
+    rd.frag_storage_bufs  = 2;   // binding 16 AmbientProbeBuf, binding 17 BiomeParamsBuf (TS_BIOME_SSBO variants)
     if (!resolve_pipeline_.Create(rd)) {
         MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] resolve pipeline create failed");
         return false;
@@ -247,6 +247,14 @@ void TerrainShadingProjected::DrawFullscreen(SDL_GPURenderPass* rp, md::GpuComma
         else { cubo.recon[0] = cubo.recon[1] = cubo.recon[2] = cubo.recon[3] = 0.f; }
     }
     GpuPushFragmentUniforms(cmd, 1, &cubo, sizeof(cubo));
+    {   // #167 P0: the biome table for the shader variants that read it as a uniform block (128 biomes x 9 uvec4; the rest zero)
+        constexpr size_t kUboWords = 128 * 9 * 4;
+        std::vector<uint32_t> bp(kUboWords, 0u);
+        const std::vector<uint32_t>& src = ground.BiomeLayersData();
+        std::memcpy(bp.data(), src.data(), std::min(src.size(), kUboWords) * sizeof(uint32_t));
+        { static bool once = false; if (!once) { once = true; fprintf(stderr, "[P0dbg] biome words %zu first %u %u %u %u idx32 %u\n", src.size(), src.size() > 3 ? src[0] : 0u, src.size() > 3 ? src[1] : 0u, src.size() > 3 ? src[2] : 0u, src.size() > 3 ? src[3] : 0u, src.size() > 32 ? src[32] : 0u); } }
+        GpuPushFragmentUniforms(cmd, 2, bp.data(), bp.size() * sizeof(uint32_t));
+    }
 
     // set=2: same 7 shared ground samplers the normal forward terrain draw
     // binds (TerrainPatchRenderer::DrawBatch) -- index 4 (tex_ground_nml)
@@ -348,7 +356,8 @@ void TerrainShadingProjected::DrawFullscreen(SDL_GPURenderPass* rp, md::GpuComma
     // shifted +3 after adding the 3 Kenshi-parity samplers above) --
     // see terrain_shading_common.glsl's TS_HAS_AMBIENT_PROBE doc comment.
     SDL_GPUBuffer* ambient_probe_buf = AmbientProbeSystem::Get().GetSSBO().SDLBuffer();
-    pv.BindFragmentStorageBuffers(0, &ambient_probe_buf, 1);
+    SDL_GPUBuffer* storage_bufs[2] = { ambient_probe_buf, ground.BiomeParamsBuffer() ? ground.BiomeParamsBuffer() : ambient_probe_buf };
+    pv.BindFragmentStorageBuffers(0, storage_bufs, 2);
 
     pv.Draw(3, 1, 0, 0);
 }

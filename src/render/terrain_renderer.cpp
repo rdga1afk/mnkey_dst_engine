@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <monkey_dust/render/terrain_renderer.h>
 #include <monkey_dust/world/biome_def.h>
 #include <monkey_dust/tools/graphics_settings.h>
@@ -426,6 +427,9 @@ void TerrainRenderer::UploadBiomeLayersTex()
         }
     }
 
+    biome_layers_cpu_ = packed;
+    if (!biome_params_ready_) { biome_params_ssbo_.Init(128 * 9 * 16); biome_params_ready_ = true; } // 128 biomes; the rest is never read
+    biome_params_ssbo_.Upload(packed.data(), (int)std::min<size_t>(packed.size() * sizeof(uint32_t), 128u * 9u * 16u));
     SDL_GPUTransferBufferCreateInfo tbi{};
     tbi.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
     tbi.size  = (Uint32)(packed.size() * sizeof(uint32_t));
@@ -541,6 +545,7 @@ void TerrainRenderer::Shutdown() {
     zone_layers_sampler_ = nullptr;
     biome_layers_tex_     = nullptr;
     biome_layers_sampler_ = nullptr;
+    if (biome_params_ready_) { biome_params_ssbo_.Shutdown(); biome_params_ready_ = false; }
     fallback_tex_            = nullptr;
     fallback_sampler_        = nullptr;
     fallback_mask_tex_       = nullptr;

@@ -1,5 +1,7 @@
 #pragma once
+#include <vector>
 #include <monkey_dust/render/gpu_device.h>
+#include <monkey_dust/render/ssbo.h>
 #include <monkey_dust/render/gpu_sampler_texture.h>
 #include <monkey_dust/world/terrain_chunk.h>
 
@@ -179,6 +181,10 @@ public:
     md::GpuTextureHandle Kbi1BlendLookupTexture() const { return kbi1_lookup_tex_.SDLTexture(); }
     SDL_GPUSampler* Kbi1BlendLookupSampler() const { return kbi1_lookup_tex_.SDLSampler(); }
     md::GpuTextureHandle BiomeLayersTexture() const { return biome_layers_tex_; }
+    // The same table as a storage buffer (9 uvec4 per biome, the texture's layout) for the resolve's TS_BIOME_SSBO variants; null before UploadBiomeLayersTex.
+    SDL_GPUBuffer* BiomeParamsBuffer() const { return biome_params_ssbo_.SDLBuffer(); }
+    // The same table as uint32 (9 x 4 per biome, biome_layers_ order) for the resolve's uniform block; empty before UploadBiomeLayersTex.
+    const std::vector<uint32_t>& BiomeLayersData() const { return biome_layers_cpu_; }
     SDL_GPUSampler* BiomeLayersSampler() const { return biome_layers_sampler_; }
     md::GpuTextureHandle BiomeBlendTexture() const { return tex_biome_blend_.SDLTexture(); }
     SDL_GPUSampler* BiomeBlendSampler() const { return tex_biome_blend_.SDLSampler(); }
@@ -240,6 +246,9 @@ private:
     // task-terrain-kenshi-parity (2026-09-26): see InitKbi1BlendLookup/
     // UploadBiomeLayersTex's own doc comments above.
     GpuTexture kbi1_lookup_tex_;
+    std::vector<uint32_t> biome_layers_cpu_;
+    SSBO biome_params_ssbo_;
+    bool biome_params_ready_ = false;
     md::GpuTextureHandle biome_layers_tex_     = nullptr;
     SDL_GPUSampler* biome_layers_sampler_ = nullptr;
 
