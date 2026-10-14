@@ -13,6 +13,9 @@ This file lists code and designs ported or adapted into this repository from oth
   project's style, nothing is compiled from Okran.
 - `engine/src/io/tiff.cpp` and `include/monkey_dust/io/tiff.h` are a C++ port of the behaviour of Okran's `src/io/tiff.rs`
   (uncompressed greyscale little-endian TIFF, 8/16 bit, strips, windowed reads by seeking).
+- `engine/src/io/ogre_chunk.cpp`, `ogre_mesh.cpp`, `ogre_skeleton.cpp`, `kenshi_resources.cpp` and their headers (`include/monkey_dust/io/ogre_chunk.h`,
+  `ogre_mesh.h`, `ogre_skeleton.h`, `kenshi_resources.h`) are C++ ports of the behaviour of Okran's `src/io/ogre.rs` (chunk reader),
+  `ogre_mesh.rs` (`.mesh`), `ogre_skeleton.rs` (`.skeleton`) and `resources.rs` (file-name lookup).
 - Licence text:
 
 ```

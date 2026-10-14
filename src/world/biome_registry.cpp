@@ -1,3 +1,4 @@
+#include <monkey_dust/io/kenshi_resources.h>
 #include <monkey_dust/world/biome_def.h>
 #include <monkey_dust/platform/md_log.h>
 #include <cstdio>
@@ -286,33 +287,14 @@ std::string ReplaceAll(std::string s, const std::string& from, const std::string
 
 bool Exists(const std::string& path) { std::error_code ec; return std::filesystem::exists(path, ec); }
 
-// Ogre-style resource lookup (what Kenshi does, and Project-Okran io/resources.rs): a texture the data names is found by its file name anywhere
-// under <install>/data, whatever stale folder the stored path has; lower-case name -> the first path in sorted order. Built once per load.
-std::string g_data_root;
-std::unordered_map<std::string, std::filesystem::path> g_data_index;
-void IndexData(const std::string& kenshi_dir) {
-    g_data_root = kenshi_dir;
-    g_data_index.clear();
-    std::error_code ec;
-    const std::filesystem::path data = std::filesystem::path(kenshi_dir) / "data";
-    for (std::filesystem::recursive_directory_iterator it(data, std::filesystem::directory_options::skip_permission_denied, ec), end; !ec && it != end; it.increment(ec)) {
-        if (!it->is_regular_file(ec)) continue;
-        std::string name = it->path().filename().string();
-        for (char& c : name) c = (char)tolower((unsigned char)c);
-        std::filesystem::path rel = std::filesystem::relative(it->path(), data, ec);
-        auto f = g_data_index.find(name);
-        if (f == g_data_index.end()) g_data_index.emplace(name, rel);
-        else if (rel.compare(f->second) < 0) f->second = rel;
-    }
-}
+// Ogre-style resource lookup (what Kenshi does): a texture the data names is found by its file name anywhere under <install>/data, whatever stale folder the
+// stored path has (md::KenshiResources). Built once per load.
+md::KenshiResources g_resources;
+void IndexData(const std::string& kenshi_dir) { g_resources.Index(kenshi_dir); }
 // Full path of texture file `fn`: next to `dir` first, else by name under <install>/data; "" when the install has no such file.
 std::string ResolveTexture(const std::string& dir, const std::string& fn) {
     if (Exists(dir + "/" + fn)) return dir + "/" + fn;
-    std::string name = fn;
-    for (char& c : name) c = (char)tolower((unsigned char)c);
-    auto f = g_data_index.find(name);
-    if (f == g_data_index.end()) return "";
-    return (std::filesystem::path(g_data_root) / "data" / f->second).string();
+    return g_resources.Path(fn);
 }
 
 // Best-effort DIF -> NML file name; "" when none (the synthetic flat normal is used then)
