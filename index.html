@@ -214,7 +214,7 @@
 <div id="sidebar">
   <div class="sidebar-logo">
     <div class="title">monkey_dust</div>
-    <div class="subtitle"><span class="l-en">Kenshi's world on Linux · docs · 2026-10-10</span><span class="l-uk">Світ Kenshi на Linux · документація · 10.10.2026</span></div>
+    <div class="subtitle"><span class="l-en">Kenshi's world on Linux · docs · 2026-10-13</span><span class="l-uk">Світ Kenshi на Linux · документація · 13.10.2026</span></div>
     <div class="lang-switch" role="group" aria-label="Language">
       <button type="button" data-lang="en">EN</button><button type="button" data-lang="uk">UA</button>
     </div>
@@ -261,7 +261,7 @@
 <!-- ═══ INTRO ═══ -->
 <section class="doc-section" id="intro">
   <div class="hero">
-    <div class="version-badge">2026-10-10 · C++17 · SDL3 + SDL_GPU (Vulkan) · Linux · <span class="l-en">early development</span><span class="l-uk">рання розробка</span></div>
+    <div class="version-badge">2026-10-13 · C++17 · SDL3 + SDL_GPU (Vulkan) · Linux · <span class="l-en">early development</span><span class="l-uk">рання розробка</span></div>
     <h1>monkey_dust</h1>
     <p class="lead l-en">A native Linux engine that renders the world of <b>Kenshi</b> from your own installed copy of the game, aimed at <b>weak integrated GPUs</b> (test platform: Intel HD 520).</p>
     <p class="lead l-uk">Нативний рушій для Linux, що рендерить світ <b>Kenshi</b> з вашої власної встановленої копії гри і орієнтований на <b>слабкі вбудовані GPU</b> (тестова платформа: Intel HD 520).</p>
@@ -316,43 +316,44 @@
 
 <!-- ═══ STATUS ═══ -->
 <section class="doc-section" id="status">
-  <h2><span class="l-en">Status (2026-10-10)</span><span class="l-uk">Стан (10.10.2026)</span></h2>
+  <h2><span class="l-en">Status (2026-10-13)</span><span class="l-uk">Стан (13.10.2026)</span></h2>
   <table>
     <tr><th><span class="l-en">Area</span><span class="l-uk">Напрям</span></th><th><span class="l-en">State</span><span class="l-uk">Стан</span></th></tr>
     <tr><td><span class="l-en">FCS reader (v15–v17, <code>mods.cfg</code> order, record merge)</span><span class="l-uk">Читач FCS (v15–v17, порядок <code>mods.cfg</code>, злиття записів)</span></td>
-        <td><span class="badge done">done</span> <span class="l-en">20 481 records, 394 766 values, 0 mismatches against an independent dump</span><span class="l-uk">20 481 запис, 394 766 значень, 0 розбіжностей з незалежним дампом</span></td></tr>
-    <tr><td><span class="l-en">Biomes from FCS <code>BIOMES</code></span><span class="l-uk">Біоми з FCS <code>BIOMES</code></span></td>
-        <td><span class="badge done">done</span> <span class="l-en">byte-identical to the previous offline table</span><span class="l-uk">побайтово збігаються з попередньою офлайн-таблицею</span></td></tr>
+        <td><span class="badge done">done</span> <span class="l-en">20 481 records, 394 766 values, 0 mismatches against an independent dump; biomes from the merged data (mods applied)</span><span class="l-uk">20 481 запис, 394 766 значень, 0 розбіжностей з незалежним дампом; біоми зі злитих даних (з модами)</span></td></tr>
     <tr><td><span class="l-en">Heights from <code>fullmap.tif</code></span><span class="l-uk">Висоти з <code>fullmap.tif</code></span></td>
-        <td><span class="badge done">done</span> <span class="l-en">68 161 536 heights, 0 differences</span><span class="l-uk">68 161 536 висот, 0 відмінностей</span></td></tr>
-    <tr><td><code>biomemap.png</code>, <code>blendmap.png</code>, <code>ambientmap.png</code></td>
-        <td><span class="badge done">done</span> <span class="l-en">read from the install, pixel-identical</span><span class="l-uk">з інсталяції, попіксельний збіг</span></td></tr>
-    <tr><td><span class="l-en">Terrain renderer, Kenshi visual parity</span><span class="l-uk">Рендер ландшафту, візуальний паритет з Kenshi</span></td>
-        <td><span class="badge current">in progress</span> <span class="l-en">normals, grid, slope/cliff, ambient map match Kenshi's code</span><span class="l-uk">нормалі, сітка, схил/круча, ambient map як у коді Kenshi</span></td></tr>
-    <tr><td><span class="l-en">Per-pixel biomes by <code>blendMap</code></span><span class="l-uk">Біом для кожного пікселя за <code>blendMap</code></span></td>
-        <td><span class="badge next">next</span> M2.2</td></tr>
+        <td><span class="badge done">done</span> <span class="l-en">68 161 536 heights, 0 differences; 1.8 m window near the camera (background thread), 3.6 m elsewhere</span><span class="l-uk">68 161 536 висот, 0 відмінностей; біля камери вікно 1,8 м (фоновий потік), далі 3,6 м</span></td></tr>
+    <tr><td><span class="l-en">Maps and ground textures from the install</span><span class="l-uk">Карти й текстури ґрунту з інсталяції</span></td>
+        <td><span class="badge done">done</span> <span class="l-en">lookup by file name, as Ogre does</span><span class="l-uk">пошук за іменем файлу, як в Ogre</span></td></tr>
+    <tr><td><span class="l-en">Ground shader (Kenshi's <code>terrainfp4.hlsl</code>)</span><span class="l-uk">Шейдер ґрунту (<code>terrainfp4.hlsl</code> Kenshi)</span></td>
+        <td><span class="badge done">done</span> <span class="l-en">ported from Project Okran (MIT): per-pixel <code>blendMap</code> biomes, per-pixel cliff weight, Kenshi's default texture quality, Kenshi units</span><span class="l-uk">перенесено з Project Okran (MIT): біоми за <code>blendMap</code> для кожного пікселя, вага кручі для кожного пікселя, якість текстур Kenshi за замовчуванням, одиниці Kenshi</span></td></tr>
+    <tr><td><span class="l-en">Terrain LOD</span><span class="l-uk">LOD ландшафту</span></td>
+        <td><span class="badge done">default</span> <span class="l-en">Kenshi's screen-space error rule (5 / 35 px, 750 → 1500 m), geomorph, skirts, vertex normals; patch 16 / 64 as a setting</span><span class="l-uk">правило екранної похибки Kenshi (5 / 35 px, 750 → 1500 м), геоморф, спідниці, нормалі у вершинах; патч 16 / 64 — налаштування</span></td></tr>
+    <tr><td><span class="l-en">Lighting, sky, water like Kenshi's</span><span class="l-uk">Світло, небо, вода, як у Kenshi</span></td>
+        <td><span class="badge next">next</span> <span class="l-en">frames are darker than Kenshi; port of Kenshi's lighting chain</span><span class="l-uk">кадри темніші за Kenshi; перенос ланцюга світла Kenshi</span></td></tr>
     <tr><td><span class="l-en">Towns (Ogre <code>.mesh</code>), foliage</span><span class="l-uk">Міста (Ogre <code>.mesh</code>), рослини</span></td>
         <td><span class="badge next">planned</span> <span class="l-en">Nov 2026</span><span class="l-uk">листопад 2026</span></td></tr>
     <tr><td><span class="l-en">Steam auto-detection · Workshop mods on real data</span><span class="l-uk">Автопошук Steam · моди Workshop на справжніх даних</span></td>
         <td><span class="badge next">not yet</span></td></tr>
-    <tr><td><b><span class="l-en">Frame time, 1080p, terrain frames, HD 520</span><span class="l-uk">Час кадру, 1080p, кадри з землею, HD 520</span></b></td>
-        <td><b>23.1 / 20.8 / 25.1 ms</b> <span class="l-en">real frame interval at native fullscreen 1920×1080 in three points (43 / 48 / 40 FPS), flight route p99 32 ms, target ≤ 16.7 ms — the main open problem</span><span class="l-uk">реальний інтервал кадру в нативному повноекранному 1920×1080 у трьох точках (43 / 48 / 40 FPS), маршрут польоту p99 32 мс, ціль ≤ 16,7 мс — головна відкрита проблема</span></td></tr>
+    <tr><td><b><span class="l-en">Frame time, native 1920×1080, HD 520</span><span class="l-uk">Час кадру, нативні 1920×1080, HD 520</span></b></td>
+        <td><b>23.6 / 19.4 / 23.6 ms</b> <span class="l-en">at three fixed points; flight route p99 30–31 ms; target ≤ 16.7 ms — the main open problem</span><span class="l-uk">у трьох фіксованих точках; маршрут польоту p99 30–31 мс; ціль ≤ 16,7 мс — головна відкрита проблема</span></td></tr>
   </table>
 </section>
 
 <!-- ═══ GOAL ═══ -->
 <section class="doc-section" id="goal">
   <h2><span class="l-en">Goal by ~2026-12-10</span><span class="l-uk">Мета до ~10.12.2026</span></h2>
-  <p class="l-en"><b>Kenshi's world on Linux at 60 FPS on an HD 520</b>, native 1920×1080: terrain + towns + foliage, no NPCs. Acceptance: all data from the Kenshi folder; GPU p95 ≤ 16.7 ms at five fixed locations (three terrain points, one large town, one dense foliage area); no zone seams, no LOD cracks, no flicker.</p>
-  <p class="l-uk"><b>Світ Kenshi під Linux з 60 FPS на HD 520</b>, нативні 1920×1080: земля + міста + рослини, без NPC. Прийом: усі дані з теки Kenshi; GPU p95 ≤ 16,7 мс у п'яти фіксованих місцях (три точки ландшафту, одне велике місто, одна ділянка густих рослин); без швів між зонами, розривів LOD і мерехтіння.</p>
+  <p class="l-en"><b>Kenshi's world on Linux at a stable 60 FPS on an HD 520</b>, native 1920×1080, no resolution scaling: terrain, sky, water, towns and foliage from the Kenshi folder, looking like Kenshi. "Stable" = frame-interval p99 ≤ 16.7 ms on a fixed flight route (town, canyon, desert, horizon; loading hitches count) and a mean ≤ 16.7 ms at three fixed points and near the Hub. Also by then: a character editor matching Kenshi's, and AMD FSR 2 as an optional player setting (the goal is measured without it).</p>
+  <p class="l-uk"><b>Світ Kenshi під Linux зі стабільними 60 FPS на HD 520</b>, нативні 1920×1080 без масштабування: земля, небо, вода, міста й рослини з теки Kenshi, на вигляд як у Kenshi. «Стабільні» — p99 інтервалу кадру ≤ 16,7 мс на фіксованому маршруті польоту (місто, каньйон, пустеля, обрій; ривки підвантаження рахуються) і середнє ≤ 16,7 мс у трьох точках і біля Хабу. До того ж строку: редактор персонажів, як у Kenshi, і AMD FSR 2 як налаштування гравця (мета міряється без нього).</p>
   <table>
-    <tr><th><span class="l-en">Week</span><span class="l-uk">Тиждень</span></th><th><span class="l-en">By</span><span class="l-uk">До</span></th><th><span class="l-en">Milestone</span><span class="l-uk">Етап</span></th></tr>
-    <tr><td>1</td><td>17.10</td><td><span class="badge done">done</span> <span class="l-en">M2.1 terrain-dominated measurement camera, new baseline</span><span class="l-uk">M2.1 замірна камера на землю, нова база</span></td></tr>
-    <tr><td>2</td><td>24.10</td><td><span class="badge done">done</span> <span class="l-en">M1.4 heights and maps from the install</span><span class="l-uk">M1.4 висоти й карти з інсталяції</span></td></tr>
-    <tr><td>4</td><td>07.11</td><td><b><span class="l-en">GATE: M2.2 per-pixel biomes; terrain ≤ 12 ms GPU at the reference point</span><span class="l-uk">ВОРОТА: M2.2 біоми для кожного пікселя; земля ≤ 12 мс GPU у контрольній точці</span></b></td></tr>
-    <tr><td>6</td><td>21.11</td><td><span class="l-en">Ogre <code>.mesh</code> reader, town buildings; town ≤ 16.7 ms</span><span class="l-uk">Читач Ogre <code>.mesh</code>, будівлі міст; місто ≤ 16,7 мс</span></td></tr>
-    <tr><td>7</td><td>28.11</td><td><span class="l-en">Kenshi foliage; dense area ≤ 16.7 ms</span><span class="l-uk">Рослини Kenshi; густа ділянка ≤ 16,7 мс</span></td></tr>
-    <tr><td>8</td><td>~10.12</td><td><span class="l-en">Acceptance against all criteria</span><span class="l-uk">Прийом за всіма критеріями</span></td></tr>
+    <tr><th><span class="l-en">Week</span><span class="l-uk">Тиждень</span></th><th><span class="l-en">Dates</span><span class="l-uk">Дати</span></th><th><span class="l-en">Work</span><span class="l-uk">Робота</span></th></tr>
+    <tr><td>2</td><td>14–20.10</td><td><span class="l-en">verification gates; character editor: spec, data</span><span class="l-uk">ворота перевірок; редактор персонажів: специфікація, дані</span></td></tr>
+    <tr><td>3</td><td>21–27.10</td><td><span class="l-en">Ogre <code>.mesh</code>/<code>.skeleton</code> readers; early town + foliage cost check; character editor</span><span class="l-uk">читачі Ogre <code>.mesh</code>/<code>.skeleton</code>; ранній замір міста й рослин; редактор персонажів</span></td></tr>
+    <tr><td>4</td><td>28.10–03.11</td><td><span class="l-en">reuse of the previous frame's ground shading (motion vectors)</span><span class="l-uk">повторне використання шейдингу землі з минулого кадру (вектори руху)</span></td></tr>
+    <tr><td>5</td><td>04–10.11</td><td><b><span class="l-en">GATE 07.11: terrain ≤ 12 ms</span><span class="l-uk">ВОРОТА 07.11: земля ≤ 12 мс</span></b>; <span class="l-en">Kenshi lighting, sky, water</span><span class="l-uk">світло, небо, вода Kenshi</span></td></tr>
+    <tr><td>6</td><td>11–17.11</td><td>FSR 2</td></tr>
+    <tr><td>7–8</td><td>18.11–01.12</td><td><span class="l-en">towns, foliage</span><span class="l-uk">міста, рослини</span></td></tr>
+    <tr><td>9</td><td>02–10.12</td><td><span class="l-en">optimisation, acceptance</span><span class="l-uk">оптимізація, прийом</span></td></tr>
   </table>
 </section>
 
@@ -363,7 +364,7 @@
     <tr><td><span class="l-en">OS</span><span class="l-uk">ОС</span></td><td>Linux <span class="l-en">(developed on Arch Linux)</span><span class="l-uk">(розробка на Arch Linux)</span></td></tr>
     <tr><td>GPU</td><td>Vulkan, Intel HD 520 (Skylake Gen9) <span class="l-en">or better; Mesa ANV is the reference driver</span><span class="l-uk">або краща; еталонний драйвер Mesa ANV</span></td></tr>
     <tr><td>CPU</td><td>x86-64 + AVX2</td></tr>
-    <tr><td><span class="l-en">RAM</span><span class="l-uk">ОЗП</span></td><td><span class="l-en">not measured yet</span><span class="l-uk">ще не заміряно</span></td></tr>
+    <tr><td><span class="l-en">RAM</span><span class="l-uk">ОЗП</span></td><td><span class="l-en">≈ 540 MB for the game process at a terrain point (13.10.2026)</span><span class="l-uk">ще не заміряно</span></td></tr>
     <tr><td>Kenshi</td><td><span class="l-en">any legal install (Steam / GOG); only data files are read</span><span class="l-uk">будь-яка легальна інсталяція (Steam / GOG); читаються лише файли даних</span></td></tr>
   </table>
 </section>
@@ -415,13 +416,13 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"
 <section class="doc-section" id="dataflow">
   <h2><span class="l-en">Data flow at startup</span><span class="l-uk">Потік даних під час запуску</span></h2>
 <pre><code>Kenshi install (read-only, KENSHI_DIR)
- ├─ data/gamedata.base, *.mod, mods.cfg ─► io/fcs, io/fcs_gamedata ─► world/BiomeRegistry
- ├─ data/newland/land/fullmap.tif ───────► io/tiff ─► world/TerrainAtlas (every 2nd sample, 3.6 m)
- └─ data/newland/land/*.png ─────────────► io/kenshi_dir (KenshiLandFile) ─► terrain textures
+ ├─ data/gamedata.base, *.mod, mods.cfg ─► io/fcs, io/fcs_gamedata ─► world/BiomeRegistry (merged with mods)
+ ├─ data/newland/land/fullmap.tif ───────► io/tiff ─► world/TerrainAtlas (3.6 m) + TerrainLodTree (1.8 m window)
+ └─ data/newland/land/*.png, textures ───► io/kenshi_dir (lookup by file name) ─► terrain maps and layers
                                                 │
-           render: terrain G-buffer ─► deferred resolve ─► lighting ─► SDL_GPU / Vulkan</code></pre>
-  <p class="l-en">Still offline (in the private repo, baked by Python tools from Kenshi data): ground and detail texture bakes (<code>md_ground_baked.dds</code>, <code>terrain_detail_baked</code>), colour/overlay tiles. They will move to a first-run cache in the user's folder, outside the Kenshi install.</p>
-  <p class="l-uk">Поки офлайн (у приватному репо, випікаються Python-інструментами з даних Kenshi): випічки текстур ґрунту й деталей (<code>md_ground_baked.dds</code>, <code>terrain_detail_baked</code>), тайли colour/overlay. Їх буде перенесено в кеш першого запуску в теці користувача, поза інсталяцією Kenshi.</p>
+     render: terrain LOD ─► 8-byte G-buffer ─► ground resolve (Kenshi's ground shader) ─► SDL_GPU / Vulkan</code></pre>
+  <p class="l-en">Still offline copies in the private repository (fallbacks only): baked ground/detail textures and converted character meshes. They are being replaced by reading the install at runtime.</p>
+  <p class="l-uk">Поки ще офлайн-копії в приватному репозиторії (лише запасні): випечені текстури ґрунту й деталей, сконвертовані меші персонажів. Їх замінює читання інсталяції під час запуску.</p>
 </section>
 
 <!-- ═══ MODULES ═══ -->
@@ -460,22 +461,20 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"
   <h2><span class="l-en">Terrain</span><span class="l-uk">Ландшафт</span></h2>
   <div class="l-en">
     <ul>
-      <li><b>Heights:</b> <code>TerrainAtlas</code> reads <code>fullmap.tif</code> (16385², uint16) at startup and keeps every 2nd sample: 8256² = 64×64 zones × 129² vertices, 3.6 m. Fallback: the offline <code>world_hmap.r16</code>. Kenshi's own grid is 1.8 m (<code>Plugin_Terrain_x64.dll</code>, <code>getHeight</code> 0x180014430).</li>
+      <li><b>Heights:</b> <code>TerrainAtlas</code> keeps every 2nd sample of <code>fullmap.tif</code> (3.6 m) for the whole world; <code>TerrainLodTree</code> reads a 1.8 m window (Kenshi's grid) around the camera on a background thread.</li>
       <li><b>Queries:</b> <code>TerrainQuery</code> is the single source of heights, normals and slopes for gameplay.</li>
-      <li><b>Normals:</b> Kenshi's 6-neighbour fan (decoded from the plugin's patch builder 0x1800047a0), default <code>MD_NORMAL_BAKE=3</code>.</li>
-      <li><b>Geometry:</b> <code>TerrainQuadtree</code>, fixed depth (<code>kFlatLodDepth = 3</code>); no geomorph, no skirts, so no T-junction seams by construction. Kenshi's own LOD uses a screen-space error metric with threshold 8; parity there is not a goal for now.</li>
-      <li><b>Shading:</b> G-buffer pass, then a screen-space resolve: base / grass / slope / cliff / dirt / road layers per biome, per-layer mip selection (fixes zone seams), cliff normal flips as in Kenshi's shader, <code>ambientmap</code> on. Biome weights currently come from a tent blend between zone centres; Kenshi's per-pixel <code>blendMap</code> blend is milestone M2.2.</li>
-      <li><b>Scatter:</b> <code>FeatureScatterSystem</code> places objects from Kenshi's <code>features.dat</code>; there is no procedural terrain or clutter generation.</li>
+      <li><b>Geometry (LOD, default):</b> quadtree with Kenshi's screen-space error rule (viewport height × node error / distance, 5 px near, 35 px far, ramp 750 → 1500 m), geomorph, skirts, per-vertex normals from six neighbours; patch 16 ("Small") or 64 ("Large").</li>
+      <li><b>Shading:</b> 8-byte G-buffer (position fractions + octahedral normal), then a screen-space resolve running Kenshi's ground shader ported from Project Okran: per-pixel biomes from <code>blendMap</code> (four channels plus the cell's fifth slot), per-pixel cliff weight, one mip down for landscape layers (Kenshi's default texture quality); flat layers are skipped where the cliff fully covers them.</li>
+      <li><b>Scatter:</b> <code>FeatureScatterSystem</code> places objects from Kenshi's <code>features.dat</code>.</li>
     </ul>
   </div>
   <div class="l-uk">
     <ul>
-      <li><b>Висоти:</b> <code>TerrainAtlas</code> читає <code>fullmap.tif</code> (16385², uint16) під час запуску і бере кожен 2-й відлік: 8256² = 64×64 зони × 129² вершин, 3,6 м. Запасний варіант — офлайн <code>world_hmap.r16</code>. Власна сітка Kenshi — 1,8 м (<code>Plugin_Terrain_x64.dll</code>, <code>getHeight</code> 0x180014430).</li>
+      <li><b>Висоти:</b> <code>TerrainAtlas</code> тримає кожен 2-й відлік <code>fullmap.tif</code> (3,6 м) для всього світу; <code>TerrainLodTree</code> читає вікно 1,8 м (сітка Kenshi) навколо камери у фоновому потоці.</li>
       <li><b>Запити:</b> <code>TerrainQuery</code> — єдине джерело висот, нормалей і схилів для ігрової логіки.</li>
-      <li><b>Нормалі:</b> віяло з 6 сусідів, як у Kenshi (розібрано з будівника патчів плагіна 0x1800047a0), за замовчуванням <code>MD_NORMAL_BAKE=3</code>.</li>
-      <li><b>Геометрія:</b> <code>TerrainQuadtree</code> фіксованої глибини (<code>kFlatLodDepth = 3</code>); без геоморфу й юбок, тож T-швів немає за побудовою. LOD у Kenshi — за екранною похибкою з порогом 8; паритет тут поки не мета.</li>
-      <li><b>Шейдинг:</b> прохід G-буфера, потім екранне розв'язання: шари base / grass / slope / cliff / dirt / road для кожного біому, мип для кожного шару окремо (прибирає шви зон), перевертання нормалей кручі як у шейдері Kenshi, <code>ambientmap</code> увімкнено. Ваги біомів зараз — «намет» між центрами зон; змішування за <code>blendMap</code> для кожного пікселя, як у Kenshi, — етап M2.2.</li>
-      <li><b>Об'єкти:</b> <code>FeatureScatterSystem</code> розставляє об'єкти з <code>features.dat</code> Kenshi; процедурної генерації рельєфу чи дрібних об'єктів немає.</li>
+      <li><b>Геометрія (LOD, за замовчуванням):</b> квадродерево за правилом екранної похибки Kenshi (висота вікна × похибка вузла / відстань, 5 px поблизу, 35 px вдалині, перехід 750 → 1500 м), геоморф, спідниці, нормалі у вершинах з шести сусідів; патч 16 («Small») або 64 («Large»).</li>
+      <li><b>Шейдинг:</b> 8-байтовий G-буфер (дробові частини позиції + октаедрична нормаль), далі екранний resolve із шейдером ґрунту Kenshi, перенесеним з Project Okran: біоми для кожного пікселя за <code>blendMap</code> (чотири канали + п'ятий слот клітинки), вага кручі для кожного пікселя, шари ландшафту на один mip нижче (якість текстур Kenshi за замовчуванням); плоскі шари пропускаються там, де їх повністю закриває круча.</li>
+      <li><b>Об'єкти:</b> <code>FeatureScatterSystem</code> розставляє об'єкти з <code>features.dat</code> Kenshi.</li>
     </ul>
   </div>
 </section>
@@ -487,7 +486,7 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"
     <tr><th><span class="l-en">Part</span><span class="l-uk">Частина</span></th><th><span class="l-en">Details</span><span class="l-uk">Подробиці</span></th></tr>
     <tr><td>Backend</td><td><span class="l-en">SDL3 + SDL_GPU over Vulkan, permanently; SPIR-V shaders compiled from GLSL (<code>#version 460</code>). No OpenGL path.</span><span class="l-uk">SDL3 + SDL_GPU поверх Vulkan, назавжди; шейдери SPIR-V з GLSL (<code>#version 460</code>). Шляху OpenGL немає.</span></td></tr>
     <tr><td>GPU HAL</td><td><code>GpuDevice</code>, <code>GpuPipeline</code>, <code>GpuComputePipeline</code>, <code>GpuRingBuffer</code>, <code>GpuStaticBuffer</code>, <code>GpuTexture</code>… <span class="l-en">Submission is mutex-guarded, safe from a loader thread.</span><span class="l-uk">Відправлення команд захищене м'ютексом, безпечне з потоку завантаження.</span></td></tr>
-    <tr><td><span class="l-en">Deferred</span><span class="l-uk">Відкладене</span></td><td><span class="l-en">2-RT G-buffer (albedo+roughness, oct-normal+metallic+flags), one fullscreen lighting pass to RGBA16F, ACES tonemapping</span><span class="l-uk">G-буфер з 2 RT (albedo+roughness, oct-нормаль+metallic+прапорці), один повноекранний прохід освітлення в RGBA16F, тонмапінг ACES</span></td></tr>
+    <tr><td><span class="l-en">Deferred</span><span class="l-uk">Відкладене</span></td><td><span class="l-en">objects: 2-RT G-buffer (albedo+roughness, oct-normal+metallic+flags), one fullscreen lighting pass to RGBA16F; terrain: 8-byte G-buffer + its own resolve</span><span class="l-uk">об'єкти: G-буфер з 2 RT (albedo+roughness, октаедрична нормаль+metallic+прапорці), один повноекранний прохід світла в RGBA16F; земля: 8-байтовий G-буфер і власний resolve</span></td></tr>
     <tr><td><span class="l-en">Shadows</span><span class="l-uk">Тіні</span></td><td><span class="l-en">3-cascade EVSM, texel snapping, GPU culling</span><span class="l-uk">3 каскади EVSM, прив'язка до текселів, відсікання на GPU</span></td></tr>
     <tr><td><span class="l-en">Other</span><span class="l-uk">Інше</span></td><td><span class="l-en">half-res SSAO, bloom, weighted-blended OIT (compute composite), GPU skinning, JSON materials with inheritance</span><span class="l-uk">SSAO у половинній роздільності, bloom, OIT (композит у compute), скінінг на GPU, матеріали JSON з наслідуванням</span></td></tr>
     <tr><td><span class="l-en">Driver safety</span><span class="l-uk">Безпека драйвера</span></td><td><span class="l-en"><code>gpu_pipeline_safety_check.h</code> rejects resource layouts known to crash Intel Gen9 ANV before the pipeline is created</span><span class="l-uk"><code>gpu_pipeline_safety_check.h</code> відкидає набори ресурсів, що валять Intel Gen9 ANV, ще до створення конвеєра</span></td></tr>
@@ -501,13 +500,13 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"
     <li>Only on <b>terrain-dominated frames</b>: scenarios place the camera with <code>set_camera_pose_world</code> and check <code>md.terrain_pixel_fraction()</code> ≥ 80 %.</li>
     <li><code>RenderPassGraph</code> switches any registered pass on or off at runtime (<code>md.set_render_pass_enabled</code>); with <code>md.get_gpu_ms()</code> this splits frame cost pass by pass without rebuilding.</li>
     <li>A/B comparisons run in one process, several interleaved blocks (ABBA), to cancel GPU clock drift.</li>
-    <li>Real frame interval (native fullscreen 1920×1080, HD 520, 13.10.2026): south_hive 23.1 ms, worst_24_12 20.8 ms, owner_point 25.1 ms; fixed flight route p99 32.1–32.3 ms. Of it, the terrain resolve (ground texturing) is 13.7–18.1 ms and the terrain geometry (G-buffer + depth copy) 4.5–4.7 ms; everything else is ≤ 3 ms. Terrain LOD (default since 13.10): 23.6 / 19.4 / 23.6 ms, route p99 30.3–31.3 ms. Next: ground texture cache around the camera (8 rings). Earlier figures were taken below native resolution or at the idle GPU clock and are withdrawn.</li>
+    <li>Frame interval (native fullscreen 1920×1080, HD 520, 13.10.2026, terrain LOD on): south_hive 23.6 ms, worst_24_12 19.4 ms, owner_point 23.6 ms; fixed flight route p99 30–31 ms. Ground texturing (the resolve) is 13.7–18.1 ms of it. A texture-space ground cache around the camera was tried and did not beat the live shader on the route; next is reuse of the previous frame's ground shading.</li>
   </ul>
   <ul class="l-uk">
     <li>Лише на <b>кадрах, де переважає земля</b>: сценарії ставлять камеру через <code>set_camera_pose_world</code> і перевіряють <code>md.terrain_pixel_fraction()</code> ≥ 80 %.</li>
     <li><code>RenderPassGraph</code> вмикає й вимикає будь-який зареєстрований прохід під час роботи (<code>md.set_render_pass_enabled</code>); разом з <code>md.get_gpu_ms()</code> це розкладає ціну кадру по проходах без перезбірки.</li>
     <li>Порівняння A/B — в одному процесі, кількома чергованими блоками (ABBA), щоб прибрати дрейф частот GPU.</li>
-    <li>Реальний інтервал кадру (нативні повноекранні 1920×1080, HD 520, 13.10.2026): south_hive 23,1 мс, worst_24_12 20,8 мс, owner_point 25,1 мс; фіксований маршрут польоту p99 32,1–32,3 мс. З цього resolve ландшафту (текстурування ґрунту) — 13,7–18,1 мс, геометрія землі (G-буфер + копія глибини) 4,5–4,7 мс, решта ≤ 3 мс. LOD землі (дефолт з 13.10): 23,6 / 19,4 / 23,6 мс, маршрут p99 30,3–31,3 мс. Далі — кеш текстури ґрунту навколо камери (8 кілець). Попередні цифри зняті нижче за нативну роздільність або на частоті простою GPU й відкликані.</li>
+    <li>Інтервал кадру (нативні повноекранні 1920×1080, HD 520, 13.10.2026, LOD увімкнено): south_hive 23,6 мс, worst_24_12 19,4 мс, owner_point 23,6 мс; фіксований маршрут польоту p99 30–31 мс. З цього текстурування ґрунту (resolve) — 13,7–18,1 мс. Кеш текстури ґрунту навколо камери спробували — на маршруті він не обійшов живий шейдер; далі — повторне використання шейдингу землі з минулого кадру.</li>
   </ul>
 </section>
 
@@ -552,8 +551,8 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"
 <!-- ═══ TOOLS ═══ -->
 <section class="doc-section" id="tools">
   <h2><span class="l-en">Editor &amp; tools</span><span class="l-uk">Редактор та інструменти</span></h2>
-  <p class="l-en">The <a href="https://github.com/rdga1afk/mnkey_dst_tools">tools repository</a> (GPL-3.0) holds the standalone <code>monkey_dust_editor</code> (Dear ImGui), shader hot-reload, the live game command driver used for measurements (<code>qa/game_cmd_driver.py</code>), and Python converters and bakers. Kenshi content itself is edited in Kenshi's FCS, not here.</p>
-  <p class="l-uk"><a href="https://github.com/rdga1afk/mnkey_dst_tools">Репозиторій інструментів</a> (GPL-3.0) містить окремий <code>monkey_dust_editor</code> (Dear ImGui), гаряче перезавантаження шейдерів, драйвер команд живої гри для замірів (<code>qa/game_cmd_driver.py</code>), конвертери й випікачі на Python. Сам контент Kenshi редагується у FCS, не тут.</p>
+  <p class="l-en">The <a href="https://github.com/rdga1afk/mnkey_dst_tools">tools repository</a> (GPL-3.0) holds the standalone <code>monkey_dust_editor</code> (Dear ImGui): a Kenshi-style character editor (body sliders scale bones, as Kenshi does), a Settings tab (upscaling mode, <code>resolution_scale</code>, terrain chunk size), a 3D world view and inspectors. It also holds shader hot-reload, the live game command driver used for all measurements, offline converters, and two small local MCP servers for development (read-only Ghidra project access, headless RenderDoc capture reading; no network code).</p>
+  <p class="l-uk"><a href="https://github.com/rdga1afk/mnkey_dst_tools">Репозиторій інструментів</a> (GPL-3.0) містить окремий <code>monkey_dust_editor</code> (Dear ImGui): редактор персонажів у стилі Kenshi (слайдери тіла масштабують кістки, як у Kenshi), вкладку Settings (режим масштабування, <code>resolution_scale</code>, розмір патча ландшафту), 3D-перегляд світу й інспектори. Також гаряче перезавантаження шейдерів, драйвер гри для всіх замірів, офлайн-конвертери і два невеликі локальні MCP-сервери для розробки (лише читання проєкту Ghidra, читання захоплень RenderDoc без інтерфейсу; без мережевого коду).</p>
 </section>
 
 <!-- ═══ RULES ═══ -->
@@ -563,7 +562,7 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"
     <h3>Kenshi data and third-party code</h3>
     <ul>
       <li>No Kenshi files in public repositories or releases.</li>
-      <li>Kenshi shader text is never copied; only formulas are re-implemented.</li>
+      <li>Kenshi's own code (shaders, executable) is never copied. Behaviour is ported from Project Okran (MIT, attributed) or re-implemented from facts; parity is checked against Kenshi's own code, not only against screenshots.</li>
       <li>Every claim about Kenshi is backed by its code or data (address, file and line, or a number), not by screenshots.</li>
     </ul>
     <h3>Code</h3>
@@ -578,7 +577,7 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"
     <h3>Дані Kenshi і сторонній код</h3>
     <ul>
       <li>Жодних файлів Kenshi в публічних репозиторіях і релізах.</li>
-      <li>Текст шейдерів Kenshi не копіюється; відтворюються лише формули.</li>
+      <li>Власний код Kenshi (шейдери, виконуваний файл) не копіюється. Поведінка переноситься з Project Okran (MIT, з атрибуцією) або відтворюється за фактами; паритет перевіряється за кодом самої Kenshi, а не лише за скриншотами.</li>
       <li>Кожне твердження про Kenshi підтверджується її кодом або даними (адреса, файл і рядок, число), а не скриншотами.</li>
     </ul>
     <h3>Код</h3>
@@ -615,7 +614,9 @@ pipeline.Create(d);   // checked by gpu_pipeline_safety_check.h first</code></pr
     <tr><td>2026-07 – 09</td><td><span class="l-en">3D terrain from Kenshi elevation data (offline conversion), SDL_GPU deferred renderer, flecs → gaia-ecs</span><span class="l-uk">3D-ландшафт з даних висот Kenshi (офлайн-конвертація), відкладений рендер на SDL_GPU, flecs → gaia-ecs</span></td></tr>
     <tr><td>2026-10-07 – 10</td><td><span class="l-en">Terrain parity with Kenshi's code (normals, slope bands, mip seams, ambient map)</span><span class="l-uk">Паритет ландшафту з кодом Kenshi (нормалі, смуги схилів, шви мипів, ambient map)</span></td></tr>
     <tr><td>2026-10-10</td><td><span class="l-en"><b>Decision: engine for Kenshi owners.</b> Data read from the install at runtime; FCS, heights and maps already done</span><span class="l-uk"><b>Рішення: рушій для власників Kenshi.</b> Дані читаються з інсталяції під час запуску; FCS, висоти й карти вже зроблено</span></td></tr>
-  </table>
+      <tr><td>2026-10-11 – 12</td><td><span class="l-en">Kenshi's ground shader ported from Project Okran line by line (zone seams, cliff stripes and blur fixed); textures read from the install by file name</span><span class="l-uk">Шейдер ґрунту Kenshi перенесено з Project Okran рядок у рядок (шви зон, смуги на кручах і розмиття прибрано); текстури з інсталяції за іменем файлу</span></td></tr>
+    <tr><td>2026-10-12 – 13</td><td><span class="l-en">Goal set: stable 60 FPS at native 1080p (route p99). 8-byte terrain G-buffer, terrain LOD by Kenshi's rule (default), native resolution by default, Settings tab; ground texture cache tried and shelved</span><span class="l-uk">Мета: стабільні 60 FPS у нативних 1080p (p99 маршруту). 8-байтовий G-буфер землі, LOD ландшафту за правилом Kenshi (за замовчуванням), нативна роздільність за замовчуванням, вкладка Settings; кеш текстури ґрунту спробували й відклали</span></td></tr>
+</table>
 </section>
 
 <!-- ═══ LICENSE ═══ -->

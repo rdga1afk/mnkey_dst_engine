@@ -32,25 +32,26 @@ summary: "Public engine README (EN + UA): native Linux engine that renders Kensh
 - **Not a Kenshi replacement or a remake.** Kenshi is © Lo-Fi Games. This is an independent, unofficial engine.
 - **There is nothing to download and play.** The game executable lives in a separate private repository; this repository is the engine library.
 
-### Status (2026-10-10)
+### Status (2026-10-13)
 
 | Area | State |
 |---|---|
-| FCS reader (`.base`/`.mod` v15–v17, `mods.cfg` load order, record merge) | **Done.** Checked on a real install: 20 481 records, 394 766 values, 0 mismatches against an independent dump |
-| Biomes from FCS `BIOMES` records | **Done.** Table byte-identical to the previous offline table |
-| Heightmap from `fullmap.tif` (16385², uint16) | **Done.** 68 161 536 heights, 0 differences from the offline copy |
-| `biomemap.png`, `blendmap.png`, `overlaymaps/ambientmap.png` | **Done.** Read from the install, pixel-identical to the offline copies |
-| Terrain renderer (Kenshi 6-neighbour normals, 1.8 m grid parity, slope/cliff layers, ambient map) | **Works**, visual parity in progress |
-| Per-pixel biome blending by `blendMap` (as in Kenshi) | Next (milestone M2.2) |
-| Towns (Ogre `.mesh`), foliage | Planned for Nov 2026 |
+| FCS reader (`.base`/`.mod` v15–v17, `mods.cfg` load order, record merge) | **Done.** Checked on a real install: 20 481 records, 394 766 values, 0 mismatches against an independent dump. Biomes come from the merged data (mod overrides applied) |
+| Heightmap from `fullmap.tif` (16385², uint16) | **Done.** 68 161 536 heights, 0 differences. Near the camera a 1.8 m window (Kenshi's own grid), streamed on a background thread; further away every 2nd sample (3.6 m) |
+| `biomemap`, `blendmap`, `ambientmap`, ground textures | **Done.** Read from the install; textures are found by file name the way Ogre does it |
+| **Ground shader** | **Ported from [Project Okran](https://github.com/brayniac6-glitch/Project-Okran) (MIT)**, following Kenshi's `terrainfp4.hlsl`: per-pixel biomes from `blendMap` (up to four plus the cell's fifth slot), per-pixel cliff weight, Kenshi's default texture quality (one mip down for landscape layers), Kenshi units |
+| **Terrain LOD** | **Done, on by default.** Quadtree by screen-space error as in Kenshi's terrain plugin: thresholds 5 / 35 px with a 750 → 1500 m ramp, geomorph, skirts, per-vertex normals; patch size 16 ("Small"), 64 ("Large") as a setting |
+| Lighting, sky, water like Kenshi's | Not yet: frames are darker than Kenshi. Next: port Kenshi's lighting chain (sun, irradiance cube maps, auto exposure) |
+| Towns (Ogre `.mesh`), foliage | Planned, Nov 2026 |
 | Steam library auto-detection | Not yet: set `KENSHI_DIR` |
 | Workshop mods | Code path exists, **not yet tested on real Workshop data** |
-| **Performance, 1080p, terrain-only frames, HD 520** | Real frame interval at native fullscreen 1920×1080 (13.10.2026): **23.1 / 20.8 / 25.1 ms** (south_hive / worst_24_12 / owner_point; 43 / 48 / 40 FPS); fixed flight route p99 32.1–32.3 ms. With the terrain LOD (default since 13.10): 23.6 / 19.4 / 23.6 ms, route p99 30.3–31.3 ms. Target ≤ 16.7 ms. This is the main open problem |
+| **Performance, native 1920×1080, HD 520** | Frame interval at three fixed points **23.6 / 19.4 / 23.6 ms**; fixed flight route **p99 30–31 ms** (13.10.2026). Goal: ≤ 16.7 ms. This is the main open problem |
 
 ### Goal by ~2026-12-10
-**Kenshi's world on Linux at 60 FPS on an HD 520**, native 1920×1080: terrain + towns + foliage, no NPCs.
-Acceptance: everything is read from the Kenshi folder; GPU p95 ≤ 16.7 ms at five fixed locations (three terrain points, one large town, one dense foliage area); no seams, no flicker.
-Week-4 gate (2026-11-07): terrain alone ≤ 12 ms at the reference point, or the scope is revisited.
+**Kenshi's world on Linux at a stable 60 FPS on an HD 520**, native 1920×1080, no resolution scaling: terrain, sky, water, towns and foliage read from the Kenshi folder, looking like Kenshi.
+- **"Stable"** = frame-interval p99 ≤ 16.7 ms on a fixed flight route over the world (town, canyon, desert, horizon; loading hitches count), plus a mean ≤ 16.7 ms at three fixed points and near the Hub.
+- Week-4 gate (2026-11-07): terrain alone ≤ 12 ms.
+- Also by then (in the game and tools repositories): a character editor that matches Kenshi's, and AMD FSR 2 as an optional player setting. The goal itself is measured without upscaling.
 
 ### Requirements
 | | Minimum (target) |
@@ -58,7 +59,7 @@ Week-4 gate (2026-11-07): terrain alone ≤ 12 ms at the reference point, or the
 | OS | Linux (developed on Arch Linux) |
 | GPU | Vulkan, Intel HD 520 (Skylake Gen9) or better; Mesa ANV is the reference driver |
 | CPU | x86-64 with AVX2 |
-| RAM | not measured yet |
+| RAM | the game process uses about 540 MB at a terrain point (13.10.2026); towns and foliage will add to it |
 | Kenshi | Any legal install (Steam / GOG). Only its data files are read |
 
 ### Build
@@ -95,11 +96,11 @@ Mods are read exactly as Kenshi reads them: `data/mods.cfg` order, then `mods/` 
 **Data flow at startup:**
 ```
 Kenshi install (read-only, KENSHI_DIR)
- ├─ data/gamedata.base, *.mod, mods.cfg ─► io/fcs, io/fcs_gamedata ─► world/BiomeRegistry (biomes)
- ├─ data/newland/land/fullmap.tif ───────► io/tiff ─► world/TerrainAtlas (heights, 1.8 m → 3.6 m grid)
- └─ data/newland/land/*.png ─────────────► io/kenshi_dir (KenshiLandFile) ─► terrain textures
+ ├─ data/gamedata.base, *.mod, mods.cfg ─► io/fcs, io/fcs_gamedata ─► world/BiomeRegistry (biomes, merged with mods)
+ ├─ data/newland/land/fullmap.tif ───────► io/tiff ─► world/TerrainAtlas (3.6 m) + world/TerrainLodTree (1.8 m window near the camera)
+ └─ data/newland/land/*.png, textures ───► io/kenshi_dir (KenshiLandFile, lookup by file name) ─► terrain maps and layers
                                                 │
-                       render/terrain (G-buffer → deferred resolve) ─► SDL_GPU / Vulkan
+        render: terrain LOD → 8-byte G-buffer → ground resolve (Kenshi's ground shader) ─► SDL_GPU / Vulkan
 ```
 
 **Module map** (`include/monkey_dust/<module>/`):
@@ -107,8 +108,8 @@ Kenshi install (read-only, KENSHI_DIR)
 | Module | What it does |
 |---|---|
 | `io/` | **Kenshi data:** FCS reader and merge (`fcs`, `fcs_gamedata`), uncompressed TIFF (`tiff`), install lookup (`kenshi_dir`) |
-| `world/` | Terrain atlas and queries (`TerrainQuery`), fixed-depth terrain quadtree, biomes, feature scatter, weather, factions, world simulation |
-| `render/` | GPU HAL over SDL_GPU, G-buffer + deferred lighting, EVSM cascaded shadows, SSAO, bloom, GPU skinning, materials, per-pass on/off switch (`RenderPassGraph`) for measurement |
+| `world/` | Terrain atlas and queries (`TerrainQuery`), terrain LOD tree (`TerrainLodTree`, Kenshi's screen-space error rule), biomes, feature scatter, weather, factions, world simulation |
+| `render/` | GPU HAL over SDL_GPU, terrain LOD renderer and 8-byte terrain G-buffer, deferred lighting, EVSM cascaded shadows, SSAO, bloom, GPU skinning, materials, per-pass on/off switch (`RenderPassGraph`) for measurement, RenderDoc in-app capture hook |
 | `ecs/`, `components/` | gaia-ecs behind the `MdRegistry`/`MdEntity` facade; POD components |
 | `physics/` | Jolt Physics (`JoltWorld`, `CharacterVirtual`), ragdoll |
 | `nav/` | Recast/Detour navmesh, DetourCrowd, async path cache |
@@ -130,7 +131,7 @@ index.html             documentation site (GitHub Pages)
 ### Legal and third-party code
 - **Kenshi** is a trademark of Lo-Fi Games. This project is not affiliated with or endorsed by Lo-Fi Games. No game files are distributed; you need your own copy.
 - Third-party code and its licences: [THIRD_PARTY.md](THIRD_PARTY.md).
-- Kenshi's shader code is never copied; where parity is needed, only formulas are re-implemented.
+- Kenshi's own code (shaders, executable) is never copied. Where parity is needed, behaviour is ported from [Project Okran](https://github.com/brayniac6-glitch/Project-Okran) (MIT, attributed in [THIRD_PARTY.md](THIRD_PARTY.md)) or re-implemented from facts.
 - **Licence:** MIT, see [LICENSE](LICENSE). The game executable and its sources are proprietary and not part of this repository.
 
 ---
@@ -150,25 +151,26 @@ index.html             documentation site (GitHub Pages)
 - **Це не заміна і не ремейк Kenshi.** Kenshi © Lo-Fi Games. Це незалежний неофіційний рушій.
 - **Завантажити й зіграти поки нічого.** Виконуваний файл гри — в окремому приватному репозиторії; тут бібліотека рушія.
 
-### Стан (10.10.2026)
+### Стан (13.10.2026)
 
 | Напрям | Стан |
 |---|---|
-| Читач FCS (`.base`/`.mod` v15–v17, порядок `mods.cfg`, злиття записів) | **Готово.** Перевірено на справжній інсталяції: 20 481 запис, 394 766 значень, 0 розбіжностей з незалежним дампом |
-| Біоми з записів FCS `BIOMES` | **Готово.** Таблиця побайтово збігається з попередньою офлайн-таблицею |
-| Карта висот з `fullmap.tif` (16385², uint16) | **Готово.** 68 161 536 висот, 0 відмінностей від офлайн-копії |
-| `biomemap.png`, `blendmap.png`, `overlaymaps/ambientmap.png` | **Готово.** Читаються з інсталяції, попіксельно збігаються з офлайн-копіями |
-| Рендер ландшафту (нормалі Kenshi з 6 сусідів, сітка 1,8 м, шари схилу й кручі, ambient map) | **Працює**, візуальний паритет у роботі |
-| Біом для кожного пікселя за `blendMap` (як у Kenshi) | Наступний крок (M2.2) |
+| Читач FCS (`.base`/`.mod` v15–v17, порядок `mods.cfg`, злиття записів) | **Готово.** Перевірено на справжній інсталяції: 20 481 запис, 394 766 значень, 0 розбіжностей з незалежним дампом. Біоми — зі злитих даних (з модами) |
+| Карта висот з `fullmap.tif` (16385², uint16) | **Готово.** 68 161 536 висот, 0 відмінностей. Біля камери — вікно 1,8 м (сітка самої Kenshi), підвантажується у фоновому потоці; далі — кожен 2-й відлік (3,6 м) |
+| `biomemap`, `blendmap`, `ambientmap`, текстури ґрунту | **Готово.** Читаються з інсталяції; текстури шукаються за іменем файлу, як в Ogre |
+| **Шейдер ґрунту** | **Перенесено з [Project Okran](https://github.com/brayniac6-glitch/Project-Okran) (MIT)** за `terrainfp4.hlsl` Kenshi: біоми для кожного пікселя за `blendMap` (до чотирьох + п'ятий слот клітинки), вага кручі для кожного пікселя, якість текстур Kenshi за замовчуванням (шари ландшафту на один mip нижче), одиниці Kenshi |
+| **LOD ландшафту** | **Готово, увімкнено за замовчуванням.** Квадродерево за екранною похибкою, як у плагіні ландшафту Kenshi: пороги 5 / 35 px з переходом 750 → 1500 м, геоморф, спідниці, нормалі у вершинах; розмір патча 16 («Small»), 64 («Large») — налаштування |
+| Світло, небо, вода, як у Kenshi | Ще ні: кадри темніші за Kenshi. Далі — перенос ланцюга світла Kenshi (сонце, кубічні карти опромінення, автоекспозиція) |
 | Міста (Ogre `.mesh`), рослини | План на листопад 2026 |
 | Автопошук бібліотеки Steam | Ще ні: задайте `KENSHI_DIR` |
 | Моди з Workshop | Код є, **на справжніх даних Workshop ще не перевірено** |
-| **Продуктивність, 1080p, кадри з землею, HD 520** | Реальний інтервал кадру в нативному повноекранному 1920×1080 (13.10.2026): **23,1 / 20,8 / 25,1 мс** (south_hive / worst_24_12 / owner_point; 43 / 48 / 40 FPS); фіксований маршрут польоту p99 32,1–32,3 мс. З LOD землі (дефолт з 13.10): 23,6 / 19,4 / 23,6 мс, маршрут p99 30,3–31,3 мс. Ціль ≤ 16,7 мс. Це головна відкрита проблема |
+| **Продуктивність, нативні 1920×1080, HD 520** | Інтервал кадру в трьох фіксованих точках **23,6 / 19,4 / 23,6 мс**; фіксований маршрут польоту **p99 30–31 мс** (13.10.2026). Мета — ≤ 16,7 мс. Це головна відкрита проблема |
 
 ### Мета до ~10.12.2026
-**Світ Kenshi під Linux з 60 FPS на HD 520**, нативні 1920×1080: земля + міста + рослини, без NPC.
-Прийом: усе читається з теки Kenshi; GPU p95 ≤ 16,7 мс у п'яти фіксованих місцях (три точки ландшафту, одне велике місто, одна ділянка густих рослин); без швів і мерехтіння.
-Ворота 4-го тижня (07.11.2026): лише земля ≤ 12 мс у контрольній точці, інакше обсяг переглядається.
+**Світ Kenshi під Linux зі стабільними 60 FPS на HD 520**, нативні 1920×1080 без масштабування роздільності: земля, небо, вода, міста й рослини з теки Kenshi, на вигляд як у Kenshi.
+- **«Стабільні»** — p99 інтервалу кадру ≤ 16,7 мс на фіксованому маршруті польоту над світом (місто, каньйон, пустеля, обрій; ривки підвантаження теж рахуються), плюс середнє ≤ 16,7 мс у трьох фіксованих точках і біля Хабу.
+- Ворота 4-го тижня (07.11.2026): лише земля ≤ 12 мс.
+- До того ж строку (у репозиторіях гри й інструментів): редактор персонажів, як у Kenshi, і AMD FSR 2 як налаштування гравця. Сама мета міряється без масштабування.
 
 ### Вимоги
 | | Мінімум (ціль) |
@@ -176,7 +178,7 @@ index.html             documentation site (GitHub Pages)
 | ОС | Linux (розробка на Arch Linux) |
 | GPU | Vulkan, Intel HD 520 (Skylake Gen9) або краща; еталонний драйвер Mesa ANV |
 | CPU | x86-64 з AVX2 |
-| ОЗП | ще не заміряно |
+| ОЗП | процес гри займає близько 540 МБ у точці ландшафту (13.10.2026); міста й рослини додадуть |
 | Kenshi | Будь-яка легальна інсталяція (Steam / GOG). Читаються лише файли даних |
 
 ### Збірка
@@ -209,15 +211,15 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"   # тек�
 | [`mnkey_dst_tools`](https://github.com/rdga1afk/mnkey_dst_tools) | публічний | GPL-3.0 | Редактор, скрипти замірів і QA, офлайн-конвертери |
 | `mnkey_dst` | приватний | власницька | Виконуваний файл гри, шейдери, тести, дослідження. Два репо вище — його підмодулі |
 
-**Потік даних під час запуску:** див. схему в англійському розділі вище: інсталяція Kenshi (лише читання) → `io/` → `world/` → `render/` → SDL_GPU / Vulkan.
+**Потік даних під час запуску:** див. схему в англійському розділі вище: інсталяція Kenshi (лише читання) → `io/` → `world/` (атлас 3,6 м + вікно 1,8 м біля камери) → `render/` (LOD → 8-байтовий G-буфер → шейдер ґрунту Kenshi) → SDL_GPU / Vulkan.
 
 **Модулі** (`include/monkey_dust/<модуль>/`):
 
 | Модуль | Що робить |
 |---|---|
 | `io/` | **Дані Kenshi:** читач і злиття FCS, TIFF без стиснення, пошук інсталяції |
-| `world/` | Атлас висот і запити (`TerrainQuery`), квадродерево ландшафту фіксованої глибини, біоми, розстановка об'єктів, погода, фракції, симуляція світу |
-| `render/` | GPU HAL над SDL_GPU, G-буфер і відкладене освітлення, каскадні тіні EVSM, SSAO, bloom, скінінг на GPU, матеріали, вмикання/вимикання проходів (`RenderPassGraph`) для замірів |
+| `world/` | Атлас висот і запити (`TerrainQuery`), дерево LOD ландшафту (`TerrainLodTree`, правило екранної похибки Kenshi), біоми, розстановка об'єктів, погода, фракції, симуляція світу |
+| `render/` | GPU HAL над SDL_GPU, рендер LOD ландшафту й 8-байтовий G-буфер землі, відкладене освітлення, каскадні тіні EVSM, SSAO, bloom, скінінг на GPU, матеріали, вмикання/вимикання проходів (`RenderPassGraph`) для замірів, хук захоплення RenderDoc |
 | `ecs/`, `components/` | gaia-ecs за фасадом `MdRegistry`/`MdEntity`; POD-компоненти |
 | `physics/` | Jolt Physics, ragdoll |
 | `nav/` | Навмеш Recast/Detour, DetourCrowd, асинхронний кеш шляхів |
@@ -228,5 +230,5 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"   # тек�
 ### Правове
 - **Kenshi** — торгова марка Lo-Fi Games. Проєкт не пов'язаний з Lo-Fi Games і не схвалений ними. Файли гри не поширюються; потрібна власна копія.
 - Сторонній код і його ліцензії: [THIRD_PARTY.md](THIRD_PARTY.md).
-- Код шейдерів Kenshi не копіюється; де потрібен паритет, відтворюються лише формули.
+- Власний код Kenshi (шейдери, виконуваний файл) не копіюється. Де потрібен паритет, поведінка переноситься з [Project Okran](https://github.com/brayniac6-glitch/Project-Okran) (MIT, з атрибуцією в [THIRD_PARTY.md](THIRD_PARTY.md)) або відтворюється за фактами.
 - **Ліцензія:** MIT, див. [LICENSE](LICENSE). Виконуваний файл гри і його код — власницькі й не входять до цього репозиторію.
