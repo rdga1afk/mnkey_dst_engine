@@ -492,6 +492,7 @@ bool GpuPipeline::Create(const Desc& desc) {
     raster_bits |= (uint32_t)desc.raster.blend_enable   << 3;
     raster_bits |= (uint32_t)desc.raster.depth_compare_op << 4;
     raster_bits |= (uint32_t)desc.raster.wireframe      << 12; // leaves room below compare_op's multi-bit range
+    raster_bits |= (uint32_t)desc.color_format          << 16; // INVALID (0) = the swapchain format; two formats of the same shaders are two pipelines
     const uint32_t pipe_hash = PipeHash(desc.vert_path, desc.frag_path,
                                          desc.shader_features, raster_bits);
     SDL_GPUGraphicsPipeline* cached = PipeCache_Get(pipe_hash);
