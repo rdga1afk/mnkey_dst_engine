@@ -81,7 +81,7 @@ public:
     };
     void SetReuse(const ReuseParams* r) { reuse_ = r; }
     // #140 L2: the Kenshi main light variant: sun direction (to the sun), sun colour + strength, (envColour.w, ambientParams.w, exposure); null = the current lighting.
-    struct KLightParams { float sun_dir[4], sun_colour[4], params[4]; };
+    struct KLightParams { float sun_dir[4], sun_colour[4], params[4], sun_real[4], horizon[4], fog[4]; };
     void SetKLight(const KLightParams* k) { klight_ = k; }
 
     // Begin the G-buffer geometry pass -- CLEARs both gbuf_color_ (unused
