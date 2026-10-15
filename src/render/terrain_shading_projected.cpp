@@ -117,6 +117,14 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
     // #155 step 1: the same variant without the flat-chain skip on cliff_w >= 1 (A/B, SetSkipFlatOnCliff(false)); non-fatal
     rd.frag_path = "shaders/terrain_shading_screenspace_kenshi_noskip.frag";
     resolve_kenshi_noskip_ready_ = resolve_kenshi_noskip_pipeline_.Create(rd);
+    // #163 5b-2b: the reuse variant: slot 2 (baked ground) = previous G-buffer depth, slot 15 (ground cache ring) = history colour (SDL_GPU binds at most 16 fragment samplers), a 4th UBO (the reprojection); non-fatal
+    {
+        GpuPipeline::Desc ud = rd;
+        ud.frag_path = "shaders/terrain_shading_screenspace_kenshi_reuse.frag";
+        ud.frag_uniform_bufs = 4;
+        resolve_kenshi_reuse_ready_ = resolve_kenshi_reuse_pipeline_.Create(ud);
+        if (!resolve_kenshi_reuse_ready_) MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] reuse resolve variant create failed (ground reuse unavailable)");
+    }
     // #155 step 2b: the Kenshi resolve with the ground cache read; the default variant above has no ring code
     rd.frag_path = "shaders/terrain_shading_screenspace_kenshi_ring.frag";
     resolve_kenshi_ring_ready_ = resolve_kenshi_ring_pipeline_.Create(rd);
@@ -148,8 +156,18 @@ void TerrainShadingProjected::EnsureSize(md::GpuDeviceHandle dev, int w, int h) 
     (void)dev;
     if (!ready_ || (w == w_ && h == h_) || w <= 0 || h <= 0) return;
     gbuf_depth_.Shutdown();
+    gd_alt_.Shutdown();
     gbuf_color_.Shutdown();
+    gd_cur_ = &gbuf_depth_; gd_prev_ = &gd_alt_;
     CreateTextures(w, h);
+    if (hist_on_) gd_alt_.Init(w, h, /*shadow_border=*/false);
+}
+
+void TerrainShadingProjected::EnsureHistory(bool on, int w, int h) {
+    if (!ready_) return;
+    hist_on_ = on;
+    if (on && !gd_alt_.SDLTexture()) gd_alt_.Init(w, h, /*shadow_border=*/false);
+    if (!on && gd_alt_.SDLTexture()) { gd_alt_.Shutdown(); gd_cur_ = &gbuf_depth_; gd_prev_ = &gd_alt_; }
 }
 
 void TerrainShadingProjected::Shutdown() {
@@ -160,6 +178,9 @@ void TerrainShadingProjected::Shutdown() {
     resolve_kenshi_noskip_ready_ = false;
     resolve_kenshi_ring_pipeline_.Destroy();
     resolve_kenshi_ring_ready_ = false;
+    resolve_kenshi_reuse_pipeline_.Destroy();
+    resolve_kenshi_reuse_ready_ = false;
+    gd_alt_.Shutdown();
     bake_pipeline_.Destroy();
     bake_ready_ = false;
     ring_color_.Shutdown();
@@ -181,7 +202,7 @@ SDL_GPURenderPass* TerrainShadingProjected::BeginGBufferPass(md::GpuCommandBuffe
     GpuCommandBuffer::ColorPassDesc cpd;
     cpd.cmd            = cmd;
     cpd.color_tex[0]      = gbuf_color_.SDLTexture();
-    cpd.depth_tex      = gbuf_depth_.SDLTexture();
+    cpd.depth_tex      = gd_cur_->SDLTexture();
     cpd.clear_color[0] = 0.f; cpd.clear_color[1] = 0.f;
     cpd.clear_color[2] = 0.f; cpd.clear_color[3] = 0.f;
     cpd.clear_depth    = 1.f;
@@ -277,6 +298,8 @@ void TerrainShadingProjected::DrawFullscreen(SDL_GPURenderPass* rp, md::GpuComma
     for (int i = 0; i < 7; ++i) {
         if (!ground_bindings[i].texture || !ground_bindings[i].sampler) return;
     }
+    const bool reuse_draw = &pipeline == &resolve_kenshi_reuse_pipeline_ && reuse_ && !bake;
+    if (reuse_draw) ground_bindings[2] = { gd_prev_->SDLTexture(), gd_prev_->SDLSampler() };   // slot 2 of the reuse variant: the previous G-buffer depth
     pv.BindFragmentSamplers(0, ground_bindings, 7);
     // No SSBO left in this set (БОРГ-TERRAIN-2, 2026-09-13: vtPageMeta
     // removed with the rest of TerrainVtPageCache) -- zoneGroundLayers is
@@ -288,7 +311,7 @@ void TerrainShadingProjected::DrawFullscreen(SDL_GPURenderPass* rp, md::GpuComma
         // S7 mode 1: binding 7 carries the world normal texture (gbuf_color_ is not written).
         s7_recon ? SDL_GPUTextureSamplerBinding{ s7_.normal_tex, s7_.normal_samp }
                  : SDL_GPUTextureSamplerBinding{ gbuf_color_.SDLTexture(), gbuf_color_.SDLSampler() },
-        { gbuf_depth_.SDLTexture(), gbuf_depth_.SDLSampler() },
+        { gd_cur_->SDLTexture(), gd_cur_->SDLSampler() },
     };
     if (bake) { // the bake variant reads the fine height window at 7 (and has nothing at 8)
         gbuf_bindings[0] = { fw->tex, fw->samp };
@@ -349,6 +372,7 @@ void TerrainShadingProjected::DrawFullscreen(SDL_GPURenderPass* rp, md::GpuComma
         (!bake && ring_use_ && ring_ready_ && ring_valid_) ? SDL_GPUTextureSamplerBinding{ ring_color_.SDLTexture(), ring_color_.SDLSampler() }
                                                            : SDL_GPUTextureSamplerBinding{ gbuf_color_.SDLTexture(), gbuf_color_.SDLSampler() },
     };
+    if (reuse_draw) { ring_binding[0] = { reuse_->hist_colour, reuse_->hist_sampler }; pv.PushFragmentUniforms(3, reuse_->p_old, 208); }   // p_old, p_new, t (3 x 64 B) + params (16 B), in the order of ReuseParams
     pv.BindFragmentSamplers(15, ring_binding, 1);
 
     // 2026-09-19 (docs/RESOLVE_OPT.md session finding): directional
@@ -512,6 +536,7 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
     GpuPipeline* kp = &resolve_kenshi_pipeline_;
     if (!skip_flat_on_cliff_ && resolve_kenshi_noskip_ready_) kp = &resolve_kenshi_noskip_pipeline_; // the A/B variant keeps its ring code (not used with the cache)
     else if (want_ring_variant && resolve_kenshi_ring_ready_) kp = &resolve_kenshi_ring_pipeline_;
+    if (reuse_ && resolve_kenshi_reuse_ready_ && kenshi_blend_debug && HistoryReady() && reuse_->hist_colour) kp = &resolve_kenshi_reuse_pipeline_;
     DrawFullscreen(rp, cmd, (kenshi_blend_debug && resolve_kenshi_ready_) ? *kp : resolve_pipeline_, c, false, nullptr, nullptr);
 }
 #endif

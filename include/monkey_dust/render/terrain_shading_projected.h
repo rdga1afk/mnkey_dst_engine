@@ -66,7 +66,20 @@ public:
     void EnsureSize(md::GpuDeviceHandle dev, int w, int h);
 
     GpuTexture&      GBufferColor() { return gbuf_color_; }
-    GpuDepthTexture&  GBufferDepth() { return gbuf_depth_; }
+    GpuDepthTexture&  GBufferDepth() { return *gd_cur_; }
+    // #163 5b-2b: ground shading reuse needs the previous frame's G-buffer depth. History on: a second depth texture is made (EnsureHistory, outside a frame) and BeginFrame()
+    // swaps the two once per rendered frame, before the G-buffer pass; GBufferDepth() is always this frame's, PrevGBufferDepth() the last one's. History off: one texture, no swap.
+    void EnsureHistory(bool on, int w, int h);
+    void BeginFrame() { if (hist_on_ && gd_alt_.SDLTexture()) { GpuDepthTexture* t = gd_cur_; gd_cur_ = gd_prev_; gd_prev_ = t; } }
+    GpuDepthTexture&  PrevGBufferDepth() { return *gd_prev_; }
+    bool HistoryReady() const { return hist_on_ && gd_alt_.SDLTexture() != nullptr; }
+    // The reuse resolve variant (-DTS_REUSE): history colour (the previous frame's ground target) + the matrices of the reprojection; null = the plain variant.
+    struct ReuseParams {
+        SDL_GPUTexture* hist_colour = nullptr; SDL_GPUSampler* hist_sampler = nullptr;
+        float p_old[16], p_new[16], t[16];   // column-major
+        float params[4];                     // x = history valid, y = camera static, z = live block phase
+    };
+    void SetReuse(const ReuseParams* r) { reuse_ = r; }
 
     // Begin the G-buffer geometry pass -- CLEARs both gbuf_color_ (unused
     // channels don't matter) and gbuf_depth_ (to 1.0). Caller draws terrain
@@ -166,6 +179,13 @@ private:
 
     GpuTexture       gbuf_color_;
     GpuDepthTexture   gbuf_depth_;
+    GpuDepthTexture   gd_alt_;                    // the other depth texture of the history ping-pong (made by EnsureHistory)
+    GpuDepthTexture*  gd_cur_ = &gbuf_depth_;
+    GpuDepthTexture*  gd_prev_ = &gd_alt_;
+    bool hist_on_ = false;
+    const ReuseParams* reuse_ = nullptr;
+    GpuPipeline resolve_kenshi_reuse_pipeline_;
+    bool resolve_kenshi_reuse_ready_ = false;
     // RESOLVE_OPT 4-draw spatial split (Крок 4/6, docs/RESOLVE_OPT.md,
     // 2026-09-19) REVERTED 2026-09-21 (tests/scenarios/resolve_split_ab.lua):
     // the split cut per-pixel SHADER INSTRUCTIONS (1662->281 on the cheap
