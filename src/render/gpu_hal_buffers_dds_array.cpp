@@ -34,6 +34,13 @@ static bool s_parse_dds(const uint8_t* buf, uint32_t len,
     return true;
 }
 
+// DXT3 / BC2 (Kenshi hair and beard textures): 16 B per block like BC3; only a single layer is supported for it (the character editor's attachments).
+static bool s_is_bc2(const char* buf, uint32_t len) {
+    if (!buf || len < 128) return false;
+    uint32_t pf_flags, fourcc; memcpy(&pf_flags, buf + 80, 4); memcpy(&fourcc, buf + 84, 4);
+    return (pf_flags & 4u) && fourcc == 0x33545844u; // 'DXT3'
+}
+
 bool GpuTexture::InitFromDDSArray(const char* const* paths, int count,
                                    const GpuSamplerDesc& /*s*/)
 {
@@ -103,8 +110,9 @@ bool GpuTexture::InitFromDDSArray(const char* const* paths, int count,
             ok = false; break;
         }
     }
-    if (ok && !ref_bc3 && !ref_bc1) {
-        MD_LOG(MD_LOG_WARNING, "[GpuTexture] DDS array: only BC1/DXT1 or BC3/DXT5 supported");
+    const bool ref_bc2 = ok && count == 1 && s_is_bc2(layers[0].buf, layers[0].len);
+    if (ok && !ref_bc3 && !ref_bc1 && !ref_bc2) {
+        MD_LOG(MD_LOG_WARNING, "[GpuTexture] DDS array: only BC1/DXT1, BC2/DXT3 (one layer) or BC3/DXT5 supported");
         ok = false;
     }
 
@@ -114,7 +122,7 @@ bool GpuTexture::InitFromDDSArray(const char* const* paths, int count,
     }
 
     // Compute per-mip byte sizes and total transfer size
-    const int block_bytes = ref_bc3 ? 16 : 8;  // BC3=16B/block, BC1=8B/block
+    const int block_bytes = (ref_bc3 || ref_bc2) ? 16 : 8;  // BC3 / BC2 = 16B/block, BC1=8B/block
     size_t mip_sz[32] = {};
     size_t layer_stride = 0;
     { int mw=ref_w, mh=ref_h;
@@ -128,8 +136,9 @@ bool GpuTexture::InitFromDDSArray(const char* const* paths, int count,
 
     SDL_GPUTextureCreateInfo ti = {};
     ti.type                 = SDL_GPU_TEXTURETYPE_2D_ARRAY;
-    ti.format               = ref_bc3 ? SDL_GPU_TEXTUREFORMAT_BC3_RGBA_UNORM
-                                       : SDL_GPU_TEXTUREFORMAT_BC1_RGBA_UNORM;
+    ti.format               = ref_bc2 ? SDL_GPU_TEXTUREFORMAT_BC2_RGBA_UNORM
+                              : ref_bc3 ? SDL_GPU_TEXTUREFORMAT_BC3_RGBA_UNORM
+                                        : SDL_GPU_TEXTUREFORMAT_BC1_RGBA_UNORM;
     ti.usage                = SDL_GPU_TEXTUREUSAGE_SAMPLER;
     ti.width                = (Uint32)ref_w;
     ti.height                = (Uint32)ref_h;
