@@ -54,7 +54,7 @@ public:
     //  12h  = noon     (sun at peak)
     //  18h  = sunset   (sun on W horizon)
     //   0h  = midnight (sun fully below horizon)
-    bool  use_kenshi_sky = false;   // #140: sun direction / colour from Kenshi's sky (kenshi_sky.h) instead of the formula below (md.set_kenshi_lighting >= 1); ambient unchanged
+    bool  use_kenshi_sky = true;    // #140 (default on with md.set_kenshi_lighting = 2, owner decision 16.10): sun direction / colour from Kenshi's sky (kenshi_sky.h) instead of the formula below (md.set_kenshi_lighting >= 1); ambient unchanged
     float current_hours = 12.0f;   // the hour of the last Tick (read by the Kenshi sky, #140)
     void Tick(float game_time_hours) noexcept {
         current_hours = game_time_hours;
