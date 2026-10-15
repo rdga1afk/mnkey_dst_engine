@@ -446,6 +446,8 @@ bool TerrainQuadtreeRenderer::InitLod(md::GpuDeviceHandle dev, const TerrainWorl
     pd.color_format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_UINT;
     if (!lod_pipeline_.Create(pd)) { MD_LOG(MD_LOG_WARNING, "[TerrainQuadtreeRenderer] lod pipeline create failed"); return false; }
     lod_ready_ = true;
+    // the tables (a read of the whole fullmap.tif, ~3 s) are built from here, in parallel with the rest of the start-up: the first frame then already draws the LOD, not the flat tiling
+    lod_started_ = true; lod_build_t0_ = std::chrono::steady_clock::now(); lod_tree_.BuildAsync(tif_path_.c_str(), hmap.WorldExtent(), 980.0f, lod_cells_);
     return true;
 }
 
@@ -482,6 +484,7 @@ void TerrainQuadtreeRenderer::UploadLodNodes(md::GpuDeviceHandle dev, SDL_GPUCop
             fine_job_ox_ = ox; fine_job_oz_ = oz; fine_job_active_ = true;
             fine_job_ = std::async(std::launch::async, [path = tif_path_, ox, oz, hmin = height_min_, hrange = height_range_]() {
                 std::vector<uint16_t> norm;
+                const auto t0 = std::chrono::steady_clock::now();
                 md::tiff::Image img; std::string err; std::vector<uint16_t> win;
                 if (img.Open(path.c_str(), err) && img.Window((uint32_t)ox, (uint32_t)oz, kFineW, kFineW, 1, win, err)) {
                     norm.resize(win.size());
@@ -493,6 +496,7 @@ void TerrainQuadtreeRenderer::UploadLodNodes(md::GpuDeviceHandle dev, SDL_GPUCop
                 } else {
                     MD_LOG(MD_LOG_WARNING, "[TerrainQuadtreeRenderer] fine window read failed: %s", err.c_str());
                 }
+                MD_LOG(MD_LOG_INFO, "[TerrainQuadtreeRenderer] fine window (%d, %d) read in %lld ms", ox, oz, (long long)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count());
                 return norm;
             });
         }

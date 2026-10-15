@@ -1,4 +1,6 @@
 #pragma once
+#include <chrono>
+#include <monkey_dust/platform/md_log.h>
 #ifdef MD_SDL_GPU
 #include <SDL3/SDL_gpu.h>
 #include <string>
@@ -216,8 +218,10 @@ public:
     bool InitLod(md::GpuDeviceHandle dev, const TerrainWorldHeightmap& hmap);
     // Starts the background table build on first use (reads the whole fullmap.tif once); true when the pipeline and the tables are ready.
     bool RequestLod(const TerrainWorldHeightmap& hmap) {
-        if (lod_ready_ && !lod_started_) { lod_started_ = true; lod_tree_.BuildAsync(tif_path_.c_str(), hmap.WorldExtent(), 980.0f, lod_cells_); }
-        return lod_ready_ && lod_tree_.Ready();
+        if (lod_ready_ && !lod_started_) { lod_started_ = true; lod_build_t0_ = std::chrono::steady_clock::now(); lod_tree_.BuildAsync(tif_path_.c_str(), hmap.WorldExtent(), 980.0f, lod_cells_); }
+        const bool ready = lod_ready_ && lod_tree_.Ready();
+        if (ready && !lod_ready_logged_) { lod_ready_logged_ = true; MD_LOG(MD_LOG_INFO, "[TerrainQuadtreeRenderer] LOD tables ready %lld ms after the build started (flat tiling until then)", (long long)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - lod_build_t0_).count()); }
+        return ready;
     }
     // Patch size (quads per node edge): 16 or 64. A change restarts the background table build (LOD is not ready until it finishes -> flat tiling meanwhile).
     void SetLodPatch(int cells) {
@@ -266,6 +270,8 @@ private:
 public:
     uint32_t FilledTrianglesPerNode() const { return filled_index_count_ / 3; } // #142: triangles drawn per visible node (every node shares one IBO)
 private:
+    std::chrono::steady_clock::time_point lod_build_t0_{};
+    bool lod_ready_logged_ = false;
     bool ready_ = false;
     bool forward_ready_ = false;
     bool batched_ready_ = false;
