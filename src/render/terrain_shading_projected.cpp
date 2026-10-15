@@ -133,6 +133,11 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
         kd.frag_uniform_bufs = 4;   // + the reuse UBO at 3
         kd.frag_path = "shaders/terrain_shading_screenspace_kenshi_reuse_klight.frag";
         resolve_reuse_klight_ready_ = resolve_kenshi_reuse_klight_pipeline_.Create(kd);
+        // #140 L4: the same two with the RGBA16F colour target (the ground target before the exposure)
+        kd.color_format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
+        resolve_reuse_klight_f_ready_ = resolve_reuse_klight_f_pipeline_.Create(kd);
+        kd.frag_uniform_bufs = 3; kd.frag_path = "shaders/terrain_shading_screenspace_kenshi_klight.frag";
+        resolve_klight_f_ready_ = resolve_klight_f_pipeline_.Create(kd);
     }
     // #155 step 2b: the Kenshi resolve with the ground cache read; the default variant above has no ring code
     rd.frag_path = "shaders/terrain_shading_screenspace_kenshi_ring.frag";
@@ -190,6 +195,7 @@ void TerrainShadingProjected::Shutdown() {
     resolve_kenshi_reuse_pipeline_.Destroy();
     resolve_kenshi_reuse_ready_ = false;
     resolve_kenshi_klight_pipeline_.Destroy(); resolve_kenshi_reuse_klight_pipeline_.Destroy();
+    resolve_klight_f_pipeline_.Destroy(); resolve_reuse_klight_f_pipeline_.Destroy();
     resolve_klight_ready_ = resolve_reuse_klight_ready_ = false;
     gd_alt_.Shutdown();
     bake_pipeline_.Destroy();
@@ -557,6 +563,10 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
     const bool use_klight = klight_ && ground.KenshiLightCubesReady() && kenshi_blend_debug;
     if (use_reuse) kp = (use_klight && resolve_reuse_klight_ready_) ? &resolve_kenshi_reuse_klight_pipeline_ : &resolve_kenshi_reuse_pipeline_;
     else if (use_klight && resolve_klight_ready_) kp = &resolve_kenshi_klight_pipeline_;
+    if (float_target_ && use_klight) {
+        if (use_reuse && resolve_reuse_klight_f_ready_) kp = &resolve_reuse_klight_f_pipeline_;
+        else if (!use_reuse && resolve_klight_f_ready_) kp = &resolve_klight_f_pipeline_;
+    }
     DrawFullscreen(rp, cmd, (kenshi_blend_debug && resolve_kenshi_ready_) ? *kp : resolve_pipeline_, c, false, nullptr, nullptr);
 }
 #endif

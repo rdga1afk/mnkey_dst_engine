@@ -83,6 +83,8 @@ public:
     // #140 L2: the Kenshi main light variant: sun direction (to the sun), sun colour + strength, (envColour.w, ambientParams.w, exposure); null = the current lighting.
     struct KLightParams { float sun_dir[4], sun_colour[4], params[4], sun_real[4], horizon[4], fog[4]; };
     void SetKLight(const KLightParams* k) { klight_ = k; }
+    // #140 L4: the ground target is RGBA16F and holds the colour before the exposure (klight variants with a float colour target)
+    void SetFloatTarget(bool f) { float_target_ = f; }
 
     // Begin the G-buffer geometry pass -- CLEARs both gbuf_color_ (unused
     // channels don't matter) and gbuf_depth_ (to 1.0). Caller draws terrain
@@ -188,6 +190,9 @@ private:
     bool hist_on_ = false;
     const ReuseParams* reuse_ = nullptr;
     const KLightParams* klight_ = nullptr;
+    bool float_target_ = false;
+    GpuPipeline resolve_klight_f_pipeline_, resolve_reuse_klight_f_pipeline_;
+    bool resolve_klight_f_ready_ = false, resolve_reuse_klight_f_ready_ = false;
     GpuPipeline resolve_kenshi_klight_pipeline_, resolve_kenshi_reuse_klight_pipeline_;
     bool resolve_klight_ready_ = false, resolve_reuse_klight_ready_ = false;
     GpuPipeline resolve_kenshi_reuse_pipeline_;
