@@ -65,7 +65,7 @@ struct GpuComputeStorageBindings {
     // Begin's doc comment for the 3 real sites this unblocks: terrain normal
     // bake, terrain page-fill, SSAOSystem::Dispatch, all writing a storage
     // texture, not just buffers).
-    SDL_GPUStorageTextureReadWriteBinding rw_textures[4] = {};
+    SDL_GPUStorageTextureReadWriteBinding rw_textures[8] = {};   // SDL_GPU allows 8 per compute pass (#156: the FSR 2 passes bind up to 6)
     uint32_t                              num_rw_textures = 0;
 #endif
 };
