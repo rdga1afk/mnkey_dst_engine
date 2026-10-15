@@ -2,6 +2,7 @@
 #include <monkey_dust/platform/math_types.h>
 #include <monkey_dust/render/md_shader.h>
 #include <monkey_dust/render/md_texture.h>
+#include <monkey_dust/render/kenshi_sky.h>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -53,6 +54,7 @@ public:
     //  12h  = noon     (sun at peak)
     //  18h  = sunset   (sun on W horizon)
     //   0h  = midnight (sun fully below horizon)
+    bool  use_kenshi_sky = false;   // #140: sun direction / colour from Kenshi's sky (kenshi_sky.h) instead of the formula below (md.set_kenshi_lighting >= 1); ambient unchanged
     float current_hours = 12.0f;   // the hour of the last Tick (read by the Kenshi sky, #140)
     void Tick(float game_time_hours) noexcept {
         current_hours = game_time_hours;
@@ -130,6 +132,12 @@ public:
         Vec3 ac = lerpV(a_night, a_day, t_day);
         ac = lerpV(ac, a_horiz, t_horiz * 0.5f);
         ambient_color = ac;
+        if (use_kenshi_sky) {   // one source of the sun for the ground, the NPCs and everything that reads this system (sun colour x strength x 2: main_fs with ambientParams.w = 1)
+            static const md::KenshiSkySettings sky;
+            const md::KenshiSkySettings::MainLight ml = sky.GetMainLight(game_time_hours);
+            sun_dir = { -ml.dir.x, -ml.dir.y, -ml.dir.z };
+            sun_color = { ml.colour.x * ml.w * 2.f, ml.colour.y * ml.w * 2.f, ml.colour.z * ml.w * 2.f };
+        }
     }
 
     // VBfA-R3: compute 6-sample directional light probe for NPC ambient.
