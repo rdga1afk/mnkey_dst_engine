@@ -96,6 +96,13 @@ public:
     // world, deferred.hlsl:166-167,197,213-214: sun *= 2*alpha, environment light *= rgb). LINEAR, CLAMP -- Kenshi's deferred.material gives the
     // texture_unit only `tex_address_mode clamp` (default bilinear filtering). Resolve-only, behind md.set_terrain_ambientmap.
     bool InitAmbientMap(const char* path);
+    // #140 L2: Kenshi's irradiance / specularity cube maps (mp_irradiance.dds, mp_specularity.dds, RGBM DXT5); false when either is missing (the Kenshi light then stays off).
+    bool InitKenshiLightCubes(const char* irradiance_path, const char* specularity_path);
+    bool KenshiLightCubesReady() const { return klight_cubes_ready_; }
+    md::GpuTextureHandle KenshiIrradianceCube() const { return tex_klight_irr_.SDLTexture(); }
+    SDL_GPUSampler*      KenshiIrradianceSampler() const { return tex_klight_irr_.SDLSampler(); }
+    md::GpuTextureHandle KenshiSpecularityCube() const { return tex_klight_spec_.SDLTexture(); }
+    SDL_GPUSampler*      KenshiSpecularitySampler() const { return tex_klight_spec_.SDLSampler(); }
 
     // Load the Kenshi grass/dirt/road paint mask (md_overlay_mask.png,
     // tools/md_stitch_overlay_mask.py — R=grass, G=grass2, B=dirt, A=road,
@@ -229,6 +236,8 @@ private:
     bool        biome_blend_ready_ = false;
     GpuTexture  tex_ambient_map_;       // Kenshi ambientmap.png (regional sun/env multiplier), see InitAmbientMap
     bool        ambient_map_ready_ = false;
+    GpuTexture  tex_klight_irr_, tex_klight_spec_;
+    bool        klight_cubes_ready_ = false;
     GpuTexture  tex_overlay_mask_;      // R=grass, G=grass2, B=dirt, A=road (see InitOverlayMask)
     bool        overlay_mask_ready_ = false;
 

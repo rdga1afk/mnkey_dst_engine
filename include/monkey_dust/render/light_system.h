@@ -53,7 +53,9 @@ public:
     //  12h  = noon     (sun at peak)
     //  18h  = sunset   (sun on W horizon)
     //   0h  = midnight (sun fully below horizon)
+    float current_hours = 12.0f;   // the hour of the last Tick (read by the Kenshi sky, #140)
     void Tick(float game_time_hours) noexcept {
+        current_hours = game_time_hours;
         // Sun elevation: sin curve peaking at noon (12h), zero at 6h and 18h
         const float pi    = 3.14159265f;
         float day_frac    = game_time_hours / 24.f;             // [0,1)

@@ -277,6 +277,75 @@ bool GpuTexture::InitFromDDSArray(const char* const* paths, int count,
     }
     return true;
 }
+
+// DDS cube map: the file holds the 6 faces one after the other (+X -X +Y -Y +Z -Z), each with its whole mip chain: the layout of a 6-layer array.
+bool GpuTexture::InitFromDDSCube(const char* path)
+{
+    SDL_GPUDevice* dev = md::GpuDevice::Get().SDLDevice();
+    if (!dev || !path) return false;
+    uint32_t len = 0;
+    char* buf = md::fs_read_alloc(path, &len);
+    if (!buf) { MD_LOG(MD_LOG_WARNING, "[GpuTexture] DDS cube: missing %s", path); return false; }
+    int w, h, mips; bool bc3, bc1; uint32_t doff;
+    uint32_t caps2 = 0; if (len >= 116) memcpy(&caps2, buf + 112, 4);
+    if (!s_parse_dds((const uint8_t*)buf, len, w, h, mips, bc3, bc1, doff) || (!bc3 && !bc1) || (caps2 & 0xFE00u) != 0xFE00u) {
+        MD_LOG(MD_LOG_WARNING, "[GpuTexture] DDS cube: %s is not a BC1/BC3 cube map with 6 faces", path);
+        md::fs_free(buf); return false;
+    }
+    const int block_bytes = bc3 ? 16 : 8;
+    size_t mip_sz[32] = {}, face_stride = 0;
+    { int mw = w, mh = h; for (int m = 0; m < mips && m < 32; ++m) { mip_sz[m] = s_bc_mip_bytes(mw, mh, block_bytes); face_stride += mip_sz[m]; mw = mw > 1 ? mw / 2 : 1; mh = mh > 1 ? mh / 2 : 1; } }
+    const size_t total = face_stride * 6;
+    if ((size_t)doff + total > len) { MD_LOG(MD_LOG_WARNING, "[GpuTexture] DDS cube: %s is truncated", path); md::fs_free(buf); return false; }
+    SDL_GPUTextureCreateInfo ti = {};
+    ti.type = SDL_GPU_TEXTURETYPE_CUBE;
+    ti.format = bc3 ? SDL_GPU_TEXTUREFORMAT_BC3_RGBA_UNORM : SDL_GPU_TEXTUREFORMAT_BC1_RGBA_UNORM;
+    ti.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
+    ti.width = (Uint32)w; ti.height = (Uint32)h; ti.layer_count_or_depth = 6; ti.num_levels = (Uint32)mips;
+    sdl_tex_ = SDL_CreateGPUTexture(dev, &ti);
+    if (!sdl_tex_) { MD_LOG(MD_LOG_WARNING, "[GpuTexture] DDS cube: SDL_CreateGPUTexture failed: %s", SDL_GetError()); md::fs_free(buf); return false; }
+    md::GpuResourceTracker::Get().OnTextureCreate();
+    SDL_GPUTransferBufferCreateInfo tbci = {};
+    tbci.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD; tbci.size = (Uint32)total;
+    SDL_GPUTransferBuffer* tb = SDL_CreateGPUTransferBuffer(dev, &tbci);
+    uint8_t* mapped = tb ? (uint8_t*)GpuMapTransfer(tb, false) : nullptr;
+    if (!mapped) {
+        if (tb) SDL_ReleaseGPUTransferBuffer(dev, tb);
+        SDL_ReleaseGPUTexture(dev, sdl_tex_); sdl_tex_ = nullptr; md::GpuResourceTracker::Get().OnTextureDestroy(); md::fs_free(buf); return false;
+    }
+    memcpy(mapped, (const uint8_t*)buf + doff, total);
+    GpuUnmapTransfer(tb);
+    SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(dev);
+    SDL_GPUCopyPass* cp = SDL_BeginGPUCopyPass(cmd);
+    uint32_t off = 0;
+    for (int f = 0; f < 6; ++f) {
+        int mw = w, mh = h;
+        for (int m = 0; m < mips && m < 32; ++m) {
+            SDL_GPUTextureTransferInfo src = {};
+            src.transfer_buffer = tb; src.offset = off;
+            src.pixels_per_row = (Uint32)((mw + 3) & ~3); src.rows_per_layer = (Uint32)((mh + 3) & ~3);
+            SDL_GPUTextureRegion dst = {};
+            dst.texture = sdl_tex_; dst.mip_level = (Uint32)m; dst.layer = (Uint32)f; dst.w = (Uint32)mw; dst.h = (Uint32)mh; dst.d = 1;
+            SDL_UploadToGPUTexture(cp, &src, &dst, false);
+            off += (uint32_t)mip_sz[m];
+            mw = mw > 1 ? mw / 2 : 1; mh = mh > 1 ? mh / 2 : 1;
+        }
+    }
+    SDL_EndGPUCopyPass(cp);
+    SDL_GPUFence* fence = SDL_SubmitGPUCommandBufferAndAcquireFence(cmd);
+    if (fence) { SDL_WaitForGPUFences(dev, true, &fence, 1); SDL_ReleaseGPUFence(dev, fence); }
+    SDL_ReleaseGPUTransferBuffer(dev, tb);
+    SDL_GPUSamplerCreateInfo si = {};
+    si.min_filter = si.mag_filter = SDL_GPU_FILTER_LINEAR;
+    si.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
+    si.address_mode_u = si.address_mode_v = si.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+    si.min_lod = 0.f; si.max_lod = (float)(mips - 1);
+    sdl_sampler_ = SDL_CreateGPUSampler(dev, &si);
+    w_ = w; h_ = h;
+    md::fs_free(buf);
+    if (!sdl_sampler_) { SDL_ReleaseGPUTexture(dev, sdl_tex_); sdl_tex_ = nullptr; md::GpuResourceTracker::Get().OnTextureDestroy(); return false; }
+    return true;
+}
 #endif // MD_SDL_GPU (InitFromDDSArray)
 
 void GpuTexture::Shutdown() {

@@ -80,6 +80,9 @@ public:
         float params[4];                     // x = history valid, y = camera static, z = live block phase
     };
     void SetReuse(const ReuseParams* r) { reuse_ = r; }
+    // #140 L2: the Kenshi main light variant: sun direction (to the sun), sun colour + strength, (envColour.w, ambientParams.w, exposure); null = the current lighting.
+    struct KLightParams { float sun_dir[4], sun_colour[4], params[4]; };
+    void SetKLight(const KLightParams* k) { klight_ = k; }
 
     // Begin the G-buffer geometry pass -- CLEARs both gbuf_color_ (unused
     // channels don't matter) and gbuf_depth_ (to 1.0). Caller draws terrain
@@ -184,6 +187,9 @@ private:
     GpuDepthTexture*  gd_prev_ = &gd_alt_;
     bool hist_on_ = false;
     const ReuseParams* reuse_ = nullptr;
+    const KLightParams* klight_ = nullptr;
+    GpuPipeline resolve_kenshi_klight_pipeline_, resolve_kenshi_reuse_klight_pipeline_;
+    bool resolve_klight_ready_ = false, resolve_reuse_klight_ready_ = false;
     GpuPipeline resolve_kenshi_reuse_pipeline_;
     bool resolve_kenshi_reuse_ready_ = false;
     // RESOLVE_OPT 4-draw spatial split (Крок 4/6, docs/RESOLVE_OPT.md,

@@ -125,6 +125,15 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
         resolve_kenshi_reuse_ready_ = resolve_kenshi_reuse_pipeline_.Create(ud);
         if (!resolve_kenshi_reuse_ready_) MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] reuse resolve variant create failed (ground reuse unavailable)");
     }
+    // #140 L2: the Kenshi main light variants (cube maps in slots 5 / 6, KLightUBO at binding 2); non-fatal
+    {
+        GpuPipeline::Desc kd = rd;
+        kd.frag_path = "shaders/terrain_shading_screenspace_kenshi_klight.frag";
+        resolve_klight_ready_ = resolve_kenshi_klight_pipeline_.Create(kd);
+        kd.frag_uniform_bufs = 4;   // + the reuse UBO at 3
+        kd.frag_path = "shaders/terrain_shading_screenspace_kenshi_reuse_klight.frag";
+        resolve_reuse_klight_ready_ = resolve_kenshi_reuse_klight_pipeline_.Create(kd);
+    }
     // #155 step 2b: the Kenshi resolve with the ground cache read; the default variant above has no ring code
     rd.frag_path = "shaders/terrain_shading_screenspace_kenshi_ring.frag";
     resolve_kenshi_ring_ready_ = resolve_kenshi_ring_pipeline_.Create(rd);
@@ -180,6 +189,8 @@ void TerrainShadingProjected::Shutdown() {
     resolve_kenshi_ring_ready_ = false;
     resolve_kenshi_reuse_pipeline_.Destroy();
     resolve_kenshi_reuse_ready_ = false;
+    resolve_kenshi_klight_pipeline_.Destroy(); resolve_kenshi_reuse_klight_pipeline_.Destroy();
+    resolve_klight_ready_ = resolve_reuse_klight_ready_ = false;
     gd_alt_.Shutdown();
     bake_pipeline_.Destroy();
     bake_ready_ = false;
@@ -298,7 +309,13 @@ void TerrainShadingProjected::DrawFullscreen(SDL_GPURenderPass* rp, md::GpuComma
     for (int i = 0; i < 7; ++i) {
         if (!ground_bindings[i].texture || !ground_bindings[i].sampler) return;
     }
-    const bool reuse_draw = &pipeline == &resolve_kenshi_reuse_pipeline_ && reuse_ && !bake;
+    const bool reuse_draw = (&pipeline == &resolve_kenshi_reuse_pipeline_ || &pipeline == &resolve_kenshi_reuse_klight_pipeline_) && reuse_ && !bake;
+    const bool klight_draw = (&pipeline == &resolve_kenshi_klight_pipeline_ || &pipeline == &resolve_kenshi_reuse_klight_pipeline_) && klight_ && !bake;
+    if (klight_draw) {   // slots 5 / 6: the Kenshi cube maps
+        ground_bindings[5] = { ground.KenshiIrradianceCube(), ground.KenshiIrradianceSampler() };
+        ground_bindings[6] = { ground.KenshiSpecularityCube(), ground.KenshiSpecularitySampler() };
+        pv.PushFragmentUniforms(2, klight_->sun_dir, sizeof(KLightParams));
+    }
     if (reuse_draw) ground_bindings[2] = { gd_prev_->SDLTexture(), gd_prev_->SDLSampler() };   // slot 2 of the reuse variant: the previous G-buffer depth
     pv.BindFragmentSamplers(0, ground_bindings, 7);
     // No SSBO left in this set (БОРГ-TERRAIN-2, 2026-09-13: vtPageMeta
@@ -536,7 +553,10 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
     GpuPipeline* kp = &resolve_kenshi_pipeline_;
     if (!skip_flat_on_cliff_ && resolve_kenshi_noskip_ready_) kp = &resolve_kenshi_noskip_pipeline_; // the A/B variant keeps its ring code (not used with the cache)
     else if (want_ring_variant && resolve_kenshi_ring_ready_) kp = &resolve_kenshi_ring_pipeline_;
-    if (reuse_ && resolve_kenshi_reuse_ready_ && kenshi_blend_debug && HistoryReady() && reuse_->hist_colour) kp = &resolve_kenshi_reuse_pipeline_;
+    const bool use_reuse = reuse_ && resolve_kenshi_reuse_ready_ && kenshi_blend_debug && HistoryReady() && reuse_->hist_colour;
+    const bool use_klight = klight_ && ground.KenshiLightCubesReady() && kenshi_blend_debug;
+    if (use_reuse) kp = (use_klight && resolve_reuse_klight_ready_) ? &resolve_kenshi_reuse_klight_pipeline_ : &resolve_kenshi_reuse_pipeline_;
+    else if (use_klight && resolve_klight_ready_) kp = &resolve_kenshi_klight_pipeline_;
     DrawFullscreen(rp, cmd, (kenshi_blend_debug && resolve_kenshi_ready_) ? *kp : resolve_pipeline_, c, false, nullptr, nullptr);
 }
 #endif

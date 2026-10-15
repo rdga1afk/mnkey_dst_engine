@@ -157,6 +157,8 @@ public:
     // Load a 2D texture array from multiple BC3/DXT5 DDS files (SDL_GPU only).
     // All files must have identical dimensions, format, and mip count.
     bool InitFromDDSArray(const char* const* paths, int count, const GpuSamplerDesc& s = {});
+    // Load a DDS cube map (6 faces, every mip, BC3/DXT5 or BC1/DXT1; Kenshi's mp_irradiance.dds / mp_specularity.dds) as a SDL_GPU cube texture with a trilinear clamp sampler (#140 L2).
+    bool InitFromDDSCube(const char* path);
     void Shutdown();
 
     // OpenGL: glActiveTexture + glBindTexture.

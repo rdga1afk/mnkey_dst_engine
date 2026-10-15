@@ -316,6 +316,18 @@ bool TerrainRenderer::InitAmbientMap(const char* path)
 #endif
 }
 
+bool TerrainRenderer::InitKenshiLightCubes(const char* irradiance_path, const char* specularity_path)
+{
+#ifdef MD_SDL_GPU
+    klight_cubes_ready_ = tex_klight_irr_.InitFromDDSCube(irradiance_path) && tex_klight_spec_.InitFromDDSCube(specularity_path);
+    if (!klight_cubes_ready_) { tex_klight_irr_.Shutdown(); tex_klight_spec_.Shutdown(); }
+    return klight_cubes_ready_;
+#else
+    (void)irradiance_path; (void)specularity_path;
+    return false;
+#endif
+}
+
 bool TerrainRenderer::InitKbi1BlendLookup(const char* path)
 {
 #ifdef MD_SDL_GPU
