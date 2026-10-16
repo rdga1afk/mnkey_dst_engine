@@ -69,8 +69,9 @@ inline void GpuPopDebugGroup(SDL_GPUCommandBuffer* cmd) {
 // change -- the same class of invisible-to-A/B, invisible-to-tests behavior
 // shift documented for the malloc-failure branch in item 8 and for
 // editor_screenshot.cpp's NotifyCommandBufferSubmitted() ordering.
+extern int g_md_gpu_cycle;   // gpu_hal_commands.cpp (experiment md.set_gpu_cycle)
 inline void* GpuMapTransfer(SDL_GPUTransferBuffer* tb, bool cycle) {
-    return SDL_MapGPUTransferBuffer(md::GpuDevice::Get().SDLDevice(), tb, cycle);
+    return SDL_MapGPUTransferBuffer(md::GpuDevice::Get().SDLDevice(), tb, cycle || (g_md_gpu_cycle & 4));
 }
 inline void GpuUnmapTransfer(SDL_GPUTransferBuffer* tb) {
     SDL_UnmapGPUTransferBuffer(md::GpuDevice::Get().SDLDevice(), tb);
