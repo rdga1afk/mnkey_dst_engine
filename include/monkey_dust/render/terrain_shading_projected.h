@@ -194,6 +194,8 @@ private:
     GpuPipeline resolve_klight_f_pipeline_, resolve_reuse_klight_f_pipeline_;
     bool resolve_klight_f_ready_ = false, resolve_reuse_klight_f_ready_ = false;
     GpuPipeline resolve_kenshi_klight_pipeline_, resolve_kenshi_reuse_klight_pipeline_;
+    GpuPipeline resolve_kenshi_ring_klight_pipeline_;   // #179: the ground cache read together with the Kenshi main light (L2)
+    bool resolve_ring_klight_ready_ = false;
     bool resolve_klight_ready_ = false, resolve_reuse_klight_ready_ = false;
     GpuPipeline resolve_kenshi_reuse_pipeline_;
     bool resolve_kenshi_reuse_ready_ = false;

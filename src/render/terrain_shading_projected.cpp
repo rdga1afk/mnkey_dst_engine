@@ -130,6 +130,9 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
         GpuPipeline::Desc kd = rd;
         kd.frag_path = "shaders/terrain_shading_screenspace_kenshi_klight.frag";
         resolve_klight_ready_ = resolve_kenshi_klight_pipeline_.Create(kd);
+        kd.frag_path = "shaders/terrain_shading_screenspace_kenshi_ring_klight.frag";
+        resolve_ring_klight_ready_ = resolve_kenshi_ring_klight_pipeline_.Create(kd);
+        kd.frag_path = "shaders/terrain_shading_screenspace_kenshi_klight.frag";
         kd.frag_uniform_bufs = 4;   // + the reuse UBO at 3
         kd.frag_path = "shaders/terrain_shading_screenspace_kenshi_reuse_klight.frag";
         resolve_reuse_klight_ready_ = resolve_kenshi_reuse_klight_pipeline_.Create(kd);
@@ -195,9 +198,9 @@ void TerrainShadingProjected::Shutdown() {
     resolve_kenshi_ring_ready_ = false;
     resolve_kenshi_reuse_pipeline_.Destroy();
     resolve_kenshi_reuse_ready_ = false;
-    resolve_kenshi_klight_pipeline_.Destroy(); resolve_kenshi_reuse_klight_pipeline_.Destroy();
+    resolve_kenshi_klight_pipeline_.Destroy(); resolve_kenshi_reuse_klight_pipeline_.Destroy(); resolve_kenshi_ring_klight_pipeline_.Destroy();
     resolve_klight_f_pipeline_.Destroy(); resolve_reuse_klight_f_pipeline_.Destroy();
-    resolve_klight_ready_ = resolve_reuse_klight_ready_ = false;
+    resolve_klight_ready_ = resolve_reuse_klight_ready_ = resolve_ring_klight_ready_ = false;
     gd_alt_.Shutdown();
     bake_pipeline_.Destroy();
     bake_ready_ = false;
@@ -317,7 +320,7 @@ void TerrainShadingProjected::DrawFullscreen(SDL_GPURenderPass* rp, md::GpuComma
         if (!ground_bindings[i].texture || !ground_bindings[i].sampler) return;
     }
     const bool reuse_draw = (&pipeline == &resolve_kenshi_reuse_pipeline_ || &pipeline == &resolve_kenshi_reuse_klight_pipeline_ || &pipeline == &resolve_reuse_klight_f_pipeline_) && reuse_ && !bake;
-    const bool klight_draw = (&pipeline == &resolve_kenshi_klight_pipeline_ || &pipeline == &resolve_kenshi_reuse_klight_pipeline_ || &pipeline == &resolve_klight_f_pipeline_ || &pipeline == &resolve_reuse_klight_f_pipeline_) && klight_ && !bake;
+    const bool klight_draw = (&pipeline == &resolve_kenshi_klight_pipeline_ || &pipeline == &resolve_kenshi_ring_klight_pipeline_ || &pipeline == &resolve_kenshi_reuse_klight_pipeline_ || &pipeline == &resolve_klight_f_pipeline_ || &pipeline == &resolve_reuse_klight_f_pipeline_) && klight_ && !bake;
     if (klight_draw) {   // slots 5 / 6: the Kenshi cube maps
         ground_bindings[5] = { ground.KenshiIrradianceCube(), ground.KenshiIrradianceSampler() };
         ground_bindings[6] = { ground.KenshiSpecularityCube(), ground.KenshiSpecularitySampler() };
@@ -563,6 +566,7 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
     const bool use_reuse = reuse_ && resolve_kenshi_reuse_ready_ && kenshi_blend_debug && HistoryReady() && reuse_->hist_colour;
     const bool use_klight = klight_ && ground.KenshiLightCubesReady() && kenshi_blend_debug;
     if (use_reuse) kp = (use_klight && resolve_reuse_klight_ready_) ? &resolve_kenshi_reuse_klight_pipeline_ : &resolve_kenshi_reuse_pipeline_;
+    else if (use_klight && want_ring_variant && resolve_ring_klight_ready_) kp = &resolve_kenshi_ring_klight_pipeline_;
     else if (use_klight && resolve_klight_ready_) kp = &resolve_kenshi_klight_pipeline_;
     if (float_target_ && use_klight) {
         if (use_reuse && resolve_reuse_klight_f_ready_) kp = &resolve_reuse_klight_f_pipeline_;
