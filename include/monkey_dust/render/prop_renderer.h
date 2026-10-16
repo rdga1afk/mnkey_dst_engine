@@ -23,6 +23,8 @@ public:
     // layer: PropVertex::layer written for every vertex — 0=rock diffuse,
     // 1=vegetation atlas (see PropTexShared).
     bool Init(const char* glb_path, float layer = 0.0f);
+    // Same pipeline and textures as Init, geometry supplied by the caller (#119 spike: Ogre meshes).
+    bool InitFromArrays(const PropVertex* verts, uint32_t vert_count, const uint32_t* idx, uint32_t idx_count);
     void Shutdown();
 
     bool IsReady() const { return mesh_.loaded; }
@@ -55,6 +57,7 @@ public:
         const float* quats_xyzw  = nullptr);
 
 private:
+    bool FinishInit();
     PropMesh    mesh_;
     GpuPipeline pipeline_;
     // Real per-mesh texture (PropMesh::has_custom_tex) — separate GPU

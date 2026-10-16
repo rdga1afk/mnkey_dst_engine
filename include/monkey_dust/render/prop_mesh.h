@@ -23,6 +23,8 @@ public:
     // primitive has a decodable embedded base-color texture — see
     // has_custom_tex / custom_tex_rgba below.
     bool LoadGLB(const char* path, float layer = 0.0f);
+    // Upload caller-built geometry (always u32 indices when vert_count > 65535, else u16).
+    bool LoadFromArrays(const PropVertex* verts, uint32_t vert_count, const uint32_t* idx, uint32_t idx_count);
     void Shutdown();
 
     GpuStaticBuffer vbo;

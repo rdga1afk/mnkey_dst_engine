@@ -208,6 +208,31 @@ bool PropMesh::LoadGLB(const char* path, float layer) {
     return true;
 }
 
+bool PropMesh::LoadFromArrays(const PropVertex* verts, uint32_t vert_count, const uint32_t* idx, uint32_t idx_count) {
+    loaded = false;
+    if (!verts || !idx || vert_count == 0 || idx_count == 0) return false;
+    float y_min = verts[0].y, y_max = verts[0].y;
+    for (uint32_t i = 1; i < vert_count; ++i) {
+        if (verts[i].y < y_min) y_min = verts[i].y;
+        if (verts[i].y > y_max) y_max = verts[i].y;
+    }
+    aabb_y_min = y_min;
+    aabb_y_max = y_max;
+    vbo.Init(0x8892u, verts, vert_count * (uint32_t)sizeof(PropVertex));
+    indices_u16 = (vert_count <= 65535u);
+    index_count = idx_count;
+    if (indices_u16) {
+        uint16_t* tmp = new uint16_t[idx_count];
+        for (uint32_t i = 0; i < idx_count; ++i) tmp[i] = (uint16_t)idx[i];
+        ibo.Init(0x8893u, tmp, idx_count * (uint32_t)sizeof(uint16_t));
+        delete[] tmp;
+    } else {
+        ibo.Init(0x8893u, idx, idx_count * (uint32_t)sizeof(uint32_t));
+    }
+    loaded = true;
+    return true;
+}
+
 void PropMesh::Shutdown() {
     vbo.Shutdown();
     ibo.Shutdown();

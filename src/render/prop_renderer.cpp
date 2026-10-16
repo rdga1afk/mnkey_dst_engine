@@ -24,7 +24,15 @@ bool PropRenderer::Init(const char* glb_path, float layer) {
         fprintf(stdout, "[PropRenderer] GLB load failed — prop draw disabled\n");
         return false;
     }
+    return FinishInit();
+}
 
+bool PropRenderer::InitFromArrays(const PropVertex* verts, uint32_t vert_count, const uint32_t* idx, uint32_t idx_count) {
+    if (!mesh_.LoadFromArrays(verts, vert_count, idx, idx_count)) return false;
+    return FinishInit();
+}
+
+bool PropRenderer::FinishInit() {
     PropTexShared::Get().Init();  // idempotent; shared across all PropRenderer instances
 
     // task propmesh-materials (2026-08-02): upload the mesh's own embedded
