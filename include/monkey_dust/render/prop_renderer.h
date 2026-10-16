@@ -24,6 +24,8 @@ public:
     // 1=vegetation atlas (see PropTexShared).
     bool Init(const char* glb_path, float layer = 0.0f);
     // Same pipeline and textures as Init, geometry supplied by the caller (#119 spike: Ogre meshes).
+    // Replace the per-mesh texture (white 1x1 by default) with a file (DDS or image); layer 2 / 3 vertices sample it.
+    bool SetCustomTexture(const char* path);
     bool InitFromArrays(const PropVertex* verts, uint32_t vert_count, const uint32_t* idx, uint32_t idx_count);
     void Shutdown();
 

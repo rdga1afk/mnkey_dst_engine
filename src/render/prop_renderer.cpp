@@ -27,6 +27,15 @@ bool PropRenderer::Init(const char* glb_path, float layer) {
     return FinishInit();
 }
 
+bool PropRenderer::SetCustomTexture(const char* path) {
+    GpuSamplerDesc sd; sd.gen_mipmap = true;
+    GpuTexture t;
+    if (!t.InitFromFile(path, sd)) return false;
+    tex_custom_.Shutdown();
+    tex_custom_ = t;
+    return true;
+}
+
 bool PropRenderer::InitFromArrays(const PropVertex* verts, uint32_t vert_count, const uint32_t* idx, uint32_t idx_count) {
     if (!mesh_.LoadFromArrays(verts, vert_count, idx, idx_count)) return false;
     return FinishInit();
