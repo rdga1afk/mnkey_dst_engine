@@ -75,7 +75,7 @@ private:
     Placement placements_[MAX_PLACEMENTS];
     int       placement_count_ = 0;
 
-    bool terrain_in_gbuf_ = false;
+    bool terrain_in_gbuf_ = true;   // default on: #176 (Gates-approved)
 #ifdef MD_SDL_GPU
     GpuPipeline gbuf_pipeline_;
 #endif
