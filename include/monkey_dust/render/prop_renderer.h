@@ -54,7 +54,8 @@ public:
         float        anim_mode   = 0.0f,
         float        anim_time   = 0.0f,
         const float* normals_xyz = nullptr,
-        const float* quats_xyzw  = nullptr);
+        const float* quats_xyzw  = nullptr,
+        const float* scales      = nullptr);   // [count] per-instance scale, overrides `scale` (#119 spike)
 
 private:
     bool FinishInit();

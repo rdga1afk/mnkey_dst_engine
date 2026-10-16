@@ -123,7 +123,8 @@ void PropRenderer::DrawRaw(
     float        anim_mode,
     float        anim_time,
     const float* normals_xyz,
-    const float* quats_xyzw)
+    const float* quats_xyzw,
+    const float* scales)
 {
     if (!mesh_.loaded || count <= 0) return;
     if (count > MAX_PROPS) count = MAX_PROPS;
@@ -175,7 +176,7 @@ void PropRenderer::DrawRaw(
         v_ubo.model_pos_scale[0] = p[0];
         v_ubo.model_pos_scale[1] = p[1];
         v_ubo.model_pos_scale[2] = p[2];
-        v_ubo.model_pos_scale[3] = scale;
+        v_ubo.model_pos_scale[3] = scales ? scales[i] : scale;
         v_ubo.anim_params[3] = (p[0] * 0.31f + p[2] * 0.17f);
         if (normals_xyz) {
             const float* n = normals_xyz + i * 3;
