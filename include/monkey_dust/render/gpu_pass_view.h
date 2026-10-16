@@ -50,6 +50,8 @@ public:
     // GpuStaticBuffer (e.g. terrain-chunk clutter_vbo) exposes the same
     // SDLBuffer() accessor as GpuVertexBuffer but is a different type.
     void BindVertexBuffer(const GpuStaticBuffer* buf);
+    // Second vertex buffer (slot 1, per-instance data of a pipeline with GpuVertexLayout::inst_*).
+    void BindVertexBufferAt(uint32_t slot, const GpuStaticBuffer* buf);
     // No wrapper existed for indexed binding/draw anywhere in the HAL before
     // this (docs/HAL_CLOSURE_INVENTORY.md §2.3/§2.4) -- added here because a
     // GpuPassView caller needs both to close a file completely, not deferred

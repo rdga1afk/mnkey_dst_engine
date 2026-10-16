@@ -235,3 +235,30 @@ void PropRenderer::DrawGbuf(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cm
     }
 }
 #endif
+
+#ifdef MD_SDL_GPU
+void PropRenderer::BeginInstanced(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, GpuPipeline& pipe, const GpuStaticBuffer& inst, const float* vp16, const float* sun32, bool textured) {
+    if (!mesh_.loaded || !pipe.SDLPipeline() || !mesh_.vbo.SDLBuffer() || !mesh_.ibo.SDLBuffer() || !inst.SDLBuffer()) return;
+    GpuPassView pv = GpuPassView::FromRaw(rp, cmd);
+    pv.BindPipeline(&pipe);
+    pv.BindVertexBuffer(&mesh_.vbo);
+    pv.BindVertexBufferAt(1, &inst);
+    pv.BindIndexBuffer(&mesh_.ibo, mesh_.indices_u16 ? SDL_GPU_INDEXELEMENTSIZE_16BIT : SDL_GPU_INDEXELEMENTSIZE_32BIT);
+    PropTexShared& pt = PropTexShared::Get();
+    if (textured && pt.ready) {
+        SDL_GPUTextureSamplerBinding sb[3] = {
+            { pt.tex_rock->SDLTexture(), pt.tex_rock->SDLSampler() },
+            { pt.tex_veg->SDLTexture(),  pt.tex_veg->SDLSampler()  },
+            { tex_custom_.SDLTexture(),  tex_custom_.SDLSampler()  },
+        };
+        pv.BindFragmentSamplers(0, sb, 3);
+    }
+    if (textured) pv.PushFragmentUniforms(0, sun32, 32);
+    pv.PushVertexUniforms(0, vp16, 64);
+}
+
+void PropRenderer::DrawInstancedRange(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, uint32_t first, uint32_t count) {
+    if (!mesh_.loaded || count == 0) return;
+    GpuPassView::FromRaw(rp, cmd).DrawIndexed(mesh_.index_count, count, 0, 0, first);
+}
+#endif

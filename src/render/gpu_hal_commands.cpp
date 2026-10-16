@@ -177,6 +177,14 @@ void GpuPassView::BindVertexBuffer(const GpuStaticBuffer* buf) {
     SDL_BindGPUVertexBuffers(sdl_pass_, 0, &binding, 1);
 }
 
+void GpuPassView::BindVertexBufferAt(uint32_t slot, const GpuStaticBuffer* buf) {
+    if (!sdl_pass_ || !buf || !buf->SDLBuffer()) return;
+    SDL_GPUBufferBinding binding = {};
+    binding.buffer = buf->SDLBuffer();
+    binding.offset = 0;
+    SDL_BindGPUVertexBuffers(sdl_pass_, slot, &binding, 1);
+}
+
 void GpuPassView::BindIndexBuffer(const GpuStaticBuffer* buf, SDL_GPUIndexElementSize elem_size) {
     if (!sdl_pass_ || !buf || !buf->SDLBuffer()) return;
     SDL_GPUBufferBinding binding = {};
