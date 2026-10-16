@@ -16,6 +16,7 @@ This file lists code and designs ported or adapted into this repository from oth
 - `engine/src/io/ogre_chunk.cpp`, `ogre_mesh.cpp`, `ogre_skeleton.cpp`, `kenshi_resources.cpp` and their headers (`include/monkey_dust/io/ogre_chunk.h`,
   `ogre_mesh.h`, `ogre_skeleton.h`, `kenshi_resources.h`) are C++ ports of the behaviour of Okran's `src/io/ogre.rs` (chunk reader),
   `ogre_mesh.rs` (`.mesh`), `ogre_skeleton.rs` (`.skeleton`) and `resources.rs` (file-name lookup).
+- `private/md_foliage_place.py` (main repo, spike tool, #119) is a Python port of the behaviour of Okran's `src/world/foliage.rs` (`scatter_layer`, `place`, MT19937 `Mt`): layer/zone seeding, per-mesh counts, clusters, slope/altitude rejection, scale/offset/yaw draw order, child clusters. Differences from Okran (checked against the exe, see `docs/research/EXE_PARITY_MAP.tsv`): the slope metric.
 - Licence text:
 
 ```
