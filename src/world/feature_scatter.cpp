@@ -65,8 +65,9 @@ bool FeatureScatterSystem::Init(const char* scatter_path, const char* mesh_dir) 
         mesh_path[mp_len] = '\0';
         p = bar + 1;
 
-        if (sscanf(p, "%f|%f|%f|%f|%f|%f|%f|%f|%f|%f",
-                   &x, &y, &z, &sx, &sy, &sz, &qw, &qx, &qy, &qz) != 10) {
+        int mode = 0;
+        if (sscanf(p, "%f|%f|%f|%f|%f|%f|%f|%f|%f|%f|%d",
+                   &x, &y, &z, &sx, &sy, &sz, &qw, &qx, &qy, &qz, &mode) < 10) {
             continue;
         }
 
@@ -99,9 +100,25 @@ bool FeatureScatterSystem::Init(const char* scatter_path, const char* mesh_dir) 
         pl.x = x; pl.y = y; pl.z = z;
         pl.sx = sx; pl.sy = sy; pl.sz = sz;
         pl.qw = qw; pl.qx = qx; pl.qy = qy; pl.qz = qz;
+        pl.mode = (int8_t)mode;
     }
     fclose(f);
 
+#ifdef MD_SDL_GPU
+    {   // #176: pipeline of the TERRAIN-mode features (terrain G-buffer: feature_gbuf.vert + terrain_gbuffer_mini.frag, R16G16B16A16_UINT target)
+        GpuPipeline::Desc pd;
+        pd.vert_path = "shaders/feature_gbuf.vert";
+        pd.frag_path = "shaders/terrain_gbuffer_mini.frag";
+        pd.layout.count = 4; pd.layout.stride = 36;
+        pd.layout.attribs[0] = { 0, 0, GpuAttribFmt::F3 }; pd.layout.attribs[1] = { 1, 12, GpuAttribFmt::F3 };
+        pd.layout.attribs[2] = { 2, 24, GpuAttribFmt::F2 }; pd.layout.attribs[3] = { 3, 32, GpuAttribFmt::F1 };
+        pd.raster.depth_test = true; pd.raster.depth_write = true; pd.raster.cull_back = false;
+        pd.has_depth_target = true;
+        pd.vert_uniform_bufs = 1; pd.frag_uniform_bufs = 0; pd.frag_samplers = 0; pd.frag_storage_bufs = 0;
+        pd.color_format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_UINT;
+        if (!gbuf_pipeline_.Create(pd)) MD_LOG(MD_LOG_WARNING, "[FeatureScatter] G-buffer pipeline create failed");
+    }
+#endif
     MD_LOG(MD_LOG_INFO, "[FeatureScatter] loaded %d real placements across %d unique meshes from %s",
            placement_count_, mesh_count_, scatter_path);
     return true;
@@ -145,6 +162,7 @@ void FeatureScatterSystem::Draw(
         for (int i = 0; i < placement_count_ && n < MAX_DRAW_BATCH; ++i) {
             const Placement& pl = placements_[i];
             if (pl.mesh_idx != m) continue;
+            if (terrain_in_gbuf_ && pl.mode == 2) continue;   // drawn by DrawGbuf
             float dx = pl.x - cam_x, dz = pl.z - cam_z;
             if (dx * dx + dz * dz > r2) continue;
             pos_buf[n * 3 + 0] = pl.x;
@@ -166,3 +184,26 @@ void FeatureScatterSystem::Draw(
             /*normals_xyz=*/nullptr, /*quats_xyzw=*/quat_buf);
     }
 }
+
+#ifdef MD_SDL_GPU
+void FeatureScatterSystem::DrawGbuf(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, const float* vp16, float cam_x, float cam_z, float radius) {
+    if (!terrain_in_gbuf_ || placement_count_ <= 0) return;
+    const float r2 = radius * radius;
+    static float pos_buf[MAX_DRAW_BATCH * 3];
+    static float quat_buf[MAX_DRAW_BATCH * 4];
+    for (int m = 0; m < mesh_count_; ++m) {
+        int n = 0;
+        for (int i = 0; i < placement_count_ && n < MAX_DRAW_BATCH; ++i) {
+            const Placement& pl = placements_[i];
+            if (pl.mesh_idx != m || pl.mode != 2) continue;
+            float dx = pl.x - cam_x, dz = pl.z - cam_z;
+            if (dx * dx + dz * dz > r2) continue;
+            pos_buf[n * 3] = pl.x; pos_buf[n * 3 + 1] = pl.y; pos_buf[n * 3 + 2] = pl.z;
+            quat_buf[n * 4] = pl.qx; quat_buf[n * 4 + 1] = pl.qy; quat_buf[n * 4 + 2] = pl.qz;
+            quat_buf[n * 4 + 3] = (fabsf(pl.qw) > 0.0001f) ? pl.qw : 1.0f;
+            ++n;
+        }
+        if (n > 0) renderers_[m].DrawGbuf(rp, cmd, gbuf_pipeline_, pos_buf, quat_buf, n, vp16);
+    }
+}
+#endif

@@ -59,6 +59,11 @@ public:
         const float* quats_xyzw  = nullptr,
         const float* scales      = nullptr);   // [count] per-instance scale, overrides `scale` (#119 spike)
 
+    // #176: draw count instances of this mesh with `pipe` (feature_gbuf.vert + terrain_gbuffer_mini.frag, the terrain G-buffer pass): vp16, then per instance
+    // position (xyz), quaternion (xyzw), uniform scale 1. No textures, no fragment uniforms.
+#ifdef MD_SDL_GPU
+    void DrawGbuf(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, GpuPipeline& pipe, const float* positions_xyz, const float* quats_xyzw, int count, const float* vp16);
+#endif
 private:
     bool FinishInit();
     PropMesh    mesh_;

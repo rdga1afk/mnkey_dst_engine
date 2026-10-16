@@ -36,6 +36,13 @@ public:
               const char* mesh_dir     = "game/data/props/features");
     void Shutdown();
 
+    // #176: placements with texture mode 2 (TERRAIN) are drawn into the terrain G-buffer by DrawGbuf (shaded as ground) instead of by Draw, when on.
+    void SetTerrainInGbuffer(bool on) { terrain_in_gbuf_ = on; }
+    bool TerrainInGbuffer() const { return terrain_in_gbuf_; }
+#ifdef MD_SDL_GPU
+    void DrawGbuf(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, const float* vp16, float cam_x, float cam_z, float radius);
+#endif
+
     int PlacementCount() const { return placement_count_; }
 
     // Draws every placement within `radius` metres of (cam_x, cam_z),
@@ -58,6 +65,7 @@ private:
         float   x, y, z;
         float   sx, sy, sz;
         float   qw, qx, qy, qz;
+        int8_t  mode;   // texture mode of the MAP_FEATURES record (2 = TERRAIN)
     };
 
     PropRenderer renderers_[MAX_MESHES];
@@ -67,5 +75,9 @@ private:
     Placement placements_[MAX_PLACEMENTS];
     int       placement_count_ = 0;
 
+    bool terrain_in_gbuf_ = false;
+#ifdef MD_SDL_GPU
+    GpuPipeline gbuf_pipeline_;
+#endif
     int FindOrSkipMesh(const char* kenshi_mesh_path) const;
 };
