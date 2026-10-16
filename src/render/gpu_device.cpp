@@ -40,6 +40,7 @@ bool GpuDevice::Init(SDL_Window* window) {
         return false;
     }
     window_ = window;
+    SDL_SetGPUAllowedFramesInFlight(device_, 1);   // #152: route p50 -1.6 / p99 -1.6 ms vs SDL default 2 (docs/DECISIONS.md)
     MD_LOG(MD_LOG_INFO, "[GpuDevice] Ready. Driver: %s", SDL_GetGPUDeviceDriver(device_));
     return true;
 }
