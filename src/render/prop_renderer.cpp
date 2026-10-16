@@ -237,7 +237,7 @@ void PropRenderer::DrawGbuf(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cm
 #endif
 
 #ifdef MD_SDL_GPU
-void PropRenderer::BeginInstanced(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, GpuPipeline& pipe, const GpuStaticBuffer& inst, const float* vp16, const float* sun32, bool textured) {
+void PropRenderer::BeginInstanced(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, GpuPipeline& pipe, const GpuStaticBuffer& inst, const float* vp16, const float* sun32, bool samplers, bool sun_ubo) {
     if (!mesh_.loaded || !pipe.SDLPipeline() || !mesh_.vbo.SDLBuffer() || !mesh_.ibo.SDLBuffer() || !inst.SDLBuffer()) return;
     GpuPassView pv = GpuPassView::FromRaw(rp, cmd);
     pv.BindPipeline(&pipe);
@@ -245,7 +245,7 @@ void PropRenderer::BeginInstanced(SDL_GPURenderPass* rp, md::GpuCommandBufferHan
     pv.BindVertexBufferAt(1, &inst);
     pv.BindIndexBuffer(&mesh_.ibo, mesh_.indices_u16 ? SDL_GPU_INDEXELEMENTSIZE_16BIT : SDL_GPU_INDEXELEMENTSIZE_32BIT);
     PropTexShared& pt = PropTexShared::Get();
-    if (textured && pt.ready) {
+    if (samplers && pt.ready) {
         SDL_GPUTextureSamplerBinding sb[3] = {
             { pt.tex_rock->SDLTexture(), pt.tex_rock->SDLSampler() },
             { pt.tex_veg->SDLTexture(),  pt.tex_veg->SDLSampler()  },
@@ -253,7 +253,7 @@ void PropRenderer::BeginInstanced(SDL_GPURenderPass* rp, md::GpuCommandBufferHan
         };
         pv.BindFragmentSamplers(0, sb, 3);
     }
-    if (textured) pv.PushFragmentUniforms(0, sun32, 32);
+    if (sun_ubo) pv.PushFragmentUniforms(0, sun32, 32);
     pv.PushVertexUniforms(0, vp16, 64);
 }
 

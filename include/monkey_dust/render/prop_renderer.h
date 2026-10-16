@@ -68,7 +68,7 @@ public:
     // position xyz + scale, quaternion xyzw), the mesh index buffer, the rock / vegetation / own textures and the sun UBO; DrawInstancedRange then draws instances
     // [first, first + count) of `inst` (one call per run of visible tiles).
 #ifdef MD_SDL_GPU
-    void BeginInstanced(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, GpuPipeline& pipe, const GpuStaticBuffer& inst, const float* vp16, const float* sun32, bool textured = true);
+    void BeginInstanced(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, GpuPipeline& pipe, const GpuStaticBuffer& inst, const float* vp16, const float* sun32, bool samplers = true, bool sun_ubo = true);
     void DrawInstancedRange(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, uint32_t first, uint32_t count);
 #endif
 private:

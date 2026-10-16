@@ -64,6 +64,7 @@ struct GpuRasterState {
     GpuBlendFactor dst_factor  = GpuBlendFactor::ONE_MINUS_SRC_ALPHA;
     bool  depth_test           = true;
     bool  depth_write          = true;
+    bool  color_write          = true;   // false: colour mask 0 (depth-only draw inside a colour pass, e.g. cost decomposition)
     bool  cull_back            = true;
     bool  point_size           = false; // GL_PROGRAM_POINT_SIZE
     // SDL_GPU_FILLMODE_LINE instead of FILL -- debug wireframe overlay.

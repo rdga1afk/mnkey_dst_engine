@@ -450,6 +450,10 @@ bool GpuPipeline::Create(const Desc& desc) {
             color_target.blend_state.alpha_blend_op        = SDL_GPU_BLENDOP_ADD;
             color_target.blend_state.color_write_mask      = 0xF;
         }
+        if (!desc.raster.color_write) {
+            color_target.blend_state.enable_color_write_mask = true;
+            color_target.blend_state.color_write_mask        = 0;
+        }
     }
 
     SDL_GPUGraphicsPipelineTargetInfo target_info = {};
