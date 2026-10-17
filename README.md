@@ -3,10 +3,10 @@ id: kb-engine-readme
 type: reference
 status: active
 date: 2026-05-14
-updated: 2026-10-13
+updated: 2026-10-18
 repo: engine
 tags: [engine, readme, kenshi, sdl-gpu, terrain, public-repo]
-summary: "Public engine README (EN + UA): native Linux engine that renders Kenshi's world from the player's own install; status, goal, build, KENSHI_DIR, mods, architecture, module map, legal"
+summary: "Public engine README (EN + UA): native Linux engine that renders Kenshi's world from the player's own install; status, goal to 2026-12-31, build, KENSHI_DIR, mods, architecture, module map, legal"
 ---
 
 # monkey_dust Engine
@@ -28,11 +28,11 @@ summary: "Public engine README (EN + UA): native Linux engine that renders Kensh
 - Content is edited with Kenshi's own editor, the **Forgotten Construction Set (FCS)**. Mods load in Kenshi's own order.
 
 ### What this is not (yet)
-- **Not a playable game.** No NPCs, combat, trade or UI from Kenshi yet. Game logic comes later, step by step.
+- **Not a playable game yet.** No NPCs, combat, trade or UI from Kenshi. An earlier prototype game layer (AI, combat, saves, building, Flare) was removed on 2026-10-17; the new game logic will be written from scratch, following facts about Kenshi's own systems.
 - **Not a Kenshi replacement or a remake.** Kenshi is © Lo-Fi Games. This is an independent, unofficial engine.
 - **There is nothing to download and play.** The game executable lives in a separate private repository; this repository is the engine library.
 
-### Status (2026-10-13)
+### Status (2026-10-18)
 
 | Area | State |
 |---|---|
@@ -40,17 +40,20 @@ summary: "Public engine README (EN + UA): native Linux engine that renders Kensh
 | Heightmap from `fullmap.tif` (16385², uint16) | **Done.** 68 161 536 heights, 0 differences. Near the camera a 1.8 m window (Kenshi's own grid), streamed on a background thread; further away every 2nd sample (3.6 m) |
 | `biomemap`, `blendmap`, `ambientmap`, ground textures | **Done.** Read from the install; textures are found by file name the way Ogre does it |
 | **Ground shader** | **Ported from [Project Okran](https://github.com/brayniac6-glitch/Project-Okran) (MIT)**, following Kenshi's `terrainfp4.hlsl`: per-pixel biomes from `blendMap` (up to four plus the cell's fifth slot), per-pixel cliff weight, Kenshi's default texture quality (one mip down for landscape layers), Kenshi units |
+| **Ground filtering** | **Done.** Mip level chosen from the pixel's footprint (analytic ray differentials) instead of distance only. This removed ground shimmer in motion: reprojection residual 4.9 → 0.5. Setting: footprint mip (default) / anisotropic ×4 / ×16 (Kenshi's own filter) |
 | **Terrain LOD** | **Done, on by default.** Quadtree by screen-space error as in Kenshi's terrain plugin: thresholds 5 / 35 px with a 750 → 1500 m ramp, geomorph, skirts, per-vertex normals; patch size 16 ("Small"), 64 ("Large") as a setting |
 | Lighting, sky, water like Kenshi's | Not yet: frames are darker than Kenshi. Next: port Kenshi's lighting chain (sun, irradiance cube maps, auto exposure) |
 | Towns (Ogre `.mesh`), foliage | Planned, Nov 2026 |
 | Steam library auto-detection | Not yet: set `KENSHI_DIR` |
 | Workshop mods | Code path exists, **not yet tested on real Workshop data** |
-| **Performance, native 1920×1080, HD 520** | Frame interval at three fixed points **23.6 / 19.4 / 23.6 ms**; fixed flight route **p99 30–31 ms** (13.10.2026). Goal: ≤ 16.7 ms. This is the main open problem |
+| **Performance, 1920×1080, HD 520** | Fixed flight route **p99 ≈ 19 ms** (17.10.2026; was 30–31 ms on 13.10). Goal: ≤ 16.7 ms. Helped by: GPU occlusion culling (HZB), a ground cache reused while moving, and **dynamic resolution only while the camera moves** (0.75, native when standing still; setting «Resolution while moving»). This is still the main open problem |
+| **Code clean-up** (Oct 2026) | In progress: the old prototype game layer is gone (≈ 61 000 lines across the three repositories); next is a full audit of the remaining code (compiler warnings, clang-tidy, cppcheck, sanitizers), with every change checked against pixel-exact reference frames |
 
-### Goal by ~2026-12-10
-**Kenshi's world on Linux at a stable 60 FPS on an HD 520**, native 1920×1080, no resolution scaling: terrain, sky, water, towns and foliage read from the Kenshi folder, looking like Kenshi.
+### Goals
+**By 2026-12-31:** the world below **plus a minimal playable core**: a squad you can select and move, a few NPCs from town data, the simplest melee combat. It will be partial and rough on purpose; a full Kenshi replacement is a multi-year effort.
+
+**By ~2026-12-10: Kenshi's world on Linux at a stable 60 FPS on an HD 520**, native 1920×1080, no resolution scaling: terrain, sky, water, towns and foliage read from the Kenshi folder, looking like Kenshi.
 - **"Stable"** = frame-interval p99 ≤ 16.7 ms on a fixed flight route over the world (town, canyon, desert, horizon; loading hitches count), plus a mean ≤ 16.7 ms at three fixed points and near the Hub.
-- Week-4 gate (2026-11-07): terrain alone ≤ 12 ms.
 - Also by then (in the game and tools repositories): a character editor that matches Kenshi's, and AMD FSR 2 as an optional player setting. The goal itself is measured without upscaling.
 
 ### Requirements
@@ -69,7 +72,7 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DUSE_SDL3=ON
 ninja -C build monkey_dust_engine
 ninja -C build md_tests            # small smoke tests
 ```
-Dependencies: SDL3, gaia-ecs, Recast/Detour, ozz-animation, Jolt Physics, miniaudio, Lua 5.4 (vendored or via CMake).
+Dependencies: SDL3, gaia-ecs, ozz-animation, Jolt Physics, miniaudio, Lua 5.4, AMD FSR 1 (vendored or via CMake). Recast/Detour is vendored for the planned character movement.
 Shaders (GLSL → SPIR-V) live in the game repository; the library loads pre-compiled SPIR-V at runtime.
 
 ### Pointing the engine at Kenshi
@@ -89,7 +92,7 @@ Mods are read exactly as Kenshi reads them: `data/mods.cfg` order, then `mods/` 
 
 | Repository | Visibility | Licence | Contents |
 |---|---|---|---|
-| [`mnkey_dst_engine`](https://github.com/rdga1afk/mnkey_dst_engine) (this) | public | MIT | Engine library: Kenshi data readers, renderer, world, ECS, physics, AI |
+| [`mnkey_dst_engine`](https://github.com/rdga1afk/mnkey_dst_engine) (this) | public | MIT | Engine library: Kenshi data readers, renderer, world, ECS, physics |
 | [`mnkey_dst_tools`](https://github.com/rdga1afk/mnkey_dst_tools) | public | GPL-3.0 | Editor, QA/measurement scripts, offline converters |
 | `mnkey_dst` | private | proprietary | Game executable, shaders, tests, research. Includes the two above as submodules |
 
@@ -108,13 +111,11 @@ Kenshi install (read-only, KENSHI_DIR)
 | Module | What it does |
 |---|---|
 | `io/` | **Kenshi data:** FCS reader and merge (`fcs`, `fcs_gamedata`), uncompressed TIFF (`tiff`), install lookup (`kenshi_dir`) |
-| `world/` | Terrain atlas and queries (`TerrainQuery`), terrain LOD tree (`TerrainLodTree`, Kenshi's screen-space error rule), biomes, feature scatter, weather, factions, world simulation |
-| `render/` | GPU HAL over SDL_GPU, terrain LOD renderer and 8-byte terrain G-buffer, deferred lighting, EVSM cascaded shadows, SSAO, bloom, GPU skinning, materials, per-pass on/off switch (`RenderPassGraph`) for measurement, RenderDoc in-app capture hook |
-| `ecs/`, `components/` | gaia-ecs behind the `MdRegistry`/`MdEntity` facade; POD components |
+| `world/` | Terrain atlas and queries (`TerrainQuery`), terrain LOD tree (`TerrainLodTree`, Kenshi's screen-space error rule), terrain streaming, biomes, feature scatter, weather |
+| `render/` | GPU HAL over SDL_GPU, terrain LOD renderer and 8-byte terrain G-buffer, deferred lighting, cascaded shadows (off by default), HZB occlusion culling, dynamic resolution, FSR 1, SSAO, bloom, GPU skinning, materials, per-pass on/off switch (`RenderPassGraph`) for measurement, RenderDoc in-app capture hook |
+| `ecs/`, `components/` | gaia-ecs behind the `MdRegistry`/`MdEntity` facade; POD components (transform hierarchy, renderable, animator, morphs) |
 | `physics/` | Jolt Physics (`JoltWorld`, `CharacterVirtual`), ragdoll |
-| `nav/` | Recast/Detour navmesh, DetourCrowd, async path cache |
-| `ai/` | Stackless behaviour-tree VM, sense system, director, utility scorer |
-| `combat/`, `building/`, `save/`, `scripting/`, `audio/` | Damage/hit zones, build grid, versioned saves, Lua 5.4 sandbox, miniaudio |
+| `scripting/`, `audio/` | Lua 5.4 sandbox (measurement and test scenarios), miniaudio |
 | `platform/` | Window/input/timing, job graph, INI/CVar, logging, AVX2 helpers |
 
 Conventions: C++17; POD components; `gpu_pipeline_safety_check.h` rejects pipeline layouts known to crash the Intel Gen9 ANV driver before they are created. The full subsystem reference is on the [docs site](https://rdga1afk.github.io/mnkey_dst_engine/).
@@ -147,11 +148,11 @@ index.html             documentation site (GitHub Pages)
 - Контент редагується власним редактором Kenshi, **Forgotten Construction Set (FCS)**. Моди вантажаться в порядку Kenshi.
 
 ### Чим це (поки) не є
-- **Це не гра, в яку можна грати.** NPC, бою, торгівлі й інтерфейсу з Kenshi ще немає. Ігрова логіка — пізніше, поступово.
+- **Це ще не гра, в яку можна грати.** NPC, бою, торгівлі й інтерфейсу з Kenshi немає. Ранній прототип ігрового шару (ШІ, бій, збереження, будівництво, Flare) видалено 17.10.2026; нову ігрову логіку пишемо з нуля за фактами про системи самої Kenshi.
 - **Це не заміна і не ремейк Kenshi.** Kenshi © Lo-Fi Games. Це незалежний неофіційний рушій.
 - **Завантажити й зіграти поки нічого.** Виконуваний файл гри — в окремому приватному репозиторії; тут бібліотека рушія.
 
-### Стан (13.10.2026)
+### Стан (18.10.2026)
 
 | Напрям | Стан |
 |---|---|
@@ -159,17 +160,20 @@ index.html             documentation site (GitHub Pages)
 | Карта висот з `fullmap.tif` (16385², uint16) | **Готово.** 68 161 536 висот, 0 відмінностей. Біля камери — вікно 1,8 м (сітка самої Kenshi), підвантажується у фоновому потоці; далі — кожен 2-й відлік (3,6 м) |
 | `biomemap`, `blendmap`, `ambientmap`, текстури ґрунту | **Готово.** Читаються з інсталяції; текстури шукаються за іменем файлу, як в Ogre |
 | **Шейдер ґрунту** | **Перенесено з [Project Okran](https://github.com/brayniac6-glitch/Project-Okran) (MIT)** за `terrainfp4.hlsl` Kenshi: біоми для кожного пікселя за `blendMap` (до чотирьох + п'ятий слот клітинки), вага кручі для кожного пікселя, якість текстур Kenshi за замовчуванням (шари ландшафту на один mip нижче), одиниці Kenshi |
+| **Фільтрація ґрунту** | **Готово.** Рівень mip вибирається за слідом пікселя (аналітичні похідні променя), а не лише за відстанню. Це прибрало мерехтіння ґрунту в русі: залишок репроєкції 4,9 → 0,5. Налаштування: mip за слідом (за замовчуванням) / анізотропія ×4 / ×16 (фільтр самої Kenshi) |
 | **LOD ландшафту** | **Готово, увімкнено за замовчуванням.** Квадродерево за екранною похибкою, як у плагіні ландшафту Kenshi: пороги 5 / 35 px з переходом 750 → 1500 м, геоморф, спідниці, нормалі у вершинах; розмір патча 16 («Small»), 64 («Large») — налаштування |
 | Світло, небо, вода, як у Kenshi | Ще ні: кадри темніші за Kenshi. Далі — перенос ланцюга світла Kenshi (сонце, кубічні карти опромінення, автоекспозиція) |
 | Міста (Ogre `.mesh`), рослини | План на листопад 2026 |
 | Автопошук бібліотеки Steam | Ще ні: задайте `KENSHI_DIR` |
 | Моди з Workshop | Код є, **на справжніх даних Workshop ще не перевірено** |
-| **Продуктивність, нативні 1920×1080, HD 520** | Інтервал кадру в трьох фіксованих точках **23,6 / 19,4 / 23,6 мс**; фіксований маршрут польоту **p99 30–31 мс** (13.10.2026). Мета — ≤ 16,7 мс. Це головна відкрита проблема |
+| **Продуктивність, 1920×1080, HD 520** | Фіксований маршрут польоту **p99 ≈ 19 мс** (17.10.2026; 13.10 було 30–31 мс). Мета — ≤ 16,7 мс. Допомогли: відсікання невидимого на GPU (HZB), кеш ґрунту в русі й **динамічна роздільність лише під час руху камери** (0,75, нативна, коли камера стоїть; налаштування «Resolution while moving»). Це досі головна відкрита проблема |
+| **Чистка коду** (жовтень 2026) | Триває: старий ігровий прототип прибрано (≈ 61 000 рядків у трьох репозиторіях); далі — повний аудит решти коду (попередження компілятора, clang-tidy, cppcheck, санітайзери), кожна зміна звіряється з еталонними кадрами до пікселя |
 
-### Мета до ~10.12.2026
-**Світ Kenshi під Linux зі стабільними 60 FPS на HD 520**, нативні 1920×1080 без масштабування роздільності: земля, небо, вода, міста й рослини з теки Kenshi, на вигляд як у Kenshi.
+### Мета
+**До 31.12.2026:** світ (нижче) **плюс найменше граюче ядро**: загін, який можна виділити й вести, кілька NPC з даних міст, найпростіший ближній бій. Свідомо частково й сиро; повна заміна Kenshi — робота на кілька років.
+
+**До ~10.12.2026: світ Kenshi під Linux зі стабільними 60 FPS на HD 520**, нативні 1920×1080 без масштабування роздільності: земля, небо, вода, міста й рослини з теки Kenshi, на вигляд як у Kenshi.
 - **«Стабільні»** — p99 інтервалу кадру ≤ 16,7 мс на фіксованому маршруті польоту над світом (місто, каньйон, пустеля, обрій; ривки підвантаження теж рахуються), плюс середнє ≤ 16,7 мс у трьох фіксованих точках і біля Хабу.
-- Ворота 4-го тижня (07.11.2026): лише земля ≤ 12 мс.
 - До того ж строку (у репозиторіях гри й інструментів): редактор персонажів, як у Kenshi, і AMD FSR 2 як налаштування гравця. Сама мета міряється без масштабування.
 
 ### Вимоги
@@ -187,7 +191,7 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DUSE_SDL3=ON
 ninja -C build monkey_dust_engine
 ninja -C build md_tests
 ```
-Залежності: SDL3, gaia-ecs, Recast/Detour, ozz-animation, Jolt Physics, miniaudio, Lua 5.4.
+Залежності: SDL3, gaia-ecs, ozz-animation, Jolt Physics, miniaudio, Lua 5.4, AMD FSR 1. Recast/Detour лежить у `third_party` для запланованого руху персонажів.
 Шейдери (GLSL → SPIR-V) лежать у репозиторії гри; бібліотека вантажить готовий SPIR-V під час роботи.
 
 ### Як вказати теку Kenshi
@@ -207,7 +211,7 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"   # тек�
 
 | Репозиторій | Доступ | Ліцензія | Вміст |
 |---|---|---|---|
-| [`mnkey_dst_engine`](https://github.com/rdga1afk/mnkey_dst_engine) (цей) | публічний | MIT | Бібліотека рушія: читачі даних Kenshi, рендер, світ, ECS, фізика, AI |
+| [`mnkey_dst_engine`](https://github.com/rdga1afk/mnkey_dst_engine) (цей) | публічний | MIT | Бібліотека рушія: читачі даних Kenshi, рендер, світ, ECS, фізика |
 | [`mnkey_dst_tools`](https://github.com/rdga1afk/mnkey_dst_tools) | публічний | GPL-3.0 | Редактор, скрипти замірів і QA, офлайн-конвертери |
 | `mnkey_dst` | приватний | власницька | Виконуваний файл гри, шейдери, тести, дослідження. Два репо вище — його підмодулі |
 
@@ -218,13 +222,11 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"   # тек�
 | Модуль | Що робить |
 |---|---|
 | `io/` | **Дані Kenshi:** читач і злиття FCS, TIFF без стиснення, пошук інсталяції |
-| `world/` | Атлас висот і запити (`TerrainQuery`), дерево LOD ландшафту (`TerrainLodTree`, правило екранної похибки Kenshi), біоми, розстановка об'єктів, погода, фракції, симуляція світу |
-| `render/` | GPU HAL над SDL_GPU, рендер LOD ландшафту й 8-байтовий G-буфер землі, відкладене освітлення, каскадні тіні EVSM, SSAO, bloom, скінінг на GPU, матеріали, вмикання/вимикання проходів (`RenderPassGraph`) для замірів, хук захоплення RenderDoc |
-| `ecs/`, `components/` | gaia-ecs за фасадом `MdRegistry`/`MdEntity`; POD-компоненти |
+| `world/` | Атлас висот і запити (`TerrainQuery`), дерево LOD ландшафту (`TerrainLodTree`, правило екранної похибки Kenshi), підвантаження ландшафту, біоми, розстановка об'єктів, погода |
+| `render/` | GPU HAL над SDL_GPU, рендер LOD ландшафту й 8-байтовий G-буфер землі, відкладене освітлення, каскадні тіні (за замовчуванням вимкнено), відсікання невидимого HZB, динамічна роздільність, FSR 1, SSAO, bloom, скінінг на GPU, матеріали, вмикання/вимикання проходів (`RenderPassGraph`) для замірів, хук захоплення RenderDoc |
+| `ecs/`, `components/` | gaia-ecs за фасадом `MdRegistry`/`MdEntity`; POD-компоненти (ієрархія трансформацій, рендер, аніматор, морфи) |
 | `physics/` | Jolt Physics, ragdoll |
-| `nav/` | Навмеш Recast/Detour, DetourCrowd, асинхронний кеш шляхів |
-| `ai/` | VM дерев поведінки без стеку, сенси, режисер, оцінка корисності |
-| `combat/`, `building/`, `save/`, `scripting/`, `audio/` | Шкода й зони влучання, будівництво, збереження з версіями, пісочниця Lua 5.4, miniaudio |
+| `scripting/`, `audio/` | Пісочниця Lua 5.4 (сценарії замірів і тестів), miniaudio |
 | `platform/` | Вікно, ввід, час, граф задач, INI/CVar, лог, AVX2 |
 
 ### Правове

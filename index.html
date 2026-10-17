@@ -214,7 +214,7 @@
 <div id="sidebar">
   <div class="sidebar-logo">
     <div class="title">monkey_dust</div>
-    <div class="subtitle"><span class="l-en">Kenshi's world on Linux · docs · 2026-10-13</span><span class="l-uk">Світ Kenshi на Linux · документація · 13.10.2026</span></div>
+    <div class="subtitle"><span class="l-en">Kenshi's world on Linux · docs · 2026-10-18</span><span class="l-uk">Світ Kenshi на Linux · документація · 18.10.2026</span></div>
     <div class="lang-switch" role="group" aria-label="Language">
       <button type="button" data-lang="en">EN</button><button type="button" data-lang="uk">UA</button>
     </div>
@@ -244,8 +244,7 @@
     <a href="#measure"   class="nav-link"><span class="nav-icon">⏱️</span><span class="l-en">Performance measurement</span><span class="l-uk">Заміри продуктивності</span></a>
     <a href="#ecs"       class="nav-link"><span class="nav-icon">🧱</span><span class="l-en">ECS</span><span class="l-uk">ECS</span></a>
     <a href="#sim"       class="nav-link"><span class="nav-icon">⚙️</span><span class="l-en">Physics, nav, animation</span><span class="l-uk">Фізика, навігація, анімація</span></a>
-    <a href="#ai"        class="nav-link"><span class="nav-icon">🧠</span><span class="l-en">AI</span><span class="l-uk">AI</span></a>
-    <a href="#gameplay"  class="nav-link"><span class="nav-icon">🎮</span><span class="l-en">Gameplay systems</span><span class="l-uk">Ігрові системи</span></a>
+    <a href="#gameplay"  class="nav-link"><span class="nav-icon">🎮</span><span class="l-en">Game logic (planned)</span><span class="l-uk">Ігрова логіка (план)</span></a>
     <a href="#tools"     class="nav-link"><span class="nav-icon">🛠️</span><span class="l-en">Editor &amp; tools</span><span class="l-uk">Редактор та інструменти</span></a>
 
     <div class="nav-section"><span class="l-en">Reference</span><span class="l-uk">Довідка</span></div>
@@ -261,7 +260,7 @@
 <!-- ═══ INTRO ═══ -->
 <section class="doc-section" id="intro">
   <div class="hero">
-    <div class="version-badge">2026-10-13 · C++17 · SDL3 + SDL_GPU (Vulkan) · Linux · <span class="l-en">early development</span><span class="l-uk">рання розробка</span></div>
+    <div class="version-badge">2026-10-18 · C++17 · SDL3 + SDL_GPU (Vulkan) · Linux · <span class="l-en">early development</span><span class="l-uk">рання розробка</span></div>
     <h1>monkey_dust</h1>
     <p class="lead l-en">A native Linux engine that renders the world of <b>Kenshi</b> from your own installed copy of the game, aimed at <b>weak integrated GPUs</b> (test platform: Intel HD 520).</p>
     <p class="lead l-uk">Нативний рушій для Linux, що рендерить світ <b>Kenshi</b> з вашої власної встановленої копії гри і орієнтований на <b>слабкі вбудовані GPU</b> (тестова платформа: Intel HD 520).</p>
@@ -281,7 +280,7 @@
     </ul>
     <h3>What this is not (yet)</h3>
     <ul>
-      <li><b>Not a playable game.</b> No NPCs, combat, trade or UI from Kenshi yet.</li>
+      <li><b>Not a playable game yet.</b> No NPCs, combat, trade or UI from Kenshi. The early prototype game layer was removed on 2026-10-17; new game logic will be written from facts about Kenshi's systems.</li>
       <li><b>Not a Kenshi remake.</b> Kenshi is © Lo-Fi Games; this is an independent, unofficial project.</li>
       <li><b>Nothing to download yet.</b> The engine library is public; the game executable is in a private repository.</li>
     </ul>
@@ -316,7 +315,7 @@
 
 <!-- ═══ STATUS ═══ -->
 <section class="doc-section" id="status">
-  <h2><span class="l-en">Status (2026-10-13)</span><span class="l-uk">Стан (13.10.2026)</span></h2>
+  <h2><span class="l-en">Status (2026-10-18)</span><span class="l-uk">Стан (18.10.2026)</span></h2>
   <table>
     <tr><th><span class="l-en">Area</span><span class="l-uk">Напрям</span></th><th><span class="l-en">State</span><span class="l-uk">Стан</span></th></tr>
     <tr><td><span class="l-en">FCS reader (v15–v17, <code>mods.cfg</code> order, record merge)</span><span class="l-uk">Читач FCS (v15–v17, порядок <code>mods.cfg</code>, злиття записів)</span></td>
@@ -327,6 +326,8 @@
         <td><span class="badge done">done</span> <span class="l-en">lookup by file name, as Ogre does</span><span class="l-uk">пошук за іменем файлу, як в Ogre</span></td></tr>
     <tr><td><span class="l-en">Ground shader (Kenshi's <code>terrainfp4.hlsl</code>)</span><span class="l-uk">Шейдер ґрунту (<code>terrainfp4.hlsl</code> Kenshi)</span></td>
         <td><span class="badge done">done</span> <span class="l-en">ported from Project Okran (MIT): per-pixel <code>blendMap</code> biomes, per-pixel cliff weight, Kenshi's default texture quality, Kenshi units</span><span class="l-uk">перенесено з Project Okran (MIT): біоми за <code>blendMap</code> для кожного пікселя, вага кручі для кожного пікселя, якість текстур Kenshi за замовчуванням, одиниці Kenshi</span></td></tr>
+    <tr><td><span class="l-en">Ground filtering</span><span class="l-uk">Фільтрація ґрунту</span></td>
+        <td><span class="badge done">done</span> <span class="l-en">mip from the pixel footprint (analytic ray differentials), not distance only: ground shimmer in motion gone (reprojection residual 4.9 → 0.5); setting: footprint mip (default) / aniso ×4 / ×16 (Kenshi)</span><span class="l-uk">mip за слідом пікселя (аналітичні похідні променя), а не лише за відстанню: мерехтіння ґрунту в русі зникло (залишок репроєкції 4,9 → 0,5); налаштування: mip за слідом (за замовчуванням) / aniso ×4 / ×16 (Kenshi)</span></td></tr>
     <tr><td><span class="l-en">Terrain LOD</span><span class="l-uk">LOD ландшафту</span></td>
         <td><span class="badge done">default</span> <span class="l-en">Kenshi's screen-space error rule (5 / 35 px, 750 → 1500 m), geomorph, skirts, vertex normals; patch 16 / 64 as a setting</span><span class="l-uk">правило екранної похибки Kenshi (5 / 35 px, 750 → 1500 м), геоморф, спідниці, нормалі у вершинах; патч 16 / 64 — налаштування</span></td></tr>
     <tr><td><span class="l-en">Lighting, sky, water like Kenshi's</span><span class="l-uk">Світло, небо, вода, як у Kenshi</span></td>
@@ -335,25 +336,30 @@
         <td><span class="badge next">planned</span> <span class="l-en">Nov 2026</span><span class="l-uk">листопад 2026</span></td></tr>
     <tr><td><span class="l-en">Steam auto-detection · Workshop mods on real data</span><span class="l-uk">Автопошук Steam · моди Workshop на справжніх даних</span></td>
         <td><span class="badge next">not yet</span></td></tr>
-    <tr><td><b><span class="l-en">Frame time, native 1920×1080, HD 520</span><span class="l-uk">Час кадру, нативні 1920×1080, HD 520</span></b></td>
-        <td><b>23.6 / 19.4 / 23.6 ms</b> <span class="l-en">at three fixed points; flight route p99 30–31 ms; target ≤ 16.7 ms — the main open problem</span><span class="l-uk">у трьох фіксованих точках; маршрут польоту p99 30–31 мс; ціль ≤ 16,7 мс — головна відкрита проблема</span></td></tr>
+    <tr><td><b><span class="l-en">Frame time, 1920×1080, HD 520</span><span class="l-uk">Час кадру, 1920×1080, HD 520</span></b></td>
+        <td><b>p99 ≈ 19 ms</b> <span class="l-en">on the fixed flight route (17.10.2026; 30–31 ms on 13.10). Helped by GPU occlusion culling (HZB), a ground cache reused while moving, and dynamic resolution only while the camera moves (0.75; native when still). Target ≤ 16.7 ms — still the main open problem</span><span class="l-uk">на фіксованому маршруті польоту (17.10.2026; 13.10 — 30–31 мс). Допомогли відсікання невидимого на GPU (HZB), кеш ґрунту в русі й динамічна роздільність лише під час руху камери (0,75; нативна, коли стоїть). Ціль ≤ 16,7 мс — досі головна відкрита проблема</span></td></tr>
+    <tr><td><span class="l-en">Code clean-up</span><span class="l-uk">Чистка коду</span></td>
+        <td><span class="badge next">in progress</span> <span class="l-en">old prototype game layer removed (≈ 61 000 lines across the three repositories); next: full audit of the remaining code (compiler warnings, clang-tidy, cppcheck, sanitizers), every change checked against pixel-exact reference frames — until 31.10</span><span class="l-uk">старий ігровий прототип прибрано (≈ 61 000 рядків у трьох репозиторіях); далі — повний аудит решти коду (попередження компілятора, clang-tidy, cppcheck, санітайзери), кожна зміна звіряється з еталонними кадрами до пікселя — до 31.10</span></td></tr>
   </table>
 </section>
 
 <!-- ═══ GOAL ═══ -->
 <section class="doc-section" id="goal">
-  <h2><span class="l-en">Goal by ~2026-12-10</span><span class="l-uk">Мета до ~10.12.2026</span></h2>
-  <p class="l-en"><b>Kenshi's world on Linux at a stable 60 FPS on an HD 520</b>, native 1920×1080, no resolution scaling: terrain, sky, water, towns and foliage from the Kenshi folder, looking like Kenshi. "Stable" = frame-interval p99 ≤ 16.7 ms on a fixed flight route (town, canyon, desert, horizon; loading hitches count) and a mean ≤ 16.7 ms at three fixed points and near the Hub. Also by then: a character editor matching Kenshi's, and AMD FSR 2 as an optional player setting (the goal is measured without it).</p>
-  <p class="l-uk"><b>Світ Kenshi під Linux зі стабільними 60 FPS на HD 520</b>, нативні 1920×1080 без масштабування: земля, небо, вода, міста й рослини з теки Kenshi, на вигляд як у Kenshi. «Стабільні» — p99 інтервалу кадру ≤ 16,7 мс на фіксованому маршруті польоту (місто, каньйон, пустеля, обрій; ривки підвантаження рахуються) і середнє ≤ 16,7 мс у трьох точках і біля Хабу. До того ж строку: редактор персонажів, як у Kenshi, і AMD FSR 2 як налаштування гравця (мета міряється без нього).</p>
+  <h2><span class="l-en">Goals</span><span class="l-uk">Мета</span></h2>
+  <p class="l-en"><b>By 2026-12-31:</b> the world below <b>plus a minimal playable core</b> — a squad you can select and move, a few NPCs from town data, the simplest melee combat. Partial and rough on purpose; a full Kenshi replacement is a multi-year effort.</p>
+  <p class="l-uk"><b>До 31.12.2026:</b> світ (нижче) <b>плюс найменше граюче ядро</b> — загін, який можна виділити й вести, кілька NPC з даних міст, найпростіший ближній бій. Свідомо частково й сиро; повна заміна Kenshi — робота на кілька років.</p>
+  <p class="l-en"><b>By ~2026-12-10: Kenshi's world on Linux at a stable 60 FPS on an HD 520</b>, 1920×1080: terrain, sky, water, towns and foliage from the Kenshi folder, looking like Kenshi. "Stable" = frame-interval p99 ≤ 16.7 ms on a fixed flight route (town, canyon, desert, horizon; loading hitches count) and a mean ≤ 16.7 ms at three fixed points and near the Hub. Also: a character editor matching Kenshi's.</p>
+  <p class="l-uk"><b>До ~10.12.2026: світ Kenshi під Linux зі стабільними 60 FPS на HD 520</b>, 1920×1080: земля, небо, вода, міста й рослини з теки Kenshi, на вигляд як у Kenshi. «Стабільні» — p99 інтервалу кадру ≤ 16,7 мс на фіксованому маршруті польоту (місто, каньйон, пустеля, обрій; ривки підвантаження рахуються) і середнє ≤ 16,7 мс у трьох точках і біля Хабу. Також редактор персонажів, як у Kenshi.</p>
   <table>
     <tr><th><span class="l-en">Week</span><span class="l-uk">Тиждень</span></th><th><span class="l-en">Dates</span><span class="l-uk">Дати</span></th><th><span class="l-en">Work</span><span class="l-uk">Робота</span></th></tr>
-    <tr><td>2</td><td>14–20.10</td><td><span class="l-en">verification gates; character editor: spec, data</span><span class="l-uk">ворота перевірок; редактор персонажів: специфікація, дані</span></td></tr>
-    <tr><td>3</td><td>21–27.10</td><td><span class="l-en">Ogre <code>.mesh</code>/<code>.skeleton</code> readers; early town + foliage cost check; character editor</span><span class="l-uk">читачі Ogre <code>.mesh</code>/<code>.skeleton</code>; ранній замір міста й рослин; редактор персонажів</span></td></tr>
-    <tr><td>4</td><td>28.10–03.11</td><td><span class="l-en">reuse of the previous frame's ground shading (motion vectors)</span><span class="l-uk">повторне використання шейдингу землі з минулого кадру (вектори руху)</span></td></tr>
-    <tr><td>5</td><td>04–10.11</td><td><b><span class="l-en">GATE 07.11: terrain ≤ 12 ms</span><span class="l-uk">ВОРОТА 07.11: земля ≤ 12 мс</span></b>; <span class="l-en">Kenshi lighting, sky, water</span><span class="l-uk">світло, небо, вода Kenshi</span></td></tr>
-    <tr><td>6</td><td>11–17.11</td><td>FSR 2</td></tr>
-    <tr><td>7–8</td><td>18.11–01.12</td><td><span class="l-en">towns, foliage</span><span class="l-uk">міста, рослини</span></td></tr>
-    <tr><td>9</td><td>02–10.12</td><td><span class="l-en">optimisation, acceptance</span><span class="l-uk">оптимізація, прийом</span></td></tr>
+    <tr><td>1–2</td><td>18–31.10</td><td><span class="l-en">code clean-up and full audit</span><span class="l-uk">чистка й повний аудит коду</span></td></tr>
+    <tr><td>3</td><td>01–07.11</td><td><span class="l-en">town buildings in the game (zone reader, 3×3 streaming, LOD)</span><span class="l-uk">будівлі міст у грі (читач зон, стрімінг 3×3, LOD)</span></td></tr>
+    <tr><td>4</td><td>08–14.11</td><td><span class="l-en">Kenshi foliage; lighting</span><span class="l-uk">рослини Kenshi; світло</span></td></tr>
+    <tr><td>5</td><td>15–21.11</td><td><span class="l-en">sky and water; optimisation to 16.7 ms with towns and foliage</span><span class="l-uk">небо й вода; оптимізація до 16,7 мс з містами й рослинами</span></td></tr>
+    <tr><td>6</td><td>22–28.11</td><td><span class="l-en">a character in the world: Kenshi mesh, skeleton, animations; click-to-move</span><span class="l-uk">персонаж у світі: меш, скелет, анімації Kenshi; рух за кліком</span></td></tr>
+    <tr><td>7</td><td>29.11–05.12</td><td><span class="l-en">squad and a few NPCs</span><span class="l-uk">загін і кілька NPC</span></td></tr>
+    <tr><td>8</td><td>06–12.12</td><td><b><span class="l-en">world acceptance (10.12)</span><span class="l-uk">прийом світу (10.12)</span></b></td></tr>
+    <tr><td>9–10</td><td>13–31.12</td><td><span class="l-en">simplest melee combat, minimal UI, stabilisation</span><span class="l-uk">найпростіший ближній бій, мінімальний інтерфейс, стабілізація</span></td></tr>
   </table>
 </section>
 
@@ -364,7 +370,7 @@
     <tr><td><span class="l-en">OS</span><span class="l-uk">ОС</span></td><td>Linux <span class="l-en">(developed on Arch Linux)</span><span class="l-uk">(розробка на Arch Linux)</span></td></tr>
     <tr><td>GPU</td><td>Vulkan, Intel HD 520 (Skylake Gen9) <span class="l-en">or better; Mesa ANV is the reference driver</span><span class="l-uk">або краща; еталонний драйвер Mesa ANV</span></td></tr>
     <tr><td>CPU</td><td>x86-64 + AVX2</td></tr>
-    <tr><td><span class="l-en">RAM</span><span class="l-uk">ОЗП</span></td><td><span class="l-en">≈ 540 MB for the game process at a terrain point (13.10.2026)</span><span class="l-uk">ще не заміряно</span></td></tr>
+    <tr><td><span class="l-en">RAM</span><span class="l-uk">ОЗП</span></td><td><span class="l-en">≈ 540 MB for the game process at a terrain point (13.10.2026)</span><span class="l-uk">≈ 540 МБ для процесу гри в точці ландшафту (13.10.2026)</span></td></tr>
     <tr><td>Kenshi</td><td><span class="l-en">any legal install (Steam / GOG); only data files are read</span><span class="l-uk">будь-яка легальна інсталяція (Steam / GOG); читаються лише файли даних</span></td></tr>
   </table>
 </section>
@@ -404,7 +410,7 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"
   <h2><span class="l-en">Repositories</span><span class="l-uk">Репозиторії</span></h2>
   <table>
     <tr><th><span class="l-en">Repository</span><span class="l-uk">Репозиторій</span></th><th><span class="l-en">Access</span><span class="l-uk">Доступ</span></th><th><span class="l-en">Licence</span><span class="l-uk">Ліцензія</span></th><th><span class="l-en">Contents</span><span class="l-uk">Вміст</span></th></tr>
-    <tr><td><a href="https://github.com/rdga1afk/mnkey_dst_engine">mnkey_dst_engine</a></td><td><span class="l-en">public</span><span class="l-uk">публічний</span></td><td>MIT</td><td><span class="l-en">engine library: Kenshi data readers, renderer, world, ECS, physics, AI</span><span class="l-uk">бібліотека рушія: читачі даних Kenshi, рендер, світ, ECS, фізика, AI</span></td></tr>
+    <tr><td><a href="https://github.com/rdga1afk/mnkey_dst_engine">mnkey_dst_engine</a></td><td><span class="l-en">public</span><span class="l-uk">публічний</span></td><td>MIT</td><td><span class="l-en">engine library: Kenshi data readers, renderer, world, ECS, physics</span><span class="l-uk">бібліотека рушія: читачі даних Kenshi, рендер, світ, ECS, фізика</span></td></tr>
     <tr><td><a href="https://github.com/rdga1afk/mnkey_dst_tools">mnkey_dst_tools</a></td><td><span class="l-en">public</span><span class="l-uk">публічний</span></td><td>GPL-3.0</td><td><span class="l-en">editor, measurement/QA scripts, offline converters</span><span class="l-uk">редактор, скрипти замірів і QA, офлайн-конвертери</span></td></tr>
     <tr><td>mnkey_dst</td><td><span class="l-en">private</span><span class="l-uk">приватний</span></td><td><span class="l-en">proprietary</span><span class="l-uk">власницька</span></td><td><span class="l-en">game executable, shaders, test suite, research; the two above are its submodules (<code>engine/</code>, <code>tools/</code>)</span><span class="l-uk">виконуваний файл гри, шейдери, тести, дослідження; два репо вище — його підмодулі (<code>engine/</code>, <code>tools/</code>)</span></td></tr>
   </table>
@@ -432,12 +438,11 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"
   <table>
     <tr><th><span class="l-en">Module</span><span class="l-uk">Модуль</span></th><th><span class="l-en">Role</span><span class="l-uk">Роль</span></th></tr>
     <tr><td><code>io/</code></td><td><span class="l-en"><b>Kenshi data</b>: FCS reader and merge, TIFF, install lookup</span><span class="l-uk"><b>Дані Kenshi</b>: читач і злиття FCS, TIFF, пошук інсталяції</span></td></tr>
-    <tr><td><code>world/</code></td><td><span class="l-en">terrain atlas, <code>TerrainQuery</code>, terrain quadtree, biomes, feature scatter, weather, factions, world simulation</span><span class="l-uk">атлас висот, <code>TerrainQuery</code>, квадродерево ландшафту, біоми, розстановка об'єктів, погода, фракції, симуляція світу</span></td></tr>
-    <tr><td><code>render/</code></td><td><span class="l-en">GPU HAL over SDL_GPU, G-buffer, deferred lighting, EVSM shadows, SSAO, bloom, skinning, materials, pass switches</span><span class="l-uk">GPU HAL над SDL_GPU, G-буфер, відкладене освітлення, тіні EVSM, SSAO, bloom, скінінг, матеріали, перемикачі проходів</span></td></tr>
+    <tr><td><code>world/</code></td><td><span class="l-en">terrain atlas, <code>TerrainQuery</code>, terrain quadtree, terrain streaming, biomes, feature scatter, weather</span><span class="l-uk">атлас висот, <code>TerrainQuery</code>, квадродерево ландшафту, підвантаження, біоми, розстановка об'єктів, погода</span></td></tr>
+    <tr><td><code>render/</code></td><td><span class="l-en">GPU HAL over SDL_GPU, G-buffer, deferred lighting, shadows (off by default), HZB occlusion culling, dynamic resolution, FSR 1, SSAO, bloom, skinning, materials, pass switches</span><span class="l-uk">GPU HAL над SDL_GPU, G-буфер, відкладене освітлення, тіні (за замовчуванням вимкнено), відсікання HZB, динамічна роздільність, FSR 1, SSAO, bloom, скінінг, матеріали, перемикачі проходів</span></td></tr>
     <tr><td><code>ecs/</code>, <code>components/</code></td><td><span class="l-en">gaia-ecs behind <code>MdRegistry</code>/<code>MdEntity</code>; POD components</span><span class="l-uk">gaia-ecs за <code>MdRegistry</code>/<code>MdEntity</code>; POD-компоненти</span></td></tr>
-    <tr><td><code>physics/</code>, <code>nav/</code></td><td>Jolt Physics, ragdoll · Recast/Detour, DetourCrowd, <span class="l-en">async path cache</span><span class="l-uk">асинхронний кеш шляхів</span></td></tr>
-    <tr><td><code>ai/</code></td><td><span class="l-en">behaviour-tree VM, senses, director, utility scorer</span><span class="l-uk">VM дерев поведінки, сенси, режисер, оцінка корисності</span></td></tr>
-    <tr><td><code>combat/</code>, <code>building/</code>, <code>save/</code>, <code>scripting/</code>, <code>audio/</code></td><td><span class="l-en">damage and hit zones, building grid, versioned saves, Lua 5.4 sandbox, miniaudio</span><span class="l-uk">шкода й зони влучання, будівництво, збереження з версіями, пісочниця Lua 5.4, miniaudio</span></td></tr>
+    <tr><td><code>physics/</code></td><td>Jolt Physics, ragdoll</td></tr>
+    <tr><td><code>scripting/</code>, <code>audio/</code></td><td><span class="l-en">Lua 5.4 sandbox (measurement and test scenarios), miniaudio</span><span class="l-uk">пісочниця Lua 5.4 (сценарії замірів і тестів), miniaudio</span></td></tr>
     <tr><td><code>platform/</code>, <code>math/</code></td><td><span class="l-en">window, input, timing, job graph, INI/CVar, log, AVX2 helpers</span><span class="l-uk">вікно, ввід, час, граф задач, INI/CVar, лог, AVX2</span></td></tr>
   </table>
 </section>
@@ -487,7 +492,7 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"
     <tr><td>Backend</td><td><span class="l-en">SDL3 + SDL_GPU over Vulkan, permanently; SPIR-V shaders compiled from GLSL (<code>#version 460</code>). No OpenGL path.</span><span class="l-uk">SDL3 + SDL_GPU поверх Vulkan, назавжди; шейдери SPIR-V з GLSL (<code>#version 460</code>). Шляху OpenGL немає.</span></td></tr>
     <tr><td>GPU HAL</td><td><code>GpuDevice</code>, <code>GpuPipeline</code>, <code>GpuComputePipeline</code>, <code>GpuRingBuffer</code>, <code>GpuStaticBuffer</code>, <code>GpuTexture</code>… <span class="l-en">Submission is mutex-guarded, safe from a loader thread.</span><span class="l-uk">Відправлення команд захищене м'ютексом, безпечне з потоку завантаження.</span></td></tr>
     <tr><td><span class="l-en">Deferred</span><span class="l-uk">Відкладене</span></td><td><span class="l-en">objects: 2-RT G-buffer (albedo+roughness, oct-normal+metallic+flags), one fullscreen lighting pass to RGBA16F; terrain: 8-byte G-buffer + its own resolve</span><span class="l-uk">об'єкти: G-буфер з 2 RT (albedo+roughness, октаедрична нормаль+metallic+прапорці), один повноекранний прохід світла в RGBA16F; земля: 8-байтовий G-буфер і власний resolve</span></td></tr>
-    <tr><td><span class="l-en">Shadows</span><span class="l-uk">Тіні</span></td><td><span class="l-en">3-cascade EVSM, texel snapping, GPU culling</span><span class="l-uk">3 каскади EVSM, прив'язка до текселів, відсікання на GPU</span></td></tr>
+    <tr><td><span class="l-en">Shadows</span><span class="l-uk">Тіні</span></td><td><span class="l-en">3-cascade EVSM, texel snapping, GPU culling; off by default (as in Kenshi's default settings)</span><span class="l-uk">3 каскади EVSM, прив'язка до текселів, відсікання на GPU; за замовчуванням вимкнено (як у налаштуваннях Kenshi за замовчуванням)</span></td></tr>
     <tr><td><span class="l-en">Other</span><span class="l-uk">Інше</span></td><td><span class="l-en">half-res SSAO, bloom, weighted-blended OIT (compute composite), GPU skinning, JSON materials with inheritance</span><span class="l-uk">SSAO у половинній роздільності, bloom, OIT (композит у compute), скінінг на GPU, матеріали JSON з наслідуванням</span></td></tr>
     <tr><td><span class="l-en">Driver safety</span><span class="l-uk">Безпека драйвера</span></td><td><span class="l-en"><code>gpu_pipeline_safety_check.h</code> rejects resource layouts known to crash Intel Gen9 ANV before the pipeline is created</span><span class="l-uk"><code>gpu_pipeline_safety_check.h</code> відкидає набори ресурсів, що валять Intel Gen9 ANV, ще до створення конвеєра</span></td></tr>
   </table>
@@ -500,21 +505,23 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"
     <li>Only on <b>terrain-dominated frames</b>: scenarios place the camera with <code>set_camera_pose_world</code> and check <code>md.terrain_pixel_fraction()</code> ≥ 80 %.</li>
     <li><code>RenderPassGraph</code> switches any registered pass on or off at runtime (<code>md.set_render_pass_enabled</code>); with <code>md.get_gpu_ms()</code> this splits frame cost pass by pass without rebuilding.</li>
     <li>A/B comparisons run in one process, several interleaved blocks (ABBA), to cancel GPU clock drift.</li>
-    <li>Frame interval (native fullscreen 1920×1080, HD 520, 13.10.2026, terrain LOD on): south_hive 23.6 ms, worst_24_12 19.4 ms, owner_point 23.6 ms; fixed flight route p99 30–31 ms. Ground texturing (the resolve) is 13.7–18.1 ms of it. A texture-space ground cache around the camera was tried and did not beat the live shader on the route; next is reuse of the previous frame's ground shading.</li>
+    <li>Fixed flight route, 1920×1080, HD 520: p99 30–31 ms (13.10.2026) → ≈ 19 ms (17.10.2026). Ground texturing (the resolve) is still the largest part of the frame.</li>
+    <li>Ground shimmer is measured numerically, not by eye: reprojection residual of the ground between consecutive frames while the camera moves.</li>
   </ul>
   <ul class="l-uk">
     <li>Лише на <b>кадрах, де переважає земля</b>: сценарії ставлять камеру через <code>set_camera_pose_world</code> і перевіряють <code>md.terrain_pixel_fraction()</code> ≥ 80 %.</li>
     <li><code>RenderPassGraph</code> вмикає й вимикає будь-який зареєстрований прохід під час роботи (<code>md.set_render_pass_enabled</code>); разом з <code>md.get_gpu_ms()</code> це розкладає ціну кадру по проходах без перезбірки.</li>
     <li>Порівняння A/B — в одному процесі, кількома чергованими блоками (ABBA), щоб прибрати дрейф частот GPU.</li>
-    <li>Інтервал кадру (нативні повноекранні 1920×1080, HD 520, 13.10.2026, LOD увімкнено): south_hive 23,6 мс, worst_24_12 19,4 мс, owner_point 23,6 мс; фіксований маршрут польоту p99 30–31 мс. З цього текстурування ґрунту (resolve) — 13,7–18,1 мс. Кеш текстури ґрунту навколо камери спробували — на маршруті він не обійшов живий шейдер; далі — повторне використання шейдингу землі з минулого кадру.</li>
+    <li>Фіксований маршрут польоту, 1920×1080, HD 520: p99 30–31 мс (13.10.2026) → ≈ 19 мс (17.10.2026). Текстурування ґрунту (resolve) — досі найбільша частина кадру.</li>
+    <li>Мерехтіння ґрунту міряється числом, а не на око: залишок репроєкції ґрунту між сусідніми кадрами під час руху камери.</li>
   </ul>
 </section>
 
 <!-- ═══ ECS ═══ -->
 <section class="doc-section" id="ecs">
   <h2>ECS</h2>
-  <p class="l-en"><a href="https://github.com/richardbiely/gaia-ecs">gaia-ecs</a> 1.0.0 (archetype-based, vendored) is the only backend, behind the <code>MdRegistry</code>/<code>MdEntity</code> facade; no call site touches gaia directly. Relations are used for alliances and NPC relationships. Components are POD and live in <code>components/</code>. Mutation follows <i>collect → apply</i>. Two core bugs found during the migration were fixed upstream (gaia-ecs #42, #43); a third (#39, concurrent <code>.each()</code>) is avoided because <code>JobGraph</code> dispatch is sequential.</p>
-  <p class="l-uk"><a href="https://github.com/richardbiely/gaia-ecs">gaia-ecs</a> 1.0.0 (на архетипах, вбудований) — єдиний бекенд, за фасадом <code>MdRegistry</code>/<code>MdEntity</code>; жоден виклик не звертається до gaia напряму. Зв'язки (relations) — для союзів і стосунків NPC. Компоненти POD, у <code>components/</code>. Зміни — за схемою <i>зібрати → застосувати</i>. Дві помилки ядра, знайдені під час міграції, виправлено в оригіналі (gaia-ecs #42, #43); третю (#39, паралельний <code>.each()</code>) обходимо, бо <code>JobGraph</code> виконує задачі послідовно.</p>
+  <p class="l-en"><a href="https://github.com/richardbiely/gaia-ecs">gaia-ecs</a> 1.0.0 (archetype-based, vendored) is the only backend, behind the <code>MdRegistry</code>/<code>MdEntity</code> facade; no call site touches gaia directly. Components are POD and live in <code>components/</code>. Mutation follows <i>collect → apply</i>. Two core bugs found during the migration were fixed upstream (gaia-ecs #42, #43); a third (#39, concurrent <code>.each()</code>) is avoided because <code>JobGraph</code> dispatch is sequential.</p>
+  <p class="l-uk"><a href="https://github.com/richardbiely/gaia-ecs">gaia-ecs</a> 1.0.0 (на архетипах, вбудований) — єдиний бекенд, за фасадом <code>MdRegistry</code>/<code>MdEntity</code>; жоден виклик не звертається до gaia напряму. Компоненти POD, у <code>components/</code>. Зміни — за схемою <i>зібрати → застосувати</i>. Дві помилки ядра, знайдені під час міграції, виправлено в оригіналі (gaia-ecs #42, #43); третю (#39, паралельний <code>.each()</code>) обходимо, бо <code>JobGraph</code> виконує задачі послідовно.</p>
 </section>
 
 <!-- ═══ SIM ═══ -->
@@ -522,30 +529,23 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"
   <h2><span class="l-en">Physics, navigation, animation</span><span class="l-uk">Фізика, навігація, анімація</span></h2>
   <ul class="l-en">
     <li><b>Jolt Physics</b> — <code>JoltWorld</code>, <code>CharacterVirtual</code> (up to 512 bodies), ragdoll.</li>
-    <li><b>Recast/Detour</b> — navmesh, async SPSC path worker, <code>PathCache</code>, DetourCrowd (ORCA).</li>
+    <li><b>Recast/Detour</b> — vendored; the old navigation layer was removed with the prototype game, character movement will be rebuilt on it.</li>
     <li><b>ozz-animation</b> — blend/sample/additive; GPU skinning via SSBO (up to 64 bones); analytic 2-bone foot IK on <code>TerrainQuery</code>.</li>
     <li>For Kenshi characters (later): Ogre <code>.mesh</code>/<code>.skeleton</code> readers, heights under feet from the 1.8 m grid like <code>Terrain::getHeight</code>.</li>
   </ul>
   <ul class="l-uk">
     <li><b>Jolt Physics</b> — <code>JoltWorld</code>, <code>CharacterVirtual</code> (до 512 тіл), ragdoll.</li>
-    <li><b>Recast/Detour</b> — навмеш, асинхронний SPSC-потік шляхів, <code>PathCache</code>, DetourCrowd (ORCA).</li>
+    <li><b>Recast/Detour</b> — у <code>third_party</code>; старий шар навігації видалено разом із прототипом гри, рух персонажів буде збудовано на ньому заново.</li>
     <li><b>ozz-animation</b> — змішування, вибірка, адитив; скінінг на GPU через SSBO (до 64 кісток); аналітичний IK стоп на <code>TerrainQuery</code>.</li>
     <li>Для персонажів Kenshi (пізніше): читачі Ogre <code>.mesh</code>/<code>.skeleton</code>, висота під ногами з сітки 1,8 м, як <code>Terrain::getHeight</code>.</li>
   </ul>
 </section>
 
-<!-- ═══ AI ═══ -->
-<section class="doc-section" id="ai">
-  <h2>AI</h2>
-  <p class="l-en">A stackless behaviour-tree VM (30+ node types, zero heap allocation, flat 32 KB node pool), JSON tree loader, sense system (vision cone, sound falloff), director with menace gauge, utility scorer, NPC memory. This predates the Kenshi direction; Kenshi's own AI will be re-implemented from specifications later, not copied.</p>
-  <p class="l-uk">VM дерев поведінки без стеку (30+ типів вузлів, без виділень пам'яті, плоский пул вузлів 32 КБ), завантажувач дерев з JSON, сенси (конус зору, затухання звуку), режисер зі шкалою загрози, оцінка корисності, пам'ять NPC. Це з часів до напряму Kenshi; AI Kenshi пізніше буде відтворено за специфікаціями, а не скопійовано.</p>
-</section>
-
 <!-- ═══ GAMEPLAY ═══ -->
 <section class="doc-section" id="gameplay">
-  <h2><span class="l-en">Gameplay systems</span><span class="l-uk">Ігрові системи</span></h2>
-  <p class="l-en">Damage, hit zones and limb severance (<code>combat/</code>); building grid and production chains (<code>building/</code>); versioned binary saves with CRC32 and an upgrade chain (<code>save/</code>, format v11 in the game); Lua 5.4 sandbox with an 8 MB allocator, event bus, flow graph, event scheduler (<code>scripting/</code>); miniaudio (<code>audio/</code>); factions and a 1 Hz world simulation (<code>world/</code>). These are generic and will be wired to Kenshi's FCS data step by step after the world goal.</p>
-  <p class="l-uk">Шкода, зони влучання й відсікання кінцівок (<code>combat/</code>); сітка будівництва й ланцюги виробництва (<code>building/</code>); бінарні збереження з версіями, CRC32 і ланцюгом оновлень (<code>save/</code>, формат v11 у грі); пісочниця Lua 5.4 з алокатором 8 МБ, шина подій, flow graph, планувальник подій (<code>scripting/</code>); miniaudio (<code>audio/</code>); фракції й симуляція світу 1 Гц (<code>world/</code>). Це загальні системи; до даних FCS Kenshi їх буде під'єднано поступово, після мети зі світом.</p>
+  <h2><span class="l-en">Game logic (planned)</span><span class="l-uk">Ігрова логіка (план)</span></h2>
+  <p class="l-en">The early prototype game layer (behaviour-tree AI, combat, saves, building, dialogue, quests, the Flare 2D prototype) was removed on 2026-10-17, about 61 000 lines in total; it predated the Kenshi direction and is kept only in git history. New game logic — squad, movement, NPCs, the simplest combat — is written from scratch from facts about Kenshi's systems (public reverse-engineering notes and class layouts, used as facts only, no code copied), with numeric tests for each system.</p>
+  <p class="l-uk">Ранній прототип ігрового шару (ШІ на деревах поведінки, бій, збереження, будівництво, діалоги, квести, 2D-прототип Flare) видалено 17.10.2026 — разом близько 61 000 рядків; він був створений ще до напряму Kenshi і лишився тільки в історії git. Нову ігрову логіку — загін, рух, NPC, найпростіший бій — пишемо з нуля за фактами про системи Kenshi (публічні нотатки реверс-інжинірингу й розкладки класів — лише як факти, без копіювання коду), з числовими тестами для кожної системи.</p>
 </section>
 
 <!-- ═══ TOOLS ═══ -->
@@ -567,7 +567,7 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"
     </ul>
     <h3>Code</h3>
     <ul>
-      <li>C++17 only. AI is behaviour trees, not FSM/switch states.</li>
+      <li>C++17 only.</li>
       <li>No heap allocation and no <code>std::vector</code>/<code>std::map</code> growth on hot paths; fixed arrays.</li>
       <li>No <code>assert()</code>: <code>MD_LOG_WARNING(...)</code> and return. No registry mutation inside iteration: collect → apply.</li>
       <li>The engine never includes from <code>game/</code> or <code>tools/</code>. ImGui only under <code>MONKEY_DUST_EDITOR</code>.</li>
@@ -582,7 +582,7 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"
     </ul>
     <h3>Код</h3>
     <ul>
-      <li>Лише C++17. AI — дерева поведінки, не FSM/switch.</li>
+      <li>Лише C++17.</li>
       <li>На гарячих шляхах — без виділень пам'яті й росту <code>std::vector</code>/<code>std::map</code>; фіксовані масиви.</li>
       <li>Без <code>assert()</code>: <code>MD_LOG_WARNING(...)</code> і return. Без змін реєстру під час обходу: зібрати → застосувати.</li>
       <li>Рушій не включає файли з <code>game/</code> чи <code>tools/</code>. ImGui — лише під <code>MONKEY_DUST_EDITOR</code>.</li>
@@ -616,6 +616,7 @@ pipeline.Create(d);   // checked by gpu_pipeline_safety_check.h first</code></pr
     <tr><td>2026-10-10</td><td><span class="l-en"><b>Decision: engine for Kenshi owners.</b> Data read from the install at runtime; FCS, heights and maps already done</span><span class="l-uk"><b>Рішення: рушій для власників Kenshi.</b> Дані читаються з інсталяції під час запуску; FCS, висоти й карти вже зроблено</span></td></tr>
       <tr><td>2026-10-11 – 12</td><td><span class="l-en">Kenshi's ground shader ported from Project Okran line by line (zone seams, cliff stripes and blur fixed); textures read from the install by file name</span><span class="l-uk">Шейдер ґрунту Kenshi перенесено з Project Okran рядок у рядок (шви зон, смуги на кручах і розмиття прибрано); текстури з інсталяції за іменем файлу</span></td></tr>
     <tr><td>2026-10-12 – 13</td><td><span class="l-en">Goal set: stable 60 FPS at native 1080p (route p99). 8-byte terrain G-buffer, terrain LOD by Kenshi's rule (default), native resolution by default, Settings tab; ground texture cache tried and shelved</span><span class="l-uk">Мета: стабільні 60 FPS у нативних 1080p (p99 маршруту). 8-байтовий G-буфер землі, LOD ландшафту за правилом Kenshi (за замовчуванням), нативна роздільність за замовчуванням, вкладка Settings; кеш текстури ґрунту спробували й відклали</span></td></tr>
+    <tr><td>2026-10-14 – 17</td><td><span class="l-en">Ground shimmer fixed (footprint mip, numeric shimmer metric); HZB occlusion culling, ground cache in motion, dynamic resolution only while moving, View Distance 5000 — route p99 30 → 19 ms. Goal to 31.12 set: world + minimal playable core. Old prototype game layer removed (≈ 61 000 lines)</span><span class="l-uk">Мерехтіння ґрунту прибрано (mip за слідом пікселя, числова метрика мерехтіння); відсікання HZB, кеш ґрунту в русі, динамічна роздільність лише в русі, дальність огляду 5000 — p99 маршруту 30 → 19 мс. Мета до 31.12: світ + найменше граюче ядро. Старий ігровий прототип видалено (≈ 61 000 рядків)</span></td></tr>
 </table>
 </section>
 
