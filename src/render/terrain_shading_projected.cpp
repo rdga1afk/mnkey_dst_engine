@@ -11,6 +11,7 @@
 // shader flag): 0 = off (the DDS arrays' own LINEAR samplers, textureLod in the shader); N >= 1 = textureGrad in the shader and a LINEAR sampler
 // with max_anisotropy = N for tex_ground / tex_ground_nml (N = 1: gradients without anisotropy, to separate the two costs).
 int g_terrain_ground_aniso_level = 0;
+int g_terrain_ring_fp = 0;   // ground cache read: finest ring whose texel is >= K x the pixel footprint (0 off, 1 K=0.5, 2 K=1, 3 K=2); flag bits 10-11 of the resolve
 int g_terrain_ground_min_lod = 0;   // sampler min_lod of the ground layers in the textureGrad path: 1 = what Kenshi's "texture resolution gimping 1" gives (the largest mip is never read)
 // Divergence #14 (md.set_terrain_ambientmap): Kenshi's regional ambientmap.png multiplies the sun (2*alpha) and the ambient light (rgb) in
 // TS_ApplyLighting (deferred.hlsl:197,213-214). Default true (owner decision 2026-10-09, shader sample verified against the PNG). Carried to the shader as
