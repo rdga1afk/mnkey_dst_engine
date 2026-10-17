@@ -43,12 +43,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## AMD FidelityFX FSR 2 (MIT)
-
-- Source: <https://github.com/GPUOpen-Effects/FidelityFX-FSR2>, tag `v2.2.1`, commit `1680d1edd5c034f88ebbbb793d8b88f8842cf804`.
-- Used for: the FSR 2 upscaler of #156 (the compute passes of `src/ffx-fsr2-api/shaders` and the pass logic of `ffx_fsr2.cpp` are ported to SDL_GPU). The copy in `third_party/fsr2/` is `src/ffx-fsr2-api` without `dx12/` and the licence file; no AMD binary is run.
-- Licence: `third_party/fsr2/LICENSE.txt` (MIT, Copyright (c) 2022-2023 Advanced Micro Devices, Inc.).
-
 ## AMD FidelityFX FSR 1 (MIT)
 
 - Source: <https://github.com/GPUOpen-Effects/FidelityFX-FSR>, tag `v1.0.2`, commit `a21ffb8f6c13233ba336352bdff293894c706575`.
