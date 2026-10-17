@@ -17,8 +17,6 @@
 #include <monkey_dust/components/combat.h>
 #include <monkey_dust/components/equipment.h>
 #include <monkey_dust/components/faction.h>
-#include <monkey_dust/components/flare_actor.h>
-#include <monkey_dust/components/flare_sprite_anim.h>
 #include <monkey_dust/components/health.h>
 #include <monkey_dust/components/hierarchy.h>
 #include <monkey_dust/components/injury_state.h>
@@ -101,8 +99,6 @@ void WarmUpEngineComponents() {
     // used for the first time from inside a JobGraph batch, that class
     // needs its own warm-up method (e.g. AllianceMatrix::WarmUp()) called
     // from here instead.
-    w.add<FlareActorComponent>();
-    w.add<FlareSpriteAnim>();
     w.add<FlowGraph>();
     w.add<Health>();
     w.add<ImpactEvent>();
@@ -179,8 +175,6 @@ void WarmUpEngineComponents() {
     static_assert(sizeof(DirectorHintComponent) < 8191);
     static_assert(sizeof(EquipmentComponent) < 8191);
     static_assert(sizeof(Faction) < 8191);
-    static_assert(sizeof(FlareActorComponent) < 8191);
-    static_assert(sizeof(FlareSpriteAnim) < 8191);
     static_assert(sizeof(FlowGraph) < 8191);
     static_assert(sizeof(Health) < 8191);
     static_assert(sizeof(ImpactEvent) < 8191);

@@ -134,14 +134,12 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.16")
         UNITY_BUILD_BATCH_SIZE 4
     )
     # Exclude files with ODR conflicts or duplicate static helpers.
-    # flare/: item_loader/enemy_loader/power_loader define static ChainOpen().
     # combat/: engine + game both implement PowerManager — unity batch collides with game .o.
     # NOTE: explicit list (not GLOB) to avoid CMake re-configure on every ninja run.
     set(_UNITY_EXCLUDE_FILES
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/flare/item_loader.cpp"
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/flare/enemy_loader.cpp"
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/flare/power_loader.cpp"
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/flare/map_loader.cpp"
+        # io/ogre_*.cpp: each does `using namespace <mesh|skeleton>_chunk;` and both define HEADER -- they must not share a unity TU.
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/io/ogre_mesh.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/io/ogre_skeleton.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/combat/power_manager.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/combat/hit_zones.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/combat/power_def.cpp"
@@ -161,7 +159,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.16")
             set_source_files_properties("${_f}" PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
         endif()
     endforeach()
-    message(STATUS "[monkey_dust] engine Unity Build: ENABLED (batch=4, flare/+combat/ excluded)")
+    message(STATUS "[monkey_dust] engine Unity Build: ENABLED (batch=4, combat/ excluded)")
 endif()
 
 # ── MaskedOcclusionCulling (Intel, Apache 2.0) ────────────────────────────────
