@@ -149,9 +149,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.16")
         # link failure (libJolt.a DOES define it) purely from an unrelated
         # engine/src/ file-count change shifting batch composition (2026-08-08).
         "${CMAKE_CURRENT_SOURCE_DIR}/src/physics/ragdoll.cpp"
-        # hot/: multiple files define static s_mtime() — each must be its own TU.
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/hot/gameplay_module.cpp"
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/hot/editor_module.cpp"
     )
     # Filter to only existing files (safe if some are absent)
     foreach(_f ${_UNITY_EXCLUDE_FILES})
