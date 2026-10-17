@@ -11,6 +11,7 @@
 // shader flag): 0 = off (the DDS arrays' own LINEAR samplers, textureLod in the shader); N >= 1 = textureGrad in the shader and a LINEAR sampler
 // with max_anisotropy = N for tex_ground / tex_ground_nml (N = 1: gradients without anisotropy, to separate the two costs).
 int g_terrain_ground_aniso_level = 0;
+int g_terrain_ground_min_lod = 0;   // sampler min_lod of the ground layers in the textureGrad path: 1 = what Kenshi's "texture resolution gimping 1" gives (the largest mip is never read)
 // Divergence #14 (md.set_terrain_ambientmap): Kenshi's regional ambientmap.png multiplies the sun (2*alpha) and the ambient light (rgb) in
 // TS_ApplyLighting (deferred.hlsl:197,213-214). Default true (owner decision 2026-10-09, shader sample verified against the PNG). Carried to the shader as
 // +1600 on |pix_scale| (bit4), only when the texture loaded.
@@ -19,9 +20,10 @@ bool g_terrain_ambientmap = true; // owner decision 2026-10-09: ON (verified aga
 namespace {
 // One sampler per level, created lazily and kept for the process lifetime (a handful of 64-byte objects; the device outlives them).
 SDL_GPUSampler* GroundAnisoSampler(int level) {
-    static SDL_GPUSampler* cache[17] = {};
+    static SDL_GPUSampler* cache[17][4] = {};
     if (level < 1 || level > 16) return nullptr;
-    if (!cache[level]) {
+    const int ml = g_terrain_ground_min_lod < 0 ? 0 : (g_terrain_ground_min_lod > 3 ? 3 : g_terrain_ground_min_lod);
+    if (!cache[level][ml]) {
         SDL_GPUSamplerCreateInfo si = {};
         si.min_filter        = SDL_GPU_FILTER_LINEAR;
         si.mag_filter        = SDL_GPU_FILTER_LINEAR;
@@ -29,13 +31,13 @@ SDL_GPUSampler* GroundAnisoSampler(int level) {
         si.address_mode_u    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
         si.address_mode_v    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
         si.address_mode_w    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
-        si.min_lod           = 0.f;
+        si.min_lod           = (float)ml;
         si.max_lod           = 15.f; // Vulkan clamps to the image's real mip count (same upper bound the DDS array loader uses: ref_mips-1)
         si.enable_anisotropy = level > 1;
         si.max_anisotropy    = (float)level;
-        cache[level] = SDL_CreateGPUSampler(md::GpuDevice::Get().SDLDevice(), &si);
+        cache[level][ml] = SDL_CreateGPUSampler(md::GpuDevice::Get().SDLDevice(), &si);
     }
-    return cache[level];
+    return cache[level][ml];
 }
 }
 
