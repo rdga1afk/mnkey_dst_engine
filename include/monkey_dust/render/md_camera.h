@@ -9,10 +9,7 @@
 // RAYLIB_H was never defined and that code was provably dead.
 
 #include <monkey_dust/platform/math_types.h>
-
-// #156 FSR 2: the sub-pixel jitter of the projection of the frame being rendered, in NDC (x right, y up as clip space; 0 = none). Set once per frame by the renderer
-// (game/src/render/npc_render_deferred.cpp) while FSR 2 is active; every ProjMatrix() of that frame carries it. MotionVectorProj() is the projection without it.
-inline float g_md_proj_jitter_ndc[2] = { 0.f, 0.f };
+#include <monkey_dust/render/kenshi_sky.h>
 
 struct MdCamera {
     Vec3  pos;
@@ -32,17 +29,9 @@ struct MdCamera {
 #endif
     }
 
-    Mat4 ProjMatrixNoJitter(float aspect) const {
-        static constexpr float DEG2R = 0.01745329251f;
-        return mat4_perspective(fovy * DEG2R, aspect, 0.5f, 4000.f);
-    }
     Mat4 ProjMatrix(float aspect) const {
-        Mat4 P = ProjMatrixNoJitter(aspect);
-        if (g_md_proj_jitter_ndc[0] != 0.f || g_md_proj_jitter_ndc[1] != 0.f) {
-            float* m = const_cast<float*>(mat4_ptr(P));   // column-major, clip.w = -z_view: ndc += j needs m[8] / m[9] (column 2, rows 0 / 1) -= j
-            m[8] -= g_md_proj_jitter_ndc[0]; m[9] -= g_md_proj_jitter_ndc[1];
-        }
-        return P;
+        static constexpr float DEG2R = 0.01745329251f;
+        return mat4_perspective(fovy * DEG2R, aspect, 0.5f, md::ViewFarClipM());
     }
 
     inline void CamPosToArr(float out[3]) const {

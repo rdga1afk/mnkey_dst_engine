@@ -133,7 +133,7 @@ public:
         ac = lerpV(ac, a_horiz, t_horiz * 0.5f);
         ambient_color = ac;
         if (use_kenshi_sky) {   // one source of the sun for the ground, the NPCs and everything that reads this system (sun colour x strength x 2: main_fs with ambientParams.w = 1)
-            static const md::KenshiSkySettings sky;
+            const md::KenshiSkySettings sky;
             const md::KenshiSkySettings::MainLight ml = sky.GetMainLight(game_time_hours);
             sun_dir = { -ml.dir.x, -ml.dir.y, -ml.dir.z };
             sun_color = { ml.colour.x * ml.w * 2.f, ml.colour.y * ml.w * 2.f, ml.colour.z * ml.w * 2.f };

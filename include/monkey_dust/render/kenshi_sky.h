@@ -7,6 +7,9 @@
 
 namespace md {
 
+inline float g_view_distance_m = 5000.f;
+inline float ViewFarClipM() { return g_view_distance_m < 4000.f ? g_view_distance_m : 4000.f; }   // camera far clip / HZB / terrain cull: V up to 4000 m; beyond it the depth precision of the ground reconstruction changes the frames (gate frames at V 5000 and far 5000: 14 of 15 views differ)   // the "View Distance" option (settings.cfg, Kenshi default 5000): D = value x 10 units; the camera far clip, the fog and the skydome radius follow it
+
 struct KsVec3 { float x = 0.f, y = 0.f, z = 0.f; };
 struct KsVec4 { float x = 0.f, y = 0.f, z = 0.f, w = 0.f; };
 
@@ -23,7 +26,7 @@ struct KenshiSkySettings {
     float tilt = 54.f * 3.14159265358979f / 180.f;   // the "latitude", radians
     float exposure_min = 0.8f, exposure_max = 1.2f, night_darkness = 0.35f;
     KenshiAtmosphere atmosphere;
-    float view_distance = 6000.f;         // the "View Distance" option (settings.cfg)
+    float view_distance = g_view_distance_m;
     KsVec3 clouds = {3.f, -0.8f, 0.f};    // cloud layer DensityMultiplier, DensityOffset, Darkness (F040804)
     KsVec3 sky_mult = {1.f, 1.f, 1.f};    // the weather's sky colour multiplier
 
