@@ -172,7 +172,12 @@ bool TerrainRenderer::InitGroundTextureArray()
 #endif
 }
 
-bool TerrainRenderer::InitDetailArray(const char* dir)
+void TerrainRenderer::EnsureDetailArrayFull()
+{
+    if (detail_dir_[0] && detail_layers_ < 124 && BiomeRegistry::Get().GroundTexCount() > detail_layers_) { char dir[160]; snprintf(dir, sizeof(dir), "%s", detail_dir_); InitDetailArray(dir, 124); }
+}
+
+bool TerrainRenderer::InitDetailArray(const char* dir, int max_layers)
 {
 #ifdef MD_SDL_GPU
     // tools/md_bake_detail_array.py's output -- see this class's header
@@ -190,7 +195,9 @@ bool TerrainRenderer::InitDetailArray(const char* dir)
 
     const BiomeRegistry& biomes = BiomeRegistry::Get();
     // the bake has 124 layers; the Kenshi data now names more textures (127). No shader reads this array (#138), it only has to exist as a binding.
-    const int tex_count = biomes.GroundTexCount() < 124 ? biomes.GroundTexCount() : 124;
+    int tex_count = biomes.GroundTexCount() < 124 ? biomes.GroundTexCount() : 124;
+    if (max_layers >= 1 && max_layers < tex_count) tex_count = max_layers;
+    snprintf(detail_dir_, sizeof(detail_dir_), "%s", dir);
     char path_buf[BiomeRegistry::MAX_TEXTURES][160];
     const char* path_ptrs[BiomeRegistry::MAX_TEXTURES];
     for (int i = 0; i < tex_count; ++i) {
@@ -222,6 +229,7 @@ bool TerrainRenderer::InitDetailArray(const char* dir)
     }
 
     detail_array_ready_ = true;
+    detail_layers_ = tex_count;
     fprintf(stderr, "[TerrainRenderer] KROK3 detail array ready (%d layers)\n", tex_count);
     return true;
 #else
