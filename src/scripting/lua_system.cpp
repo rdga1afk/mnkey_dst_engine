@@ -188,36 +188,6 @@ void LuaSystem::Shutdown() {
     if (L_) { lua_close(L_); L_ = nullptr; }
 }
 
-BTStatus LuaSystem::CallAction(const char* func_name, MdEntity e) {
-    if (!L_) return BTStatus::Failure;
-
-    lua_getglobal(L_, func_name);
-    if (!lua_isfunction(L_, -1)) {
-        lua_pop(L_, 1);
-        return BTStatus::Failure;
-    }
-
-    lua_pushinteger(L_, static_cast<lua_Integer>(e.ToIntegral()));
-    lua_sethook(L_, hook, LUA_MASKCOUNT, 50000);
-
-    if (lua_pcall(L_, 1, 1, 0) != LUA_OK) {
-        const char* err = lua_tostring(L_, -1);
-        MD_LOG(MD_LOG_WARNING, "[LuaSystem] Error in %s: %s",
-                 func_name, err ? err : "?");
-        lua_pop(L_, 1);
-        return BTStatus::Failure;
-    }
-
-    BTStatus result = BTStatus::Running;
-    if (lua_isstring(L_, -1)) {
-        const char* s = lua_tostring(L_, -1);
-        if (strncmp(s, "success", 7) == 0)      result = BTStatus::Success;
-        else if (strncmp(s, "failure", 7) == 0) result = BTStatus::Failure;
-    }
-    lua_pop(L_, 1);
-    return result;
-}
-
 bool LuaSystem::Exec(const char* lua_code, char* error_out, size_t error_out_size) {
     if (!L_ || !lua_code) return false;
     lua_sethook(L_, hook, LUA_MASKCOUNT, 50000);

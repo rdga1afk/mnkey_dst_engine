@@ -26,7 +26,7 @@
 // and CmdUndoApplyFn/CmdRedoApplyFn intentionally share
 // CommandStack::Command::undo/execute's exact `void(*)(void*, MdRegistry&)`
 // shape for the same reason.
-#include <monkey_dust/ai/fnv.h>
+#include <monkey_dust/core/fnv.h>
 #include <monkey_dust/ecs/md_registry.h>
 #include <cstdint>
 #include <cstdio>

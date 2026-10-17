@@ -1,6 +1,5 @@
 #include <monkey_dust/physics/ragdoll.h>
 #include <monkey_dust/components/health.h>
-#include <monkey_dust/components/agent_state.h>
 #include <monkey_dust/world/world_transform.h>
 #include <monkey_dust/ecs/md_registry.h>
 #include <monkey_dust/platform/md_log.h>

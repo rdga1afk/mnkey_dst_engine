@@ -34,6 +34,5 @@
 
 MD_COMPONENT(WorldTransform)
 MD_COMPONENT(LimbHealth)
-MD_COMPONENT(Combat)
 
 #undef MD_COMPONENT

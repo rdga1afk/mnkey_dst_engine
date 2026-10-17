@@ -1,5 +1,5 @@
 #pragma once
-#include <monkey_dust/ai/fnv.h>
+#include <monkey_dust/core/fnv.h>
 #include <monkey_dust/ecs/md_entity.h>
 #include <gaia.h>
 #include <cstdint>

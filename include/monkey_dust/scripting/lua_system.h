@@ -1,6 +1,5 @@
 #pragma once
 #include <monkey_dust/ecs/md_entity.h>
-#include <monkey_dust/ai/behavior_tree.h>
 
 extern "C" {
 #ifdef _WIN32
@@ -53,9 +52,6 @@ public:
     // deliberate, separate registration path so existing flat bindings are
     // untouched; new Phase 2+ bindings use this one.
     void RegisterSubNamespaceFunction(const char* sub_table, const char* field_name, lua_CFunction fn);
-
-    // Calls named Lua function(entity_id) → BTStatus
-    BTStatus CallAction(const char* func_name, MdEntity e);
 
     // Execute arbitrary Lua source; returns false on parse/runtime error.
     // Optional error_out captures the Lua error string (e.g. an

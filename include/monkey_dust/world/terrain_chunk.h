@@ -1,7 +1,6 @@
 #pragma once
 #include <cstdint>
 #include <monkey_dust/render/gpu_static_buffer.h>
-#include <monkey_dust/nav/navmesh.h>
 #include <monkey_dust/world/chunk_def.h>
 
 // Geomorphing: blends vertex Y toward coarser-LOD target beyond 420m (ramp 420–600m).
@@ -311,7 +310,6 @@ struct TerrainChunk {
     // and md.scan_terrain_seam_tjunctions() (lua_scenario_api.cpp) call
     // it directly as a pure geometry function, independent of
     // chunk.ibo_lod's now-removed GPU upload.
-    NavMesh          navmesh;
     TerrainHeightmap heightmap;         // CPU copy for height queries
     ChunkPropInstance props[CHUNK_MAX_PROPS];
     int              prop_count = 0;    // valid entries in props[]
