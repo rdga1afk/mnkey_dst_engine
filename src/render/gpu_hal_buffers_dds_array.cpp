@@ -169,24 +169,28 @@ bool GpuTexture::InitFromDDSArray(const char* const* paths, int count,
 
     uint8_t* mapped = (uint8_t*)GpuMapTransfer(tb, false);
     if (mapped) {
-        uint32_t dst_off = 0;
+        struct CopyJob { uint8_t* dst; const uint8_t* src; size_t layer_stride; size_t mip0; size_t bw, bh; size_t row_bytes; bool shifted; };
+        std::vector<CopyJob> jobs((size_t)count);
         for (int i=0;i<count;++i) {
-            if (!shifted[i]) {
-                memcpy(mapped + dst_off, (const uint8_t*)layers[i].buf + ref_doff, layer_stride);
-            } else {
-                // level 0 of the array layer: the file's level 0 tiled 2x2 (block rows/columns copied as they are); levels 1.. = the file's levels 0..
-                const uint8_t* src = (const uint8_t*)layers[i].buf + ref_doff;
-                const size_t bw = (size_t)((ref_w / 2 + 3) / 4), bh = (size_t)((ref_h / 2 + 3) / 4); // source level-0 size in blocks
-                const size_t row_bytes = bw * (size_t)block_bytes;
-                uint8_t* dst = mapped + dst_off;
-                for (size_t r = 0; r < bh * 2; ++r) {
-                    const uint8_t* srow = src + (r % bh) * row_bytes;
-                    memcpy(dst + r * row_bytes * 2, srow, row_bytes);
-                    memcpy(dst + r * row_bytes * 2 + row_bytes, srow, row_bytes);
-                }
-                memcpy(dst + mip_sz[0], src, layer_stride - mip_sz[0]);
+            const size_t bw = (size_t)((ref_w / 2 + 3) / 4), bh = (size_t)((ref_h / 2 + 3) / 4); // source level-0 size in blocks of a half-size layer
+            jobs[(size_t)i] = { mapped + (size_t)i * layer_stride, (const uint8_t*)layers[i].buf + ref_doff, layer_stride, mip_sz[0], bw, bh, bw * (size_t)block_bytes, shifted[i] != 0 };
+        }
+        auto copy_one = [](void* p) {
+            CopyJob& j = *(CopyJob*)p;
+            if (!j.shifted) { memcpy(j.dst, j.src, j.layer_stride); return; }
+            // level 0 of the array layer: the file's level 0 tiled 2x2 (block rows/columns copied as they are); levels 1.. = the file's levels 0..
+            for (size_t r = 0; r < j.bh * 2; ++r) {
+                const uint8_t* srow = j.src + (r % j.bh) * j.row_bytes;
+                memcpy(j.dst + r * j.row_bytes * 2, srow, j.row_bytes);
+                memcpy(j.dst + r * j.row_bytes * 2 + j.row_bytes, srow, j.row_bytes);
             }
-            dst_off += (uint32_t)layer_stride;
+            memcpy(j.dst + j.mip0, j.src, j.layer_stride - j.mip0);
+        };
+        if (JobSystem::Get().NumWorkers() > 0 && count > 1) {   // layers are disjoint ranges of the mapped buffer
+            for (int i = 0; i < count; ++i) JobSystem::Get().Submit(copy_one, &jobs[(size_t)i]);
+            JobSystem::Get().Flush();
+        } else {
+            for (int i = 0; i < count; ++i) copy_one(&jobs[(size_t)i]);
         }
         GpuUnmapTransfer(tb);
     }
