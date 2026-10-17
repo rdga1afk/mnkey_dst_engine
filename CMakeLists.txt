@@ -39,12 +39,6 @@ endif()
 # judged not worth the complexity once gaia's default switch was proven
 # stable; see git history for the flecs-era implementation.
 
-if(NOT TARGET Recast)
-    set(RECASTNAVIGATION_DEMO     OFF CACHE BOOL "" FORCE)
-    set(RECASTNAVIGATION_TESTS    OFF CACHE BOOL "" FORCE)
-    set(RECASTNAVIGATION_EXAMPLES OFF CACHE BOOL "" FORCE)
-    add_subdirectory(${MD_THIRD_PARTY}/recastnavigation)
-endif()
 if(NOT TARGET ozz_base)
     set(ozz_build_tools    OFF CACHE BOOL "" FORCE)
     set(ozz_build_fbx      OFF CACHE BOOL "" FORCE)
@@ -222,9 +216,6 @@ target_include_directories(monkey_dust_engine
     # Third-party (PUBLIC so consumers also see them)
     PUBLIC  ${MD_THIRD_PARTY}/gaia-ecs/single_include
     PUBLIC  ${MD_THIRD_PARTY}/glm
-    PRIVATE ${MD_THIRD_PARTY}/recastnavigation/Recast/Include
-    PRIVATE ${MD_THIRD_PARTY}/recastnavigation/Detour/Include
-    PRIVATE ${MD_THIRD_PARTY}/recastnavigation/DetourCrowd/Include
     PUBLIC  ${MD_THIRD_PARTY}/JoltPhysics
     PRIVATE ${LUA_INCLUDE_DIR}
     # Vendor: glad, stb headers — PUBLIC so game/ and tools/ can find them too
@@ -325,7 +316,6 @@ else()
     set(_LUA_LINK ${LUA_LIBRARIES})
 endif()
 target_link_libraries(monkey_dust_engine PRIVATE
-    Recast Detour DetourCrowd
     Jolt
     ${_LUA_LINK}
     ozz_animation
