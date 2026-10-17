@@ -83,13 +83,6 @@ public:
     // merge their zone/faction data on top of base content (same ID = override).
     void LoadMods(const char* mod_dir = "game/data/mods");
 
-    // Procedural settlement generation (PROC-4).
-    // Requires TerrainAtlas_Loaded().  Appends ZoneRecords to zones_[];
-    // existing Kenshi/hand-authored zones are NOT removed.
-    // seed: deterministic seed; count: desired number of settlements;
-    // num_factions: Voronoi territory count for faction assignment.
-    void GenerateSettlements(int seed = 42, int count = 64, int num_factions = 8);
-
     // Get biome string for any zone by grid coords (returns "desert" if unknown)
     const char* GetBiomeAt(int gx, int gz) const {
         if (gx < 0 || gx > 63 || gz < 0 || gz > 63) return "desert";

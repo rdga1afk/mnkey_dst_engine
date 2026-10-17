@@ -1,5 +1,5 @@
 #include <monkey_dust/world/world_registry.h>
-#include <monkey_dust/world/settlement_placer.h>
+#include <monkey_dust/world/biome_system.h>
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
@@ -209,36 +209,6 @@ static int s_danger_for_biome(BiomeType b) {
         case BiomeType::Desert:    return 4;
         case BiomeType::Rocky:     return 5;
         default:                   return 2;
-    }
-}
-
-void WorldRegistry::GenerateSettlements(int seed, int count, int num_factions) {
-    SettlementRecord recs[SP_MAX_SETTLEMENTS];
-    SettlementPlacer placer;
-    int n = placer.Place(seed, count, num_factions,
-                         &biome_grid_[0][0], recs, SP_MAX_SETTLEMENTS);
-
-    for (int i = 0; i < n; ++i) {
-        const SettlementRecord& r = recs[i];
-
-        char slug[WR_NAME_LEN];
-        snprintf(slug, sizeof(slug), "proc_%03d", i);
-
-        ZoneRecord* zr = GetOrCreate(slug);
-        if (!zr) break;  // zones_ full
-
-        const char* bname = s_biome_name(r.biome);
-        snprintf(zr->display_name, WR_NAME_LEN, "Settlement %03d", i + 1);
-        strncpy(zr->biome, bname, sizeof(zr->biome) - 1);
-        snprintf(zr->factions_str, sizeof(zr->factions_str), "faction_%d", r.faction_id);
-        zr->grid_x     = r.grid_x;
-        zr->grid_z     = r.grid_z;
-        zr->exit_x     = r.x;
-        zr->exit_z     = r.z;
-        zr->amplitude  = 40.f;
-        zr->fog_density = 0.3f;
-        zr->fog_dist_m  = 800.f;
-        zr->danger      = s_danger_for_biome(r.biome);
     }
 }
 
