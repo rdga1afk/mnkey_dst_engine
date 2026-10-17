@@ -11,8 +11,6 @@
 
 #ifdef MD_SDL_GPU
 #include <monkey_dust/render/gpu_device.h>
-
-int g_md_gpu_cycle = 0;   // md.set_gpu_cycle: bit0 colour targets, bit1 depth targets (only when the pass does not LOAD), bit2 every GpuMapTransfer
 #endif
 
 // ── GpuCommandBuffer ─────────────────────────────────────────────────────────
@@ -119,7 +117,7 @@ void GpuCommandBuffer::BeginColorPass(const ColorPassDesc& desc) {
                                 : desc.load_color       ? SDL_GPU_LOADOP_LOAD
                                                         : SDL_GPU_LOADOP_CLEAR;
         color_info[i].store_op = SDL_GPU_STOREOP_STORE;
-        color_info[i].cycle    = (g_md_gpu_cycle & 1) && color_info[i].load_op != SDL_GPU_LOADOP_LOAD;   // experiment md.set_gpu_cycle: the old contents are not needed
+        color_info[i].cycle    = false;
     }
 
     if (desc.depth_tex) {
@@ -131,7 +129,7 @@ void GpuCommandBuffer::BeginColorPass(const ColorPassDesc& desc) {
                                                                  : SDL_GPU_STOREOP_STORE;
         depth_info.stencil_load_op  = SDL_GPU_LOADOP_DONT_CARE;
         depth_info.stencil_store_op = SDL_GPU_STOREOP_DONT_CARE;
-        depth_info.cycle            = (g_md_gpu_cycle & 2) && depth_info.load_op != SDL_GPU_LOADOP_LOAD;
+        depth_info.cycle            = false;
         sdl_pass_ = SDL_BeginGPURenderPass(sdl_cmd_, color_info, num_targets, &depth_info);
     } else {
         sdl_pass_ = SDL_BeginGPURenderPass(sdl_cmd_, color_info, num_targets, nullptr);
@@ -250,7 +248,7 @@ void GpuRenderPass::BeginDepthOnly(SDL_GPUCommandBuffer* cmd, const DepthDesc& d
                                 : SDL_GPU_STOREOP_STORE;
     depth_info.stencil_load_op  = SDL_GPU_LOADOP_DONT_CARE;
     depth_info.stencil_store_op = SDL_GPU_STOREOP_DONT_CARE;
-    depth_info.cycle            = (g_md_gpu_cycle & 2) && depth_info.load_op != SDL_GPU_LOADOP_LOAD;
+    depth_info.cycle            = false;
     sdl_pass_  = SDL_BeginGPURenderPass(cmd, nullptr, 0, &depth_info);
     if (!sdl_pass_) fprintf(stderr, "[GPU] BeginDepthOnly FAILED: %s\n", SDL_GetError());
     cull_front_ = desc.cull_front; // stored for symmetry; SDL_GPU cull is pipeline-configured
