@@ -110,8 +110,6 @@ list(FILTER ENGINE_SRC EXCLUDE REGEX "cgltf_impl\\.cpp$")
 # transform_soa_simd_avx2.cpp needs its own unconditional -mavx2/-mfma (or
 # /arch:AVX2) regardless of build type/config.
 list(FILTER ENGINE_SRC EXCLUDE REGEX "transform_soa_simd_avx2\\.cpp$")
-# embedded_fonts.cpp moved to tools/ — only editor needs it, not the engine lib.
-list(FILTER ENGINE_SRC EXCLUDE REGEX "vendor/fonts/.*\\.cpp$")
 add_library(monkey_dust_engine STATIC ${ENGINE_SRC})
 
 # ── Unity Build — 110 engine .cpp → ~14 batched TU ──────────────────────────
