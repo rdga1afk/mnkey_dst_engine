@@ -125,10 +125,8 @@ public:
     // grass/dirt/road); the cliff-triplanar path keeps sampling the
     // original full-chromatic arrays unchanged (see the bake script's own
     // "SCOPE NOTE" doc comment for why). Must be called after Init().
-    // max_layers < 124: a stub of that many layers (the array is read only by the zone-tent ground path, md.set_terrain_kenshi_blend(false), and by lighting mode 0);
-    // EnsureDetailArrayFull() loads all layers of the directory given to the last InitDetailArray when a stub is in place.
+    // max_layers < 124: a stub of that many layers (no shader reads the array, #138; it only has to exist as a binding).
     bool InitDetailArray(const char* dir, int max_layers = 124);
-    void EnsureDetailArrayFull();
 
     // task-terrain-kenshi-parity (2026-09-26): loads a private repo
     // tool's output (baking script kept private, not in this public
@@ -250,8 +248,6 @@ private:
     GpuTexture  tex_detail_array_;
     GpuTexture  tex_detail_tint_;
     bool        detail_array_ready_ = false;
-    int         detail_layers_ = 0;
-    char        detail_dir_[160] = {};
 
     // Per-zone ground-layer lookup texture (see UploadZoneGroundLayers).
     md::GpuTextureHandle zone_layers_tex_     = nullptr;

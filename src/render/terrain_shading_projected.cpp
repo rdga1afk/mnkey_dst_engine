@@ -87,7 +87,7 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
 
     GpuPipeline::Desc rd;
     rd.vert_path = "shaders/terrain_shading_screenspace.vert";
-    rd.frag_path = "shaders/terrain_shading_screenspace.frag";
+    rd.frag_path = "shaders/terrain_shading_screenspace_kenshi.frag";
     rd.layout.count  = 0;
     rd.layout.stride = 0;
     rd.raster.depth_test      = true;
@@ -104,16 +104,11 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
     // see terrain_shading_common.glsl's TS_HAS_AMBIENT_PROBE doc comment.
     // Was 0 since БОРГ-TERRAIN-2 (2026-09-13, vtPageMeta removed with TerrainVtPageCache).
     rd.frag_storage_bufs  = 2;   // binding 16 AmbientProbeBuf, binding 17 BiomeParamsBuf (TS_BIOME_SSBO variants)
-    if (!resolve_pipeline_.Create(rd)) {
-        MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] resolve pipeline create failed");
-        return false;
-    }
-    // task #227: Kenshi-parity variant (debug-only) -- failure here is non-fatal, the toggle then
-    // falls back to the default pipeline's base-layer-only Kenshi branch.
     rd.frag_path = "shaders/terrain_shading_screenspace_kenshi.frag";
     resolve_kenshi_ready_ = resolve_kenshi_pipeline_.Create(rd);
     if (!resolve_kenshi_ready_) {
-        MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] kenshi resolve variant create failed (debug toggle falls back)");
+        MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] kenshi resolve pipeline create failed");
+        return false;
     }
     // #155 step 1: the same variant without the flat-chain skip on cliff_w >= 1 (A/B, SetSkipFlatOnCliff(false)); non-fatal
     rd.frag_path = "shaders/terrain_shading_screenspace_kenshi_noskip.frag";
@@ -163,7 +158,7 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
     return true;
 }
 
-// Only the two render-target textures depend on window size -- resolve_pipeline_
+// Only the two render-target textures depend on window size -- resolve_kenshi_pipeline_
 // depends solely on texture FORMAT (unchanged across a resize), so it must never
 // be touched here. The original version of this function called the full Init()
 // (destroying+recreating the pipeline too), which meant every resize destroyed a
@@ -190,7 +185,6 @@ void TerrainShadingProjected::EnsureHistory(bool on, int w, int h) {
 }
 
 void TerrainShadingProjected::Shutdown() {
-    resolve_pipeline_.Destroy();
     resolve_kenshi_pipeline_.Destroy();
     resolve_kenshi_ready_ = false;
     resolve_kenshi_noskip_pipeline_.Destroy();
@@ -254,7 +248,6 @@ void TerrainShadingProjected::DrawFullscreen(SDL_GPURenderPass* rp, md::GpuComma
     const TerrainRenderer& ground = *c.ground;
     const float cam_x = c.cam_x, cam_y = c.cam_y, cam_z = c.cam_z, world_origin_x = c.world_origin_x, world_origin_z = c.world_origin_z, world_to_uv = c.world_to_uv;
     const float fog_far = c.fog_far, fog_near = c.fog_near; const float* fog_color = c.fog_color;
-    const bool shade_constant_debug = c.shade_constant_debug, kenshi_blend_debug = c.kenshi_blend_debug;
 
     ProjFragUBO fubo{};
     fubo.sun_dir_str[0] = sun.dir[0]; fubo.sun_dir_str[1] = sun.dir[1];
@@ -264,10 +257,7 @@ void TerrainShadingProjected::DrawFullscreen(SDL_GPURenderPass* rp, md::GpuComma
     fubo.ambient[3]     = units10_ ? 1.f : 0.f; // .w = "terrain_units10" flag (the shader's ambient uses .xyz only)
     fubo.world_params[0] = world_origin_x; fubo.world_params[1] = world_origin_z;
     fubo.world_params[2] = world_to_uv;
-    // Крок 0 ablation (shade_constant_debug=1.0) / task-terrain-kenshi-
-    // parity (kenshi_blend_debug=2.0, checked first in the shader) --
-    // see header doc comment.
-    fubo.world_params[3] = kenshi_blend_debug ? 2.f : (shade_constant_debug ? 1.f : 0.f);
+    fubo.world_params[3] = 2.f; // the Kenshi-parity ground path (shader: world_params.w > 1.5)
     fubo.fog_color_near[0] = fog_color[0]; fubo.fog_color_near[1] = fog_color[1];
     fubo.fog_color_near[2] = fog_color[2]; fubo.fog_color_near[3] = fog_near;
     fubo.fog_far = fog_far;
@@ -520,7 +510,7 @@ int TerrainShadingProjected::UpdateGroundRing(md::GpuCommandBufferHandle cmd, fl
     c.sun = &sun; c.cam_x = cam_x; c.cam_y = cam_y; c.cam_z = cam_z;
     c.world_origin_x = world_origin_x; c.world_origin_z = world_origin_z; c.world_to_uv = world_to_uv;
     c.fog_far = 1.f; c.fog_color = fog_col; c.fog_near = 0.f;
-    c.ground = &ground; c.shade_constant_debug = false; c.kenshi_blend_debug = true;
+    c.ground = &ground;
     for (int i = 0; i < nr; ++i) {
         const int k = rects[i].ring;
         float cols[12] = { (float)(ring_ci_k_[k][0] - N / 2), (float)(ring_ci_k_[k][1] - N / 2), ring_texel_m_ * (float)(1 << k), (float)N,
@@ -538,9 +528,7 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
                                                    float cam_x, float cam_y, float cam_z,
                                                    float world_origin_x, float world_origin_z, float world_to_uv,
                                                    float fog_far, const float fog_color[3], float fog_near,
-                                                   const TerrainRenderer& ground,
-                                                   bool shade_constant_debug,
-                                                   bool kenshi_blend_debug) {
+                                                   const TerrainRenderer& ground) {
     if (!ready_) return;
 
     // RESOLVE_OPT spatial-split plan, Крок 4/6 (docs/RESOLVE_OPT.md,
@@ -556,16 +544,16 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
     c.sun = &sun; c.cam_x = cam_x; c.cam_y = cam_y; c.cam_z = cam_z;
     c.world_origin_x = world_origin_x; c.world_origin_z = world_origin_z; c.world_to_uv = world_to_uv;
     c.fog_far = fog_far; c.fog_color = fog_color; c.fog_near = fog_near;
-    c.ground = &ground; c.shade_constant_debug = shade_constant_debug; c.kenshi_blend_debug = kenshi_blend_debug;
+    c.ground = &ground;
     // RESOLVE_OPT 4-draw split reverted to a single draw -- see
-    // resolve_pipeline_'s own doc comment (terrain_shading_projected.h)
+    // resolve_kenshi_pipeline_'s own doc comment (terrain_shading_projected.h)
     // for the full measured rationale.
     const bool want_ring_variant = (ring_use_ && ring_ready_ && ring_valid_) || ring_variant_forced_;
     GpuPipeline* kp = &resolve_kenshi_pipeline_;
     if (!skip_flat_on_cliff_ && resolve_kenshi_noskip_ready_) kp = &resolve_kenshi_noskip_pipeline_; // the A/B variant keeps its ring code (not used with the cache)
     else if (want_ring_variant && resolve_kenshi_ring_ready_) kp = &resolve_kenshi_ring_pipeline_;
-    const bool use_reuse = reuse_ && resolve_kenshi_reuse_ready_ && kenshi_blend_debug && HistoryReady() && reuse_->hist_colour;
-    const bool use_klight = klight_ && ground.KenshiLightCubesReady() && kenshi_blend_debug;
+    const bool use_reuse = reuse_ && resolve_kenshi_reuse_ready_ && HistoryReady() && reuse_->hist_colour;
+    const bool use_klight = klight_ && ground.KenshiLightCubesReady();
     if (use_reuse) kp = (use_klight && resolve_reuse_klight_ready_) ? &resolve_kenshi_reuse_klight_pipeline_ : &resolve_kenshi_reuse_pipeline_;
     else if (use_klight && want_ring_variant && resolve_ring_klight_ready_) kp = &resolve_kenshi_ring_klight_pipeline_;
     else if (use_klight && resolve_klight_ready_) kp = &resolve_kenshi_klight_pipeline_;
@@ -573,5 +561,5 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
         if (use_reuse && resolve_reuse_klight_f_ready_) kp = &resolve_reuse_klight_f_pipeline_;
         else if (!use_reuse && resolve_klight_f_ready_) kp = &resolve_klight_f_pipeline_;
     }
-    DrawFullscreen(rp, cmd, (kenshi_blend_debug && resolve_kenshi_ready_) ? *kp : resolve_pipeline_, c, false, nullptr, nullptr);
+    DrawFullscreen(rp, cmd, *kp, c, false, nullptr, nullptr);
 }

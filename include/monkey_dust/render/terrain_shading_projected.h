@@ -31,7 +31,7 @@
 //      paths, sky, water, HUD) for one experimental variant -- rejected as
 //      disproportionate blast radius; an isolated texture is zero risk to
 //      the rest of the renderer.
-//   3. resolve_pipeline_ -- fullscreen triangle (gl_VertexIndex, no vertex
+//   3. resolve_kenshi_pipeline_ -- fullscreen triangle (gl_VertexIndex, no vertex
 //      buffer, same pattern as smaa_edge.vert), draws INSIDE the caller's
 //      existing main color GpuRenderPass (same call site DrawBatch/DrawSlot
 //      normally occupies in NpcRender::DrawTerrainAndProps) so ordinary
@@ -99,16 +99,7 @@ public:
     // mirrors TerrainPatchRenderer::DrawBatch exactly (minus vp16/
     // patch_size/hmap, which this pass has no vertex geometry to need) so
     // callers can swap between the two variants with the same data.
-    // shade_constant_debug: Крок 0 ablation (2026-08-23) -- true bypasses
-    // TS_ComputeGroundAlbedo with a flat colour via world_params.w=1.0, a
-    // single value for the whole draw (uniform branch, not per-pixel).
-    // kenshi_blend_debug (task-terrain-kenshi-parity, 2026-09-26): true
-    // sets world_params.w=2.0 instead, switching to the Kenshi-parity
-    // blendMap-driven biome blend (TS_ComputeKenshiBiomeBlend,
-    // terrain_kenshi_blend.glsl) for live A/B comparison against the
-    // default zone-tent scheme -- see that file's own doc comment. The two
-    // flags are mutually exclusive by construction (kenshi checked first
-    // in the shader); passing both true selects kenshi.
+    // The ground is always shaded by the Kenshi-parity variant (the zone-tent resolve and its A/B toggles were removed in #185 K4b).
     // БОРГ-TERRAIN-2 (2026-09-13): `vt` (TerrainVtPageCache) parameter
     // removed -- the cache-hit sampling path it fed (VT_SampleAlbedo in
     // terrain_shading_screenspace.frag) was never called from that
@@ -119,9 +110,7 @@ public:
                              float cam_x, float cam_y, float cam_z,
                              float world_origin_x, float world_origin_z, float world_to_uv,
                              float fog_far, const float fog_color[3], float fog_near,
-                             const TerrainRenderer& ground,
-                             bool shade_constant_debug = false,
-                             bool kenshi_blend_debug = false);
+                             const TerrainRenderer& ground);
 
     // S7 (docs/TERRAIN_SURFACE_PLAN_2026-10-02.md): the G-buffer pass can be depth-only
     // (no colour target); DrawShadingResolve then reconstructs world position from the
@@ -214,9 +203,7 @@ private:
     // with real hardware discard (stencil, or an indirect/compute tile-
     // classification dispatch) so the discard doesn't itself cost a full
     // G-buffer refetch.
-    GpuPipeline       resolve_pipeline_;
-    // task #227: same resolve shader built with -DTS_KENSHI_FULL=1 (full-layer Kenshi-parity blend);
-    // used only while the DEBUG kenshi_blend toggle is on, so the default pipeline is untouched.
+    // task #227: the resolve shader built with -DTS_KENSHI_FULL=1 (full-layer Kenshi-parity blend); the only ground resolve pipeline.
     GpuPipeline       resolve_kenshi_pipeline_;
     bool              resolve_kenshi_ready_ = false;
     // #155 step 1: the Kenshi variant that does not skip the flat layer chain where cliff_w >= 1 (pixel-identical output, A/B only)
@@ -251,7 +238,6 @@ private:
         const float* fog_color = nullptr;
         float fog_near = 0.f;
         const TerrainRenderer* ground = nullptr;
-        bool shade_constant_debug = false, kenshi_blend_debug = false;
     };
     // The resource set both the resolve and the bake draw bind (UBOs, 16 samplers, the probe SSBO) + the fullscreen triangle. bake: bindings 7/8 = the fine
     // window, UBO inv_vp / recon carry the ring (bake_cols: 12 floats = three vec4 columns).
