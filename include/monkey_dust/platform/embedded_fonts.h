@@ -1,6 +1,6 @@
 #pragma once
 // embedded_fonts.h — extern declarations of embedded TTF byte arrays.
-// Actual data is in embedded_fonts.cpp (compiled once into engine lib).
+// Actual data is in tools/fonts_embed.cpp (the .ttf files, via .incbin).
 #include <cstdint>
 
 namespace md_font {

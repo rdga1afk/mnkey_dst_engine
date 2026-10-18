@@ -175,13 +175,9 @@ public:
 private:
     ShadowSystem() = default;
 
-    bool               init_         = false;
     bool               sdl_init_     = false;
     MdShader           shadow_shader_;
     MdMesh        mesh_;
-    int           mesh_idx_ = 0;
     Vec3          cam_pos_ = {};
-    int  loc_lightVP_  = -1;
-    int  loc_svCamPos_ = -1, loc_svMaxDist_ = -1, loc_svTotal_ = -1;
     int  screen_w_ = 1280, screen_h_ = 720;
 };

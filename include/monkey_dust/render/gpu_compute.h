@@ -36,7 +36,6 @@ public:
 
 private:
     friend class GpuComputePass;
-    unsigned int program_ = 0;
     SDL_GPUComputePipeline* sdl_pipeline_ = nullptr;
 };
 
