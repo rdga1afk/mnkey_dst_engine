@@ -54,12 +54,12 @@ static bool CacheOwns(const MdTexture& t) {
     if (!t.sdl_tex && !t.id) return false;
     for (int i = 0; i < MAX_TEX_CACHE; ++i) {
         if (s_cache_pa[i].used &&
-            (s_cache_pa[i].tex.sdl_tex == t.sdl_tex && t.sdl_tex) ||
-            (s_cache_pa[i].tex.id      == t.id       && t.id))
+            ((s_cache_pa[i].tex.sdl_tex == t.sdl_tex && t.sdl_tex) ||
+             (s_cache_pa[i].tex.id      == t.id       && t.id)))
             return true;
         if (s_cache_lin[i].used &&
-            (s_cache_lin[i].tex.sdl_tex == t.sdl_tex && t.sdl_tex) ||
-            (s_cache_lin[i].tex.id      == t.id       && t.id))
+            ((s_cache_lin[i].tex.sdl_tex == t.sdl_tex && t.sdl_tex) ||
+             (s_cache_lin[i].tex.id      == t.id       && t.id)))
             return true;
     }
     return false;
