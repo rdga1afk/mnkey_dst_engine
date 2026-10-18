@@ -47,7 +47,7 @@ summary: "Public engine README (EN + UA): native Linux engine that renders Kensh
 | Steam library auto-detection | Not yet: set `KENSHI_DIR` |
 | Workshop mods | Code path exists, **not yet tested on real Workshop data** |
 | **Performance, 1920×1080, HD 520** | Fixed flight route **p99 ≈ 19 ms** (17.10.2026; was 30–31 ms on 13.10). Goal: ≤ 16.7 ms. Helped by: GPU occlusion culling (HZB), a ground cache reused while moving, and **dynamic resolution only while the camera moves** (0.75, native when standing still; setting «Resolution while moving»). This is still the main open problem |
-| **Code clean-up** (Oct 2026) | In progress: the old prototype game layer is gone (≈ 61 000 lines across the three repositories); next is a full audit of the remaining code (compiler warnings, clang-tidy, cppcheck, sanitizers), with every change checked against pixel-exact reference frames |
+| **Code clean-up** (Oct 2026) | In progress: the old prototype game layer is gone (≈ 61 000 lines across the three repositories); also removed: OpenGL leftovers (incl. the 8 700-line GL loader), the CPU occlusion culler (GPU HZB replaces it), unused experiments, and 131 000 lines of embedded font arrays (fonts are now embedded as raw `.ttf`); next is a full audit of the remaining code (compiler warnings, clang-tidy, cppcheck, sanitizers), with every change checked against pixel-exact reference frames |
 
 ### Goals
 **By 2026-12-31:** the world below **plus a minimal playable core**: a squad you can select and move, a few NPCs from town data, the simplest melee combat. It will be partial and rough on purpose; a full Kenshi replacement is a multi-year effort.
@@ -167,7 +167,7 @@ index.html             documentation site (GitHub Pages)
 | Автопошук бібліотеки Steam | Ще ні: задайте `KENSHI_DIR` |
 | Моди з Workshop | Код є, **на справжніх даних Workshop ще не перевірено** |
 | **Продуктивність, 1920×1080, HD 520** | Фіксований маршрут польоту **p99 ≈ 19 мс** (17.10.2026; 13.10 було 30–31 мс). Мета — ≤ 16,7 мс. Допомогли: відсікання невидимого на GPU (HZB), кеш ґрунту в русі й **динамічна роздільність лише під час руху камери** (0,75, нативна, коли камера стоїть; налаштування «Resolution while moving»). Це досі головна відкрита проблема |
-| **Чистка коду** (жовтень 2026) | Триває: старий ігровий прототип прибрано (≈ 61 000 рядків у трьох репозиторіях); далі — повний аудит решти коду (попередження компілятора, clang-tidy, cppcheck, санітайзери), кожна зміна звіряється з еталонними кадрами до пікселя |
+| **Чистка коду** (жовтень 2026) | Триває: старий ігровий прототип прибрано (≈ 61 000 рядків у трьох репозиторіях); також прибрано: залишки OpenGL (зокрема завантажувач GL на 8 700 рядків), відсікання невидимого на CPU (його замінює HZB на GPU), невикористані експерименти й 131 000 рядків масивів вбудованих шрифтів (шрифти тепер вбудовуються як сирі `.ttf`); далі — повний аудит решти коду (попередження компілятора, clang-tidy, cppcheck, санітайзери), кожна зміна звіряється з еталонними кадрами до пікселя |
 
 ### Мета
 **До 31.12.2026:** світ (нижче) **плюс найменше граюче ядро**: загін, який можна виділити й вести, кілька NPC з даних міст, найпростіший ближній бій. Свідомо частково й сиро; повна заміна Kenshi — робота на кілька років.
