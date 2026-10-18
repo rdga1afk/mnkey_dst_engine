@@ -93,12 +93,6 @@ public:
     // out_bones must point to at least MAX_SKIN_BONES * 16 floats.
     void GetFinalBones(int clip_idx, float time_s, float* out_bones) const;
 
-    // Like GetFinalBones but applies Kenshi-style bone+pos scales per-bone.
-    // scales.bone[i] = vertex scale (setBoneSize), scales.pos[i] = translation scale.
-    // Requires #include <monkey_dust/render/char_customization.h> for CharScales definition.
-    void GetFinalBonesScaled(int clip_idx, float time_s,
-                              const CharScales& scales, float* out) const;
-
     // Same loop, but also outputs model-space bone positions (xyz, 3 floats per bone)
     // and optionally the pre-invbind world matrices (float[MAX_SKIN_BONES * 16]).
     // out_world_mats: required by FootIK::SolveLeg — pass s_ik_worlds[MAX_SKIN_BONES*16].
@@ -106,15 +100,6 @@ public:
                            float* out_bones,
                            float* out_model_xyz,
                            float* out_world_mats = nullptr) const;
-
-    // PERF-18: LOD-simplified bone eval — only evaluates first max_bones bones.
-    // VBfA RE: 3 LOD tiers per character. T2 (80-150m) needs ~12 bones.
-    //   12 = root + pelvis + spine×2 + head + shoulder×2 + hip×2 + knee×2
-    // Upper bones (index ≥ max_bones) fall back to bind pose — invisible at distance.
-    // Out: out_bones[MAX_SKIN_BONES * 16] (full stride; upper range is bind-pose).
-    // Default max_bones=12 matches T2 skeleton LOD recommendation.
-    void GetFinalBonesLOD(int clip_idx, float time_s,
-                          float* out_bones, int max_bones = 12) const;
 
     // Patch one skinning matrix after IK correction:
     //   out_bones[bone_idx*16] = new_world_16 * inv_bind_[bone_idx]

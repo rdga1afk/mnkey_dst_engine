@@ -183,51 +183,7 @@ JPH::BodyID JoltWorld::AddStaticBox(float cx, float cy, float cz,
         bcs, JPH::EActivation::DontActivate);
 }
 
-// P-NG-6.3: Replace PCG terrain body with HeightFieldShape (more efficient than trimesh).
-// Downsamples hmap from samples×samples → 129×129 (HeightFieldShape requires (N-1)%2==0).
-void JoltWorld::ReplaceTerrainBody(const float* hmap, int samples,
-                                    float scale_xz, float off_x, float off_z)
-{
-    if (!ready_) return;
 
-    // Remove previous terrain body
-    if (!terrain_body_.IsInvalid()) {
-        auto& bi = physics_system_.GetBodyInterface();
-        bi.RemoveBody(terrain_body_);
-        bi.DestroyBody(terrain_body_);
-        terrain_body_ = JPH::BodyID();
-    }
-
-    // HeightFieldShape requires (N-1) divisible by block_size (default 2) → use N=129.
-    static constexpr int HF_RES = 129;
-    static float s_hf[HF_RES * HF_RES];
-    float inv = (float)(samples - 1) / (float)(HF_RES - 1);
-    for (int z = 0; z < HF_RES; ++z)
-        for (int x = 0; x < HF_RES; ++x) {
-            int sx = (int)(x * inv + 0.5f); if (sx >= samples) sx = samples - 1;
-            int sz = (int)(z * inv + 0.5f); if (sz >= samples) sz = samples - 1;
-            s_hf[z * HF_RES + x] = hmap[sz * samples + sx];
-        }
-
-    float hf_cell = scale_xz * (float)(samples - 1) / (float)(HF_RES - 1);
-    JPH::HeightFieldShapeSettings hfs(
-        s_hf,
-        JPH::Vec3(off_x, 0.f, off_z),
-        JPH::Vec3(hf_cell, 1.f, hf_cell),
-        (JPH::uint32)HF_RES);
-
-    auto result = hfs.Create();
-    if (result.HasError()) {
-        fprintf(stderr, "[Jolt] HeightField: %s\n", result.GetError().c_str());
-        return;
-    }
-
-    JPH::BodyCreationSettings bcs(result.Get(),
-        JPH::RVec3::sZero(), JPH::Quat::sIdentity(),
-        JPH::EMotionType::Static, Layers::NON_MOVING);
-    terrain_body_ = physics_system_.GetBodyInterface().CreateAndAddBody(
-        bcs, JPH::EActivation::DontActivate);
-}
 
 float JoltWorld::CastRay(float fx, float fy, float fz,
                           float tx, float ty, float tz)

@@ -7,12 +7,6 @@
 
 namespace Hierarchy {
 
-// Call once at startup (before any SetParent call). Wires on_destroy hooks
-// so destroying a parent clears ParentRef on all its former children, and
-// destroying a child removes it from its former parent's ChildrenRef —
-// without this, a destroyed entity leaves a stale MdEntity reference on
-// the other side of the relation.
-void RegisterDestroyHooks();
 
 // Detaches child from any existing parent, then attaches it to parent
 // (creates/updates ParentRef on child, ChildrenRef on parent). Returns

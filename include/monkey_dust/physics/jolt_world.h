@@ -41,13 +41,6 @@ public:
     JPH::BodyID AddStaticBox(float cx, float cy, float cz,
                               float hx, float hy, float hz);
 
-    // P-NG-6.3: Replace the single PCG terrain body with a HeightFieldShape.
-    // hmap: samples×samples row-major floats (metres). scale_xz: metres per cell.
-    // Internally downsamples to 129×129 (HeightFieldShape constraint).
-    // No-op if not initialized. Removes previous terrain body first.
-    void ReplaceTerrainBody(const float* hmap, int samples,
-                            float scale_xz, float off_x, float off_z);
-
     // Cast a ray from (fx,fy,fz) toward (tx,ty,tz).
     // Returns fraction [0,1] of first hit, or 1.0 if no hit.
     float CastRay(float fx, float fy, float fz,

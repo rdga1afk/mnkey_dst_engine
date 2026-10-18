@@ -134,59 +134,6 @@ void WorldRegistry::Load(const char* path) {
     fclose(fp);
 }
 
-void WorldRegistry::LoadMods(const char* mod_dir) {
-    DIR* d = opendir(mod_dir);
-    if (!d) return;
-    struct dirent* ent;
-    char path[512];
-    while ((ent = readdir(d)) != nullptr) {
-        const char* nm = ent->d_name;
-        size_t nl = strlen(nm);
-        if (nl < 5) continue;
-        if (strcmp(nm + nl - 4, ".mod") != 0 &&
-            strcmp(nm + nl - 5, ".base") != 0) continue;
-        snprintf(path, sizeof(path), "%s/%s", mod_dir, nm);
-        // Parse zone additions from mod terrain_config blocks embedded in the mod.
-        // Mods may contain a [zones] text block; re-use LoadFromTerrainConfig logic.
-        // For now: attempt to load as terrain_config (text mods) and silently skip binary mods.
-        FILE* f = fopen(path, "r");
-        if (!f) continue;
-        char line[256];
-        ZoneRecord* cur = nullptr;
-        while (fgets(line, sizeof(line), f)) {
-            if (!strncmp(line, "zone=", 5)) {
-                char zname[WR_NAME_LEN];
-                strncpy(zname, line + 5, WR_NAME_LEN - 1);
-                zname[WR_NAME_LEN-1] = 0;
-                // strip newline
-                for (char* c = zname; *c; ++c) if (*c=='\n'||*c=='\r') { *c=0; break; }
-                cur = GetOrCreate(zname);
-            } else if (cur) {
-                auto rf = [&](const char* key) -> float {
-                    const char* p = strstr(line, key);
-                    return p ? (float)strtod(p + strlen(key), nullptr) : -1e9f;
-                };
-                if (strstr(line, "  name=")) {
-                    const char* p = strstr(line, "  name=") + 7;
-                    strncpy(cur->display_name, p, WR_NAME_LEN - 1);
-                    for (char* c = cur->display_name; *c; ++c)
-                        if (*c=='\n'||*c=='\r') { *c=0; break; }
-                }
-                if (strstr(line, "  biome=")) {
-                    const char* p = strstr(line, "  biome=") + 8;
-                    strncpy(cur->biome, p, 23);
-                    for (char* c = cur->biome; *c; ++c)
-                        if (*c=='\n'||*c=='\r') { *c=0; break; }
-                }
-                float v;
-                v = rf("  amplitude="); if (v > -1e8f) cur->amplitude = v;
-                v = rf("  danger=");    if (v > -1e8f) cur->danger    = (int)v;
-            }
-        }
-        fclose(f);
-    }
-    closedir(d);
-}
 
 static const char* s_biome_name(BiomeType b) {
     switch (b) {

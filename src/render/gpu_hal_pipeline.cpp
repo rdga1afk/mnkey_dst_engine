@@ -197,13 +197,6 @@ void MdSpvCache_Shutdown() {
     if (freed) fprintf(stdout, "[SpvCache] shutdown: freed %d SPIR-V entries\n", freed);
 }
 
-int MdSpvCache_Stats(int* out_count) {
-    int n = 0;
-    for (int i = 0; i < SPV_CACHE_MAX; ++i)
-        if (s_spv_cache[i].used) ++n;
-    if (out_count) *out_count = n;
-    return n;
-}
 
 
 // Derive SPIR-V path with feature suffix (specialization constant variant selection).

@@ -53,9 +53,6 @@ public:
     void     Shutdown();
     uint32_t Alloc(MdEntity e, float x, float z, uint8_t faction_id = 0);
     void     Free(MdEntity e);
-    void     FlushAoStoSoA(MdRegistry& reg);
-    // Upload CPU transforms → GPU, bind both SSBOs.
-    void     UploadToGPU();
     // Call once per frame AFTER all draw/compute that read transform_ring_.
     void     AdvanceFrame();
 

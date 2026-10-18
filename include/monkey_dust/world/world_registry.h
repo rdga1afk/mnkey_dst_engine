@@ -79,9 +79,6 @@ public:
     // Load game/data/biome_map.txt (64×64 grid of zx,zz=biome lines)
     void LoadBiomeMap(const char* path = "game/data/biome_map.txt");
 
-    // Mod support (Phase 4, Task 4.6): scan mod_dir for *.mod files and
-    // merge their zone/faction data on top of base content (same ID = override).
-    void LoadMods(const char* mod_dir = "game/data/mods");
 
     // Get biome string for any zone by grid coords (returns "desert" if unknown)
     const char* GetBiomeAt(int gx, int gz) const {

@@ -201,7 +201,6 @@ void GpuDrawIndexedIndirect(unsigned int indirect_buf_id, uint32_t draw_count = 
 void MdSpvCache_Shutdown();
 // Evict one SPIR-V entry so the next Create/Reload re-reads it from disk.
 void MdSpvCache_Invalidate(const char* glsl_path);
-int  MdSpvCache_Stats(int* out_count = nullptr);
 
 // Pipeline object cache (VkPipelineCache SDL_GPU adaptation).
 // Caches SDL_GPUGraphicsPipeline objects by (vert+frag+features+raster) hash.

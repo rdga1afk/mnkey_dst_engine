@@ -174,35 +174,3 @@ void MdUnloadTexture(MdTexture& t) {
     t = {};
 }
 
-void MdTextureCache_Shutdown() {
-    // Count before release, then move to tmp arrays so CacheOwns()
-    // returns false during MdUnloadTexture (avoids the cached-guard).
-    int pa = 0, lin = 0;
-    for (int i = 0; i < MAX_TEX_CACHE; ++i) {
-        if (s_cache_pa [i].used) ++pa;
-        if (s_cache_lin[i].used) ++lin;
-    }
-
-    TexCacheEntry tmp_pa [MAX_TEX_CACHE];
-    TexCacheEntry tmp_lin[MAX_TEX_CACHE];
-    for (int i = 0; i < MAX_TEX_CACHE; ++i) {
-        tmp_pa [i] = s_cache_pa [i];  s_cache_pa [i] = {};
-        tmp_lin[i] = s_cache_lin[i];  s_cache_lin[i] = {};
-    }
-    ReleaseCacheArray(tmp_pa);
-    ReleaseCacheArray(tmp_lin);
-
-    fprintf(stdout, "[TexCache] shutdown: released %d pixel-art + %d linear textures\n",
-            pa, lin);
-}
-
-int MdTextureCache_Stats(int* out_pa, int* out_lin) {
-    int pa = 0, lin = 0;
-    for (int i = 0; i < MAX_TEX_CACHE; ++i) {
-        if (s_cache_pa [i].used) ++pa;
-        if (s_cache_lin[i].used) ++lin;
-    }
-    if (out_pa)  *out_pa  = pa;
-    if (out_lin) *out_lin = lin;
-    return pa + lin;
-}
