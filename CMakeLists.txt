@@ -108,10 +108,8 @@ file(GLOB_RECURSE ENGINE_SRC src/*.cpp)
 list(FILTER ENGINE_SRC EXCLUDE REGEX "stb_image_impl\\.cpp$")
 list(FILTER ENGINE_SRC EXCLUDE REGEX "glad_impl\\.cpp$")
 list(FILTER ENGINE_SRC EXCLUDE REGEX "cgltf_impl\\.cpp$")
-# MaskedOcclusionCulling files need specific per-file compile flags (see below).
-list(FILTER ENGINE_SRC EXCLUDE REGEX "vendor/moc/.*\\.cpp$")
 # transform_soa_simd_avx2.cpp needs its own unconditional -mavx2/-mfma (or
-# /arch:AVX2) regardless of build type/config — same reasoning as MOC below.
+# /arch:AVX2) regardless of build type/config.
 list(FILTER ENGINE_SRC EXCLUDE REGEX "transform_soa_simd_avx2\\.cpp$")
 # embedded_fonts.cpp moved to tools/ — only editor needs it, not the engine lib.
 list(FILTER ENGINE_SRC EXCLUDE REGEX "vendor/fonts/.*\\.cpp$")
@@ -153,45 +151,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.16")
     message(STATUS "[monkey_dust] engine Unity Build: ENABLED (batch=4, combat/ excluded)")
 endif()
 
-# ── MaskedOcclusionCulling (Intel, Apache 2.0) ────────────────────────────────
-# Main .cpp must be compiled WITHOUT AVX2/SSE4 — it's a dispatcher that
-# detects CPU features at runtime and creates the appropriate implementation.
-# AVX2 .cpp must be compiled WITH -mavx2 for the AVX2 implementation.
-set(MOC_BASE_CPP   src/vendor/moc/MaskedOcclusionCulling.cpp)
-set(MOC_AVX2_CPP   src/vendor/moc/MaskedOcclusionCullingAVX2.cpp)
-set(MOC_AVX512_CPP src/vendor/moc/MaskedOcclusionCullingAVX512.cpp)
-target_sources(monkey_dust_engine PRIVATE
-    ${MOC_BASE_CPP} ${MOC_AVX2_CPP} ${MOC_AVX512_CPP})
-if(NOT MSVC)
-    # GCC 13: always_inline intrinsics require matching ISA flags even in Debug.
-    # Base: needs -mxsave (_xgetbv) + -msse4.1 (_mm_mullo_epi32); no AVX.
-    # SKIP_PRECOMPILE_HEADERS: clang's PCH validation requires the TU's target
-    # features to exactly match the PCH's (here compiled with the directory's
-    # default +avx2) -- these two -mno-avx2 files conflict with that and fail
-    # to compile under any PCH-enabled config (confirmed: first real attempt
-    # at CMAKE_BUILD_TYPE=Debug for this project, since normal dev builds are
-    # Release; PCH is stdlib-only anyway, these vendor files don't need it).
-    set_source_files_properties(${MOC_BASE_CPP} PROPERTIES
-        COMPILE_FLAGS "-msse4.1 -mxsave -mno-avx -mno-avx2"
-        SKIP_PRECOMPILE_HEADERS TRUE)
-    # AVX2: needs -mfma (FMA instructions used alongside AVX2 in MOC).
-    set_source_files_properties(${MOC_AVX2_CPP} PROPERTIES
-        COMPILE_FLAGS "-mavx2 -mfma")
-    # AVX512 stub: same as base.
-    set_source_files_properties(${MOC_AVX512_CPP} PROPERTIES
-        COMPILE_FLAGS "-msse4.1 -mxsave -mno-avx -mno-avx2"
-        SKIP_PRECOMPILE_HEADERS TRUE)
-else()
-    set_source_files_properties(${MOC_BASE_CPP} PROPERTIES
-        COMPILE_FLAGS "/arch:SSE2")
-    set_source_files_properties(${MOC_AVX2_CPP} PROPERTIES
-        COMPILE_FLAGS "/arch:AVX2")
-    set_source_files_properties(${MOC_AVX512_CPP} PROPERTIES
-        COMPILE_FLAGS "/arch:SSE2")
-endif()
-
 # ── transform_soa_simd_avx2.cpp (Phase 2.2/3 audit) ──────────────────────────
-# Same per-TU-flags pattern as MOC above: this file must ALWAYS have AVX2
+# Per-TU flags: this file must ALWAYS have AVX2
 # available regardless of CMAKE_BUILD_TYPE, so tests/test_transform_soa_simd_
 # parity.cpp can call md::simd::ComputeDistSqAVX2 directly and compare it
 # against the scalar reference on any build config, not just Release/MSVC
@@ -301,10 +262,6 @@ if(MD_STATIC_DEPS)
 else()
     target_link_libraries(monkey_dust_engine PUBLIC SDL3::SDL3)
 endif()
-target_include_directories(monkey_dust_engine PRIVATE
-    # MOC vendor: .cpp files include "MaskedOcclusionCulling.h" relatively
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/vendor/moc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/vendor/moc)
 target_include_directories(monkey_dust_engine PUBLIC
     # miniaudio.h copied from raylib/src/external/ → engine/src/audio/external/miniaudio.h
     # Raylib submodule no longer needed.
@@ -378,7 +335,6 @@ endif()
 # ── Precompiled Header (PCH) ─────────────────────────────────────────────────
 # Vulkan perf pattern: avoid redundant preprocessing of heavy stdlib/SDL/entt
 # headers in every TU. PCH compiles them once → 40-60% faster incremental builds.
-# Note: PCH is NOT applied to MaskedOcclusionCulling (different ISA flags).
 # Not applied to vendor impl files (already excluded from ENGINE_SRC above).
 if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.16")
     target_precompile_headers(monkey_dust_engine PRIVATE
