@@ -81,10 +81,12 @@ static bool s_load_r32(const char* path, float*& buf_out, int& w_out, int& h_out
         fread(&hmin, 4, 1, f) != 1 || fread(&hmax, 4, 1, f) != 1) {
         fclose(f); return false;
     }
-    buf_out  = new float[w * h];
+    const size_t n = (size_t)w * h;
+    if (w == 0 || h == 0 || n > ((size_t)1 << 28)) { fclose(f); return false; }
+    buf_out  = new float[n];
     w_out    = (int)w; h_out = (int)h;
     hmin_out = hmin;   hmax_out = hmax;
-    bool ok  = fread(buf_out, sizeof(float), w * h, f) == w * h;
+    bool ok  = fread(buf_out, sizeof(float), n, f) == n;
     fclose(f);
     if (!ok) { delete[] buf_out; buf_out = nullptr; return false; }
     return true;
