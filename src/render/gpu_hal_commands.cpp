@@ -25,8 +25,8 @@ void GpuCommandBuffer::BindPipeline(GpuPipeline* p) {
     // files) calls the SDL function directly. Investigated whether wiring
     // them through this dedup would help: it would not. Every one of those
     // hot paths already binds its pipeline EXACTLY ONCE per render pass
-    // (terrain's DrawNode/DrawNodeForward loop over N visible nodes never
-    // rebinds -- the pipeline bind happens once in BeginForward/DrawBatched
+    // (terrain's DrawNode loop over N visible nodes never
+    // rebinds -- the pipeline bind happens once in DrawBatched
     // before the loop; NPC drawing uses one SoA-instanced indexed draw per
     // frame, not a per-NPC loop with per-NPC pipeline switches; point/
     // strip-light and deferred-lighting passes bind once then loop draws).

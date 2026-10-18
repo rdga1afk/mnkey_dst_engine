@@ -44,42 +44,11 @@ public:
                   float cam_x, float cam_y, float cam_z,
                   const TerrainRenderer& ground);
 
-    // Forward (inline) shading revival -- draws node geometry directly into
-    // the caller's already-open MAIN color+depth render pass (not an
-    // isolated G-buffer), doing full ground-layer shading inline via
-    // shaders/terrain_quadtree_forward.frag (shares terrain_quadtree.vert
-    // with DrawNode -- only the fragment stage differs). See that shader's
-    // doc comment for why this is the revived Variant B architecture
-    // (terrain_research/perf/PROGRESS.md, 2026-08-02).
-    bool InitForward(md::GpuDeviceHandle dev);
-    bool IsForwardReady() const { return forward_ready_; }
-
-    // Binds the forward pipeline + PER-FRAME-CONSTANT fragment resources
-    // (ground samplers, zoneGroundLayersTex, sun/fog/world_params/cam
-    // uniforms) -- call ONCE before the DrawNodeForward loop each frame,
-    // mirroring TerrainRenderer::GetSharedGroundSamplers/
-    // ZoneGroundLayersTexture's own "shared across all draws" convention.
-    void BeginForward(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd,
-                      const TerrainRenderer::SunParams& sun,
-                      float cam_x, float cam_y, float cam_z,
-                      float world_origin_x, float world_origin_z, float world_to_uv,
-                      float fog_far, const float fog_color[3], float fog_near,
-                      const TerrainRenderer& ground);
-
-    // Draws ONE tile -- pipeline/fragment resources already bound by
-    // BeginForward; this only pushes the per-tile vertex UBO, binds the
-    // (world-wide, same for every tile) height/normal vertex samplers, and
-    // issues the filled-grid index draw -- same shape as DrawNode.
-    void DrawNodeForward(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd,
-                         const TerrainWorldHeightmap& hmap, const float* vp16,
-                         const TerrainQuadtree::VisibleNode& node,
-                         float cam_x, float cam_y, float cam_z);
-
     // B3 (Granite terrain finding, RENDER_VS_GRANITE_DEEPSEEK_RESEARCH.md):
     // Granite instances up to 512 patches in one draw_indexed; our DrawNode
     // loop issues 1 draw + 1 UBO push PER node instead. This is the
     // instanced replacement for the G-buffer path specifically (DrawNode
-    // stays as-is, still used by the forward path and any other caller).
+    // stays as-is, still used by any other caller).
     //
     // Per-node data (origin, texelSize) is read from a
     // SEPARATE vertex shader (terrain_quadtree_batched.vert), not an SSBO:
@@ -144,12 +113,12 @@ public:
 
     // TEMP DEBUG TOOL (2026-09-04, CLAUDE_CONSTITUTION.md sec 7.7): real
     // mesh wireframe overlay -- shares terrain_quadtree.vert with DrawNode/
-    // DrawNodeForward (same vertex transform, so lines land exactly on the
+    // DrawNode (same vertex transform, so lines land exactly on the
     // live geometry), swaps in shaders/terrain_wireframe.frag (solid colour)
     // + GpuRasterState::wireframe=true (SDL_GPU_FILLMODE_LINE). Draws into
     // the caller's already-open MAIN colour+depth pass (same contract as
-    // DrawNodeForward), depth_write=false so it never corrupts the real
-    // depth buffer. See DrawNodeForward's own doc comment for the pass this
+    // DrawNode), depth_write=false so it never corrupts the real
+    // depth buffer. See DrawNode's own doc comment for the pass this
     // must be called from.
     bool InitWireframe(md::GpuDeviceHandle dev);
     bool IsWireframeReady() const { return wireframe_ready_; }
@@ -258,7 +227,6 @@ public:
 
 private:
     GpuPipeline gbuffer_pipeline_;
-    GpuPipeline forward_pipeline_;
     GpuPipeline wireframe_pipeline_;
     GpuPipeline batched_pipeline_;
     GpuPipeline batched_wireframe_pipeline_;
@@ -272,7 +240,6 @@ private:
     std::chrono::steady_clock::time_point lod_build_t0_{};
     bool lod_ready_logged_ = false;
     bool ready_ = false;
-    bool forward_ready_ = false;
     bool batched_ready_ = false;
     bool wireframe_ready_ = false;
     bool batched_wireframe_ready_ = false;
