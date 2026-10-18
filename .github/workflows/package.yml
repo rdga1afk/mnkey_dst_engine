@@ -44,7 +44,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant: [release, asan]
+        variant: [release, asan, gc]
     steps:
       - name: Toolchain (Arch Linux Archive snapshot = the laptop's package set)
         run: |
@@ -84,6 +84,7 @@ jobs:
         run: |
           EXTRA=""
           if [ "${{ matrix.variant }}" = "asan" ]; then EXTRA="-DMD_ENGINE_ASAN=ON"; fi
+          if [ "${{ matrix.variant }}" = "gc" ]; then EXTRA="-DMD_ENGINE_GC=ON"; fi
           # MONKEY_DUST_EDITOR=ON: the root project's default; it adds the PUBLIC definition DEBUG to the engine target, so the package must be built with it.
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
