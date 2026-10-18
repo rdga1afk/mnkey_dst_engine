@@ -1,5 +1,4 @@
 #pragma once
-#ifdef MD_SDL_GPU
 // ─────────────────────────────────────────────────────────────────────────────
 // GpuDevice — SDL_GPU device singleton. Step 0 of SDL_GPU migration.
 //
@@ -179,4 +178,3 @@ private:
 
 } // namespace md
 
-#endif // MD_SDL_GPU

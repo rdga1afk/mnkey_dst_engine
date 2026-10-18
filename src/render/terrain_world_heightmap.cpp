@@ -1,5 +1,4 @@
 #include <monkey_dust/render/terrain_world_heightmap.h>
-#ifdef MD_SDL_GPU
 #include <monkey_dust/render/gpu_compute.h>
 #include <monkey_dust/render/gpu_copy_pass.h>
 #include <monkey_dust/render/gpu_sampler_texture.h>
@@ -312,4 +311,3 @@ void TerrainWorldHeightmap::Shutdown(md::GpuDeviceHandle dev) {
     normal_tex_.Shutdown();
     tex_.Shutdown();
 }
-#endif

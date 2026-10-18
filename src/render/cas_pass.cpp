@@ -1,5 +1,4 @@
 #include <monkey_dust/render/cas_pass.h>
-#ifdef MD_SDL_GPU
 #include <monkey_dust/render/gpu_device.h>
 #include <monkey_dust/render/gpu_pipeline.h>
 #include <monkey_dust/render/gpu_hal_free_functions.h>
@@ -138,4 +137,3 @@ void CasPass::Apply(md::GpuCommandBufferHandle cmd, md::GpuTextureHandle output_
 }
 
 } // namespace md
-#endif // MD_SDL_GPU

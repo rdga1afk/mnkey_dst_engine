@@ -1,10 +1,8 @@
 #pragma once
 #include <cstdint>
 
-#ifdef MD_SDL_GPU
 #include <SDL3/SDL_gpu.h>
 #include <monkey_dust/render/gpu_device.h>
-#endif
 
 // GpuRingBuffer — per-frame CPU→GPU data upload with ring-buffering.
 //
@@ -40,7 +38,6 @@ public:
     int      current()    const { return cur_; }
 
 
-#ifdef MD_SDL_GPU
     // Map the current frame's staging buffer for CPU writing.
     // Follow with UnmapSDL() then Upload(cmd) before any compute pass reads this buffer.
     void*          MapWriteSDL();
@@ -53,14 +50,11 @@ public:
     void           UploadInPass(SDL_GPUCopyPass* pass);
     // Returns the current frame's device buffer (slot = GpuDevice::FrameSlot()).
     SDL_GPUBuffer* SDLBuffer() const;
-#endif
 
 private:
-#ifdef MD_SDL_GPU
     SDL_GPUBuffer*         sdl_device_[3]  = {};
     SDL_GPUTransferBuffer* sdl_staging_[3] = {};
     uint32_t               sdl_size_       = 0;
-#endif
     uint32_t size_ = 0;
     int      cur_  = 0;
 };

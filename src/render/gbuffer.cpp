@@ -1,4 +1,3 @@
-#ifdef MD_SDL_GPU
 #include <monkey_dust/render/gbuffer.h>
 #include <monkey_dust/render/render_tier.h>
 #include <monkey_dust/render/gpu_pipeline.h>
@@ -113,4 +112,3 @@ void GBufferSystem::Shutdown() {
 
 } // namespace md
 
-#endif // MD_SDL_GPU

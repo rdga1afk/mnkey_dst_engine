@@ -6,11 +6,9 @@
 #include <cstring>
 #include <cmath>
 
-#ifdef MD_SDL_GPU
 #include <monkey_dust/render/gpu_device.h>
 #include <monkey_dust/render/gpu_copy_pass.h>
 #include <monkey_dust/render/gpu_hal_free_functions.h>
-#endif
 
 #ifdef __AVX2__
 #  include <immintrin.h>   // AVX2 + FMA (Skylake / Intel HD 520)
@@ -42,7 +40,6 @@ void TransformSoA::Init() {
     faction_ssbo_.Init(MAX_SLOTS * sizeof(uint32_t));
     skin_ssbo_.Init(MAX_SLOTS * 4 * sizeof(float));
 
-#ifdef MD_SDL_GPU
     md::GpuDeviceHandle dev = md::GpuDevice::Get().SDLDevice();
     if (dev) {
         // Init() runs twice per process: once at startup (game_init.cpp) and
@@ -99,7 +96,6 @@ void TransformSoA::Init() {
             sdl_skin_stg_[s] = GpuCreateTransferBuffer(dev, &ti);
         }
     }
-#endif
 }
 
 // ── TransformSoA::Shutdown ───────────────────────────────────────────────────
@@ -109,7 +105,6 @@ void TransformSoA::Init() {
 // the 18 raw sdl_*_buf_/sdl_*_stg_ handles, plus the ring buffer/SSBO wrapper
 // Shutdown()s neither Init() nor anything else ever called.
 void TransformSoA::Shutdown() {
-#ifdef MD_SDL_GPU
     md::GpuDeviceHandle dev = md::GpuDevice::Get().SDLDevice();
     if (dev) {
         for (int s = 0; s < 3; ++s) {
@@ -121,7 +116,6 @@ void TransformSoA::Shutdown() {
             if (sdl_skin_stg_[s])    { GpuReleaseTransferBuffer(dev, sdl_skin_stg_[s]);    sdl_skin_stg_[s]    = nullptr; }
         }
     }
-#endif
     transform_ring_.Shutdown();
     faction_ssbo_.Shutdown();
     skin_ssbo_.Shutdown();
@@ -343,7 +337,6 @@ void TransformSoA::AssignSlot(MdEntity e, uint32_t slot,
     if ((int)slot >= active_count) active_count = (int)slot + 1;
 }
 
-#ifdef MD_SDL_GPU
 SDL_GPUBuffer* TransformSoA::SDLTransformBuffer() const {
     return sdl_xzyr_buf_[md::GpuDevice::Get().FrameSlot()];
 }
@@ -422,4 +415,3 @@ void TransformSoA::UploadSDLGPU(md::GpuCommandBufferHandle cmd) {
         cpass.End();
     }
 }
-#endif

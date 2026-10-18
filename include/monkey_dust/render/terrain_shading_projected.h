@@ -1,5 +1,4 @@
 #pragma once
-#ifdef MD_SDL_GPU
 #include <monkey_dust/render/gpu_pipeline.h>
 #include <monkey_dust/render/gpu_depth_texture.h>
 #include <monkey_dust/render/gpu_sampler_texture.h>
@@ -260,4 +259,3 @@ private:
                         const FineWindow* fw, const float* bake_cols);    int  w_ = 0, h_ = 0;
     bool ready_ = false;
 };
-#endif

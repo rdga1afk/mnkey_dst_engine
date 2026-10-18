@@ -184,7 +184,7 @@ target_include_directories(monkey_dust_engine
 # GRANITE_ROOT resolved + granite-vulkan target built in root CMakeLists.txt
 # BEFORE this add_subdirectory(engine) call. granite_backend.cpp is an empty
 # TU (no Granite symbols referenced) when MD_USE_GRANITE is undefined, so
-# engine/ compiles and links for the default USE_SDL3 path with zero Granite
+# engine/ compiles and links for the default path with zero Granite
 # dependency when USE_GRANITE=OFF (docs/GRANITE_MIGRATION_PLAN_M0_M6.md M2's
 # own constraint).
 if(USE_GRANITE AND TARGET granite-vulkan)
@@ -196,12 +196,6 @@ if(USE_GRANITE AND TARGET granite-vulkan)
         "${GRANITE_ROOT}/threading")
     target_compile_definitions(monkey_dust_engine PUBLIC MD_USE_GRANITE)
     target_link_libraries(monkey_dust_engine PUBLIC granite-vulkan granite-threading granite-util)
-endif()
-
-if(NOT USE_SDL3)
-    message(FATAL_ERROR
-        "monkey_dust requires -DUSE_SDL3=ON. "
-        "The Raylib/OpenGL backend has been removed (see CLAUDE.md П.1-П.3).")
 endif()
 
 # When engine is built standalone (not via root CMakeLists), find SDL3 here.
@@ -253,7 +247,7 @@ target_compile_definitions(monkey_dust_engine PUBLIC MD_RENDER_BACKEND_${MD_REND
 # SDL3 + SDL_GPU is the default rendering backend (GRANITE is the other
 # real implementation, see MD_RENDER_BACKEND above).
 # GLM provides math types; MD_LOG_NO_RAYLIB replaces TraceLog with fprintf.
-target_compile_definitions(monkey_dust_engine PUBLIC USE_SDL3 USE_GLM MD_LOG_NO_RAYLIB MD_SDL_GPU)
+target_compile_definitions(monkey_dust_engine PUBLIC USE_GLM MD_LOG_NO_RAYLIB)
 if(MD_STATIC_DEPS)
     target_link_libraries(monkey_dust_engine PUBLIC SDL3::SDL3-static)
 else()
@@ -281,11 +275,6 @@ if(UNIX AND NOT APPLE)
     target_link_libraries(monkey_dust_engine PRIVATE dl)
 endif()
 
-if(USE_GLM AND NOT USE_SDL3)
-    # In SDL3 path USE_GLM is already set above; this handles explicit -DUSE_GLM
-    # without USE_SDL3 (uncommon but supported).
-    target_compile_definitions(monkey_dust_engine PUBLIC USE_GLM)
-endif()
 if(CMAKE_BUILD_TYPE STREQUAL "Debug" OR MONKEY_DUST_EDITOR)
     target_compile_definitions(monkey_dust_engine PUBLIC DEBUG)
 endif()

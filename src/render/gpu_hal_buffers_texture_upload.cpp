@@ -1,13 +1,8 @@
 #include "gpu_hal_buffers_internal.h"
 #include <monkey_dust/render/gpu_hal_free_functions.h>
 
-#ifdef MD_SDL_GPU
 bool GpuTexture::InitRenderTarget(int w, int h, const GpuSamplerDesc& s, SDL_GPUTextureFormat format) {
-#else
-bool GpuTexture::InitRenderTarget(int w, int h, const GpuSamplerDesc& s) {
-#endif
     w_ = w; h_ = h;
-#ifdef MD_SDL_GPU
     SDL_GPUDevice* dev = md::GpuDevice::Get().SDLDevice();
     if (!dev) return false;
     uint32_t num_levels = s.gen_mipmap ? MipLevels(w, h) : 1u;
@@ -29,9 +24,6 @@ bool GpuTexture::InitRenderTarget(int w, int h, const GpuSamplerDesc& s) {
     md::GpuResourceTracker::Get().OnTextureCreate();
     sdl_sampler_ = CreateSDLSampler(dev, s);
     return true;
-#else
-    return false;
-#endif
 }
 
 bool GpuTexture::InitCompute(int w, int h, SDL_GPUTextureFormat format,
@@ -61,7 +53,6 @@ bool GpuTexture::InitCompute(int w, int h, SDL_GPUTextureFormat format,
 
 bool GpuTexture::InitFromMemory(const uint8_t* rgba8, int w, int h, const GpuSamplerDesc& s) {
     w_ = w; h_ = h;
-#ifdef MD_SDL_GPU
     SDL_GPUDevice* dev = md::GpuDevice::Get().SDLDevice();
     if (dev) {
         uint32_t num_levels = s.gen_mipmap ? MipLevels(w, h) : 1u;
@@ -114,6 +105,5 @@ bool GpuTexture::InitFromMemory(const uint8_t* rgba8, int w, int h, const GpuSam
         return true;
     }
     // dev == null: SDL_GPU not initialised.
-#endif
     return false;
 }

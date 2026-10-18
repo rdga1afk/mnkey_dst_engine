@@ -9,9 +9,7 @@
 //   GpuCommandBuffer  → SDL_GPUCommandBuffer + SDL_BeginGPURenderPass
 //
 // Backend selection:
-//   OpenGL 4.3 path:  compiled when MD_OPENGL43_ENABLED is defined
-//   SDL_GPU path:     compiled when MD_SDL_GPU       is defined
-//   Both can be active simultaneously during migration (dual-backend).
+//   SDL_GPU is the only path (the OpenGL path was removed in #185 K2).
 //
 // Code audit proposal #8 (docs/CODE_AUDIT_2026-09.md, 2026-09): this file
 // was ~1200 lines / ~16 classes. Split into gpu_hal_*.h / gpu_*.h below by

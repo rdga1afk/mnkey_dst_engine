@@ -12,7 +12,6 @@
 //   cas.Resize(vp_w, vp_h);             // on window resize
 //   cas.Shutdown();                      // at exit
 
-#ifdef MD_SDL_GPU
 #include <SDL3/SDL_gpu.h>
 #include <monkey_dust/render/gpu_pipeline.h>
 namespace md {
@@ -58,4 +57,3 @@ private:
 };
 
 } // namespace md
-#endif // MD_SDL_GPU

@@ -2,16 +2,13 @@
 #include <cstdio>
 #include <cstring>
 
-#ifdef MD_SDL_GPU
 #include <monkey_dust/render/gpu_device.h>
 #include <monkey_dust/render/gpu_copy_pass.h>
 #include <monkey_dust/render/gpu_hal_free_functions.h>
 #include <monkey_dust/platform/md_log.h>
-#endif
 
 
 void SSBO::Init(int capacity_bytes, uint32_t extra_sdl_usage) {
-#ifdef MD_SDL_GPU
     sdl_cap_ = (uint32_t)capacity_bytes;
     md::GpuDeviceHandle dev = md::GpuDevice::Get().SDLDevice();
     if (dev && capacity_bytes > 0) {
@@ -35,12 +32,10 @@ void SSBO::Init(int capacity_bytes, uint32_t extra_sdl_usage) {
                 MD_LOG(MD_LOG_WARNING, "[SSBO] SDL_CreateGPUTransferBuffer[%d] failed: %s", s, SDL_GetError());
         }
     }
-#endif
 }
 
 // One-shot upload for static SSBOs: fill all 3 slots with the same data.
 void SSBO::Upload(const void* data, int size_bytes, int offset) {
-#ifdef MD_SDL_GPU
     md::GpuDeviceHandle dev = md::GpuDevice::Get().SDLDevice();
     if (!dev || !data || size_bytes <= 0) return;
     for (int s = 0; s < 3; ++s) {
@@ -64,7 +59,6 @@ void SSBO::Upload(const void* data, int size_bytes, int offset) {
         pass.End();
         md::GpuDevice::Get().Submit(cmd);
     }
-#endif
 }
 
 void SSBO::Bind(int binding_point) {
@@ -72,17 +66,14 @@ void SSBO::Bind(int binding_point) {
 }
 
 void SSBO::Shutdown() {
-#ifdef MD_SDL_GPU
     md::GpuDeviceHandle dev = md::GpuDevice::Get().SDLDevice();
     for (int s = 0; s < 3; ++s) {
         if (sdl_transfer_[s]) { GpuReleaseTransferBuffer(dev, sdl_transfer_[s]); sdl_transfer_[s] = nullptr; }
         if (sdl_buf_[s])      { SDL_ReleaseGPUBuffer        (dev, sdl_buf_[s]);      sdl_buf_[s]      = nullptr; }
     }
     sdl_cap_ = 0;
-#endif
 }
 
-#ifdef MD_SDL_GPU
 SDL_GPUBuffer* SSBO::SDLBuffer() const {
     return sdl_buf_[md::GpuDevice::Get().FrameSlot()];
 }
@@ -107,4 +98,3 @@ void SSBO::UploadInCmd(md::GpuCommandBufferHandle cmd, const void* data, int siz
     pass.UploadBuffer(src, dst_r, false);
     pass.End();
 }
-#endif

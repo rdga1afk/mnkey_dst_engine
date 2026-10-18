@@ -10,9 +10,7 @@
 
 #include <cstdint>
 
-#ifdef MD_SDL_GPU
 #include <SDL3/SDL_gpu.h>
-#endif
 
 struct GpuSamplerDesc {
     enum class Filter : uint8_t { NEAREST, LINEAR, LINEAR_MIPMAP };
@@ -44,7 +42,6 @@ struct GpuSamplerDesc {
     }
 };
 
-#ifdef MD_SDL_GPU
 // ─────────────────────────────────────────────────────────────────────────────
 // GpuSampler / GpuColorTexture — split texture/sampler ownership (SDL_GPU only).
 //
@@ -84,7 +81,6 @@ private:
     SDL_GPUTexture* sdl_tex_ = nullptr;
     int w_ = 0, h_ = 0;
 };
-#endif // MD_SDL_GPU
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GpuTexture — RGBA8 texture + sampler.
@@ -128,7 +124,6 @@ public:
     // real call sites before TERRAIN_CA_REBUILD_PROMPT.md Phase 4's
     // screen-space G-buffer target needed full-float world-space storage,
     // which R8G8B8A8_UNORM's normalized [0,1] range cannot represent).
-#ifdef MD_SDL_GPU
     bool InitRenderTarget(int w, int h, const GpuSamplerDesc& s = {},
                           SDL_GPUTextureFormat format = SDL_GPU_TEXTUREFORMAT_INVALID);
     // Compute-storage-writable texture (SDL_GPU only) -- InitRenderTarget
@@ -151,9 +146,6 @@ public:
     bool InitCompute(int w, int h, SDL_GPUTextureFormat format,
                       SDL_GPUTextureUsageFlags usage, uint32_t num_levels,
                       const GpuSamplerDesc& s = {});
-#else
-    bool InitRenderTarget(int w, int h, const GpuSamplerDesc& s = {});
-#endif
     // Load a 2D texture array from multiple BC3/DXT5 DDS files (SDL_GPU only).
     // All files must have identical dimensions, format, and mip count.
     bool InitFromDDSArray(const char* const* paths, int count, const GpuSamplerDesc& s = {});
@@ -169,13 +161,8 @@ public:
     int          Height()    const { return h_; }
     unsigned int GLTexture() const { return id_; }
     bool Valid() const {
-#ifdef MD_SDL_GPU
         return sdl_tex_ != nullptr || id_ != 0;
-#else
-        return id_ != 0;
-#endif
     }
-#ifdef MD_SDL_GPU
     // TEMPORARY raw-SDL bridge, same idiom as GpuDevice::SDLDevice() --
     // see its comment. Do not add new call sites.
     SDL_GPUTexture* SDLTexture() const { return sdl_tex_; }
@@ -183,7 +170,6 @@ public:
     // Transfer SDL_GPU ownership out of this object (caller is responsible for release).
     SDL_GPUTexture* TakeSDLTexture() { SDL_GPUTexture* t = sdl_tex_; sdl_tex_ = nullptr; return t; }
     SDL_GPUSampler* TakeSDLSampler() { SDL_GPUSampler* s = sdl_sampler_; sdl_sampler_ = nullptr; return s; }
-#endif
 
     // Transfer GL texture ownership.
     unsigned int Release() { unsigned int t = id_; id_ = 0; return t; }
@@ -192,8 +178,6 @@ private:
     void ApplySampler(const GpuSamplerDesc& s) const; // OpenGL only
     unsigned int id_ = 0;
     int w_ = 0, h_ = 0;
-#ifdef MD_SDL_GPU
     SDL_GPUTexture* sdl_tex_     = nullptr;
     SDL_GPUSampler* sdl_sampler_ = nullptr;
-#endif
 };

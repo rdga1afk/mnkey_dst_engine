@@ -4,9 +4,7 @@
 
 #include <cstdint>
 
-#ifdef MD_SDL_GPU
 #include <SDL3/SDL_gpu.h>
-#endif
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GpuComputePipeline — immutable compute shader program.
@@ -34,16 +32,12 @@ public:
     // OpenGL: glGetUniformLocation. SDL_GPU: always -1 (use PushUniforms instead).
     int  UniformLoc(const char* name) const;
 
-#ifdef MD_SDL_GPU
     SDL_GPUComputePipeline* SDLComputePipeline() const { return sdl_pipeline_; }
-#endif
 
 private:
     friend class GpuComputePass;
     unsigned int program_ = 0;
-#ifdef MD_SDL_GPU
     SDL_GPUComputePipeline* sdl_pipeline_ = nullptr;
-#endif
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -51,7 +45,6 @@ private:
 // used as a default argument (GCC rejects nested-struct DMIs in that context).
 // ─────────────────────────────────────────────────────────────────────────────
 struct GpuComputeStorageBindings {
-#ifdef MD_SDL_GPU
     SDL_GPUCommandBuffer* cmd = nullptr;
     // Read-write storage buffers — declared to SDL_BeginGPUComputePass.
     // Maps slot index to SPIR-V set=1 read-write bindings in ascending binding order.
@@ -67,7 +60,6 @@ struct GpuComputeStorageBindings {
     // texture, not just buffers).
     SDL_GPUStorageTextureReadWriteBinding rw_textures[8] = {};   // SDL_GPU allows 8 per compute pass (#156: the FSR 2 passes bind up to 6)
     uint32_t                              num_rw_textures = 0;
-#endif
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -110,7 +102,6 @@ public:
     // bindings is required for SDL_GPU; ignored in OpenGL.
     void Begin(GpuComputePipeline* pipeline, const StorageBindings& bindings = StorageBindings{});
 
-#ifdef MD_SDL_GPU
     // Push uniform data (UBO slot) for the compute shader.
     void PushUniforms(uint32_t slot, const void* data, uint32_t size_bytes);
     // Bind texture-sampler pairs (set=0, ascending binding order) for the
@@ -118,24 +109,19 @@ public:
     // GpuComputePass had no equivalent before (only ro_buffers went through
     // Begin's StorageBindings; textures had no path in at all).
     void BindSamplers(uint32_t first_slot, const SDL_GPUTextureSamplerBinding* bindings, uint32_t count);
-#endif
 
     void Dispatch(uint32_t gx, uint32_t gy, uint32_t gz);
 
     // barrier_flags: BARRIER_* constants (OpenGL). SDL_GPU barriers are implicit.
     void End(uint32_t barrier_flags = BARRIER_STORAGE);
 
-#ifdef MD_SDL_GPU
     // Null after a failed Begin (e.g. SDL_BeginGPUComputePass returned
     // nullptr) — callers that need to detect that failure (matching the
     // raw-SDL call sites this Begin extension replaced) check this.
     SDL_GPUComputePass* SDLPass() const { return sdl_pass_; }
-#endif
 
 private:
     GpuComputePipeline* pipeline_ = nullptr;
-#ifdef MD_SDL_GPU
     SDL_GPUCommandBuffer* sdl_cmd_  = nullptr;
     SDL_GPUComputePass*   sdl_pass_ = nullptr;
-#endif
 };

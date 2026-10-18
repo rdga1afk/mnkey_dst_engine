@@ -1,5 +1,4 @@
 #pragma once
-#ifdef MD_SDL_GPU
 #include <monkey_dust/render/ssbo.h>
 
 // ── AmbientProbe ──────────────────────────────────────────────────────────────
@@ -80,4 +79,3 @@ private:
     SSBO         ssbo_;
 };
 
-#endif // MD_SDL_GPU

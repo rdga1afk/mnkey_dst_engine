@@ -4,10 +4,8 @@
 #include <monkey_dust/render/gpu_copy_pass.h>
 #include <monkey_dust/render/gpu_sampler_texture.h>
 #include <monkey_dust/render/gpu_hal_free_functions.h>
-#ifdef MD_SDL_GPU
 #include <monkey_dust/render/gpu_device.h>
 #include <SDL3/SDL_gpu.h>
-#endif
 
 // MdTexture functions delegate to GpuTexture so both GL and SDL_GPU
 // handles are captured.  Transfer methods (Release / TakeSDL*) zero
@@ -82,10 +80,8 @@ static MdTexture FromGpuTexture(GpuTexture& gt) {
     t.w  = gt.Width();
     t.h  = gt.Height();
     t.id = gt.Release();
-#ifdef MD_SDL_GPU
     t.sdl_tex     = gt.TakeSDLTexture();
     t.sdl_sampler = gt.TakeSDLSampler();
-#endif
     return t;
 }
 
@@ -129,7 +125,6 @@ MdTexture MdLoadTextureFromMemory(const uint8_t* data, int w, int h) {
     return FromGpuTexture(gt);
 }
 
-#ifdef MD_SDL_GPU
 bool MdUploadSquareRGBA8ToGpuColorTexture(md::GpuDeviceHandle dev, const uint8_t* pixels,
                                             int size, GpuColorTexture& out) {
     if (!out.Init(size, size, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM,
@@ -165,20 +160,17 @@ bool MdUploadSquareRGBA8ToGpuColorTexture(md::GpuDeviceHandle dev, const uint8_t
     GpuReleaseTransferBuffer(dev, tb);
     return true;
 }
-#endif // MD_SDL_GPU
 
 void MdUnloadTexture(MdTexture& t) {
     // If cache owns this texture, only zero the caller's copy.
     // GPU resources stay alive until MdTextureCache_Shutdown().
     if (CacheOwns(t)) { t = {}; return; }
 
-#ifdef MD_SDL_GPU
     md::GpuDeviceHandle dev = md::GpuDevice::Get().SDLDevice();
     if (dev) {
         if (t.sdl_tex)     GpuReleaseTexture(dev, (md::GpuTextureHandle)t.sdl_tex);
         if (t.sdl_sampler) GpuReleaseSampler(dev, (SDL_GPUSampler*)t.sdl_sampler);
     }
-#endif
     t = {};
 }
 

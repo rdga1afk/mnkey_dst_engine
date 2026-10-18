@@ -1,4 +1,3 @@
-#ifdef MD_SDL_GPU
 #include <monkey_dust/render/deferred_lighting.h>
 #include <monkey_dust/render/evsm_shadow.h>
 #include <monkey_dust/render/shadow_system.h>
@@ -207,4 +206,3 @@ void DeferredLightingSystem::Shutdown() {
 }
 
 } // namespace md
-#endif // MD_SDL_GPU

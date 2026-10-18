@@ -2,7 +2,6 @@
 // RdDevice — GPU device capability registry + shared dummy resources.
 // Detects Intel ANV limits at Init() and exposes conservative safe defaults.
 // All render code should clamp to Caps() before creating pipelines/shaders.
-#ifdef MD_SDL_GPU
 #include <SDL3/SDL_gpu.h>
 #include <monkey_dust/render/gpu_device.h>
 
@@ -37,4 +36,3 @@ private:
 };
 
 } // namespace md
-#endif // MD_SDL_GPU

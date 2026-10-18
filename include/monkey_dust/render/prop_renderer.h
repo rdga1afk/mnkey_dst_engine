@@ -9,9 +9,7 @@
 #include <monkey_dust/render/gpu_sampler_texture.h>
 #include <cstdint>
 
-#ifdef MD_SDL_GPU
 #include <SDL3/SDL_gpu.h>
-#endif
 
 class PropRenderer {
 public:
@@ -44,10 +42,8 @@ public:
     // (existing procedural-prop behaviour, unchanged). Takes priority over
     // normals_xyz when both are non-null (see prop.vert's model_quat.w!=0 check).
     void DrawRaw(
-#ifdef MD_SDL_GPU
         SDL_GPURenderPass*    rp,
         md::GpuCommandBufferHandle cmd,
-#endif
         const float* positions_xyz,
         int          count,
         const float* vp16,
@@ -61,16 +57,12 @@ public:
 
     // #176: draw count instances of this mesh with `pipe` (feature_gbuf.vert + terrain_gbuffer_mini.frag, the terrain G-buffer pass): vp16, then per instance
     // position (xyz), quaternion (xyzw), uniform scale 1. No textures, no fragment uniforms.
-#ifdef MD_SDL_GPU
     void DrawGbuf(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, GpuPipeline& pipe, const float* positions_xyz, const float* quats_xyzw, int count, const float* vp16);
-#endif
     // #119 spike: instanced draws. BeginInstanced binds `pipe` (hub_inst.vert + prop.frag: vertex slot 0 = this mesh, slot 1 = `inst`, 8 floats per instance:
     // position xyz + scale, quaternion xyzw), the mesh index buffer, the rock / vegetation / own textures and the sun UBO; DrawInstancedRange then draws instances
     // [first, first + count) of `inst` (one call per run of visible tiles).
-#ifdef MD_SDL_GPU
     void BeginInstanced(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, GpuPipeline& pipe, const GpuStaticBuffer& inst, const float* vp16, const float* sun32, bool samplers = true, bool sun_ubo = true);
     void DrawInstancedRange(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, uint32_t first, uint32_t count);
-#endif
 private:
     bool FinishInit();
     PropMesh    mesh_;

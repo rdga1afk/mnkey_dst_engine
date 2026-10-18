@@ -1,4 +1,3 @@
-#ifdef MD_SDL_GPU
 #include <monkey_dust/render/terrain_skyvis_ao.h>
 #include <monkey_dust/render/gpu_hal_free_functions.h>
 #include <monkey_dust/render/gpu_hal_types.h>
@@ -242,4 +241,3 @@ void TerrainSkyVisAO::Shutdown() {
     enabled_ = false;
     dev_ = nullptr;
 }
-#endif

@@ -1,4 +1,3 @@
-#ifdef MD_SDL_GPU
 #include <monkey_dust/render/bloom_system.h>
 #include <monkey_dust/render/render_tier.h>
 #include <monkey_dust/render/gpu_device.h>
@@ -289,4 +288,3 @@ void BloomSystem::Shutdown() {
 }
 
 } // namespace md
-#endif // MD_SDL_GPU

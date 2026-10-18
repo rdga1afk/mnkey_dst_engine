@@ -8,9 +8,7 @@
 #include <monkey_dust/render/gpu_ring_buffer.h>
 #include <cstdint>
 
-#ifdef MD_SDL_GPU
 #include <SDL3/SDL_gpu.h>
-#endif
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GpuPipeline — immutable graphics pipeline.
@@ -25,7 +23,6 @@ public:
         uint32_t        shader_features = SF_None; // bitmask of ShaderFeature — selects .spv variant
         GpuVertexLayout layout;
         GpuRasterState  raster;
-#ifdef MD_SDL_GPU
         // Shader resource counts required by SDL_GPUShaderCreateInfo.
         // Must match the SPIR-V descriptor declarations exactly.
         uint32_t vert_uniform_bufs = 0;
@@ -39,7 +36,6 @@ public:
         // Override swapchain color format (e.g. SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM
         // for intermediate render targets). INVALID (0) = use swapchain format.
         SDL_GPUTextureFormat color_format = SDL_GPU_TEXTUREFORMAT_INVALID;
-#endif
     };
 
     bool Create(const Desc& desc);
@@ -49,15 +45,11 @@ public:
 
     // OpenGL: glGetUniformLocation. SDL_GPU: always returns -1 (use PushUniforms instead).
     int UniformLoc(const char* name) const;
-#ifdef MD_SDL_GPU
     SDL_GPUGraphicsPipeline* SDLPipeline() const { return sdl_pipeline_; }
-#endif
 
 private:
     friend class GpuCommandBuffer;
-#ifdef MD_SDL_GPU
     SDL_GPUGraphicsPipeline* sdl_pipeline_ = nullptr;
-#endif
     GpuRasterState raster_ = {};
     Desc           desc_   = {};  // stored at Create() for Reload()
 };
@@ -83,10 +75,8 @@ public:
     // SDL_GPU: copy transfer → device buffer via copy pass inside cmd.
     // Must be called before the render pass that reads this buffer.
     // OpenGL: no-op (data already coherently visible).
-#ifdef MD_SDL_GPU
     void Upload(SDL_GPUCommandBuffer* cmd);
     SDL_GPUBuffer* SDLBuffer() const { return sdl_buf_; }
-#endif
 
     // Insert fence + rotate ring slot (OpenGL). No-op in SDL_GPU path.
     void Advance();
@@ -97,11 +87,9 @@ private:
     friend class GpuCommandBuffer;
     GpuRingBuffer ring_;       // OpenGL path (no-op stub when !MD_OPENGL43_ENABLED)
     uint32_t      stride_ = 0;
-#ifdef MD_SDL_GPU
     SDL_GPUBuffer*         sdl_buf_      = nullptr;
     SDL_GPUTransferBuffer* sdl_transfer_ = nullptr;
     uint32_t               sdl_size_     = 0;
-#endif
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -125,7 +113,6 @@ public:
     // Restore GL state / end SDL_GPU render pass.
     void EndPass();
 
-#ifdef MD_SDL_GPU
     // Open a color (+ optional depth) render pass on an existing command buffer.
     struct ColorPassDesc {
         // MRT: gbuffer.cpp is the only 2-target site in the whole tree
@@ -177,12 +164,9 @@ public:
 
     SDL_GPURenderPass*    SDLPass() const { return sdl_pass_; }
     SDL_GPUCommandBuffer* SDLCmd()  const { return sdl_cmd_; }
-#endif
 
 private:
     GpuPipeline* pipeline_ = nullptr;
-#ifdef MD_SDL_GPU
     SDL_GPUCommandBuffer* sdl_cmd_  = nullptr;
     SDL_GPURenderPass*    sdl_pass_ = nullptr;
-#endif
 };

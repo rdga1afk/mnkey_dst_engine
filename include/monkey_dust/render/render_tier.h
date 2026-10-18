@@ -1,5 +1,4 @@
 #pragma once
-#ifdef MD_SDL_GPU
 #include <SDL3/SDL_gpu.h>
 #include <cstdint>
 // render-pass-graph-2026-09-03: was relying on a transitive include from
@@ -76,4 +75,3 @@ private:
 
 } // namespace md
 
-#endif // MD_SDL_GPU

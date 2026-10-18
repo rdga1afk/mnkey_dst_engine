@@ -1,4 +1,3 @@
-#ifdef MD_SDL_GPU
 #include <monkey_dust/render/ssao_system.h>
 #include <monkey_dust/render/render_tier.h>
 #include <monkey_dust/render/gpu_hal_types.h>
@@ -379,4 +378,3 @@ void SSAOSystem::Shutdown() {
 }
 
 } // namespace md
-#endif // MD_SDL_GPU

@@ -4,7 +4,6 @@
 // (external linkage — declared in gpu_hal_buffers_internal.h, shared with
 // gpu_hal_buffers_dds.cpp and gpu_hal_buffers_texture_upload.cpp)
 
-#ifdef MD_SDL_GPU
 
 uint32_t MipLevels(int w, int h) {
     uint32_t n = 1;
@@ -39,35 +38,12 @@ SDL_GPUSampler* CreateSDLSampler(SDL_GPUDevice* dev, const GpuSamplerDesc& s) {
     return SDL_CreateGPUSampler(dev, &info);
 }
 
-#endif // MD_SDL_GPU
 
 // ── GpuTexture ────────────────────────────────────────────────────────────────
 
-#ifndef MD_SDL_GPU
-static GLenum ToGLFilter(GpuSamplerDesc::Filter f, bool is_min) {
-    switch (f) {
-    case GpuSamplerDesc::Filter::NEAREST:       return GL_NEAREST;
-    case GpuSamplerDesc::Filter::LINEAR:        return GL_LINEAR;
-    case GpuSamplerDesc::Filter::LINEAR_MIPMAP: return is_min ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR;
-    }
-    return GL_LINEAR;
-}
-
-static GLenum ToGLWrap(GpuSamplerDesc::Wrap w) {
-    return (w == GpuSamplerDesc::Wrap::CLAMP_TO_EDGE) ? GL_CLAMP_TO_EDGE : GL_REPEAT;
-}
-#endif // !MD_SDL_GPU
 
 void GpuTexture::ApplySampler(const GpuSamplerDesc& s) const {
-#ifndef MD_SDL_GPU
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, (GLint)ToGLFilter(s.min_filter, true));
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, (GLint)ToGLFilter(s.mag_filter, false));
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,     (GLint)ToGLWrap(s.wrap_s));
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,     (GLint)ToGLWrap(s.wrap_t));
-    if (s.gen_mipmap) glGenerateMipmap(GL_TEXTURE_2D);
-#else
     (void)s;  // sampler state baked into SDL_GPUSampler at creation
-#endif
 }
 
 bool GpuTexture::InitFromFile(const char* path, const GpuSamplerDesc& s) {

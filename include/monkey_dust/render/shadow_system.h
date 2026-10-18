@@ -66,7 +66,6 @@ public:
     Mat4  lightViewProj[NUM_CASCADES]  = {};
     float cascade_splits[NUM_CASCADES] = { SPLITS[1], SPLITS[2], SPLITS[3], SPLITS[4] };
 
-#ifdef MD_SDL_GPU
     // Sets sdl_init_ so Update() below actually runs. Called from
     // InitNpcSDL() in pure SDL_GPU builds. Real depth-texture/pipeline
     // creation removed 2026-08-09 along with the rest of the dead CSM
@@ -74,7 +73,6 @@ public:
     void InitSDLGPU() {
         sdl_init_ = true;
     }
-#endif
 
     void Init(MdMesh npc_mesh) {
     }
@@ -154,11 +152,7 @@ public:
             }
 
             Mat4 lp = mat4_ortho(minX, maxX, minY, maxY, minZ, maxZ);
-#ifdef MD_SDL_GPU
             lightViewProj[k] = mat4_mul(lp, lv);
-#else
-            lightViewProj[k] = mat4_mul(lv, lp);
-#endif
         }
     }
 
@@ -182,9 +176,7 @@ private:
     ShadowSystem() = default;
 
     bool               init_         = false;
-#ifdef MD_SDL_GPU
     bool               sdl_init_     = false;
-#endif
     MdShader           shadow_shader_;
     MdMesh        mesh_;
     int           mesh_idx_ = 0;

@@ -3,9 +3,7 @@
 #include <cstring>
 #include <sys/stat.h>
 
-#ifdef MD_SDL_GPU
 #include <SDL3/SDL.h>
-#endif
 
 // ── mtime helper ─────────────────────────────────────────────────────────────
 
@@ -80,9 +78,7 @@ int HotReload::ThreadFunc(void* userdata) {
     HotReload* self = static_cast<HotReload*>(userdata);
     while (self->running_) {
         self->Poll();
-#ifdef MD_SDL_GPU
         SDL_Delay(self->poll_ms_);
-#endif
     }
     return 0;
 }
@@ -91,22 +87,18 @@ void HotReload::Start(uint32_t poll_ms) {
     Stop();  // ensure no leftover thread
     poll_ms_ = poll_ms;
     running_ = true;
-#ifdef MD_SDL_GPU
     thread_ = static_cast<void*>(SDL_CreateThread(ThreadFunc, "HotReload", this));
     if (!thread_) {
         running_ = false;
         MD_LOG(MD_LOG_WARNING, "[HotReload] SDL_CreateThread failed: %s", SDL_GetError());
     }
-#endif
 }
 
 void HotReload::Stop() {
     if (!running_) return;
     running_ = false;
-#ifdef MD_SDL_GPU
     if (thread_) {
         SDL_WaitThread(static_cast<SDL_Thread*>(thread_), nullptr);
         thread_ = nullptr;
     }
-#endif
 }

@@ -24,7 +24,6 @@
 //   map_size:     resolution per cascade (default 1024)
 //   warp_c:       exponential warp factor (default 40.0)
 
-#ifdef MD_SDL_GPU
 #include <SDL3/SDL_gpu.h>
 #include <monkey_dust/render/gpu_pipeline.h>
 #include <monkey_dust/render/gpu_depth_texture.h>
@@ -102,4 +101,3 @@ private:
 };
 
 } // namespace md
-#endif // MD_SDL_GPU

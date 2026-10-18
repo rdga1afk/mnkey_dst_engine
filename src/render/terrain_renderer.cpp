@@ -8,13 +8,11 @@
 #include <cstring>
 #include <vector>
 
-#ifdef MD_SDL_GPU
 #include <SDL3/SDL_gpu.h>
 #include <monkey_dust/render/gpu_device.h>
 #include <monkey_dust/render/gpu_copy_pass.h>
 #include <monkey_dust/render/gpu_sampler_texture.h>
 #include <monkey_dust/render/gpu_hal_free_functions.h>
-#endif
 
 // Shared load/log/ready-flag shape behind InitGroundBaked/InitSteepnessSmoothed/
 // InitBiomeBlend/InitKenshiOverlay (surgical-simplicity audit, docs/
@@ -22,7 +20,7 @@
 // included -- it has a real extra fast-path (a pre-baked .raw sidecar
 // tried before falling back to InitFromFile) this shape doesn't cover;
 // force-fitting it would mean either dropping that fast path or adding
-// branchiness only it needs. Unconditional (not #ifdef MD_SDL_GPU) --
+// branchiness only it needs. Unconditional --
 // InitKenshiOverlay, one of its 4 callers, compiles unconditionally too.
 static bool LoadTerrainTexture(GpuTexture& tex, const char* path, const GpuSamplerDesc& sd,
                                 bool& ready_flag, const char* log_name) {
@@ -38,7 +36,6 @@ static bool LoadTerrainTexture(GpuTexture& tex, const char* path, const GpuSampl
 }
 
 bool TerrainRenderer::Init() {
-#ifdef MD_SDL_GPU
     // Create 1×1 white fallback texture for slots where InitTextures was not
     // called or an individual texture failed to load.
     GpuSamplerDesc sd;
@@ -126,13 +123,11 @@ bool TerrainRenderer::Init() {
         zone_layers_sampler_ = GpuCreateSampler(dev, &si);
     }
 
-#endif
     return true;
 }
 
 bool TerrainRenderer::InitGroundTextureArray()
 {
-#ifdef MD_SDL_GPU
     // Note: InitFromDDSArray ignores this sampler desc entirely and always
     // creates its own LINEAR_MIPMAP_LINEAR sampler from the DDS's own mip
     // chain (see gpu_hal_buffers.cpp) -- kept here only as the function's
@@ -167,9 +162,6 @@ bool TerrainRenderer::InitGroundTextureArray()
     ground_array_ready_ = true;
     fprintf(stderr, "[TerrainRenderer] ground texture+normal arrays ready (%d layers)\n", tex_count);
     return true;
-#else
-    return false;
-#endif
 }
 
 void TerrainRenderer::EnsureDetailArrayFull()
@@ -179,7 +171,6 @@ void TerrainRenderer::EnsureDetailArrayFull()
 
 bool TerrainRenderer::InitDetailArray(const char* dir, int max_layers)
 {
-#ifdef MD_SDL_GPU
     // tools/md_bake_detail_array.py's output -- see this class's header
     // doc comment for the exact layer count / naming convention. Layer
     // count matches BiomeRegistry::GroundTexCount() (124 real layers,
@@ -232,15 +223,10 @@ bool TerrainRenderer::InitDetailArray(const char* dir, int max_layers)
     detail_layers_ = tex_count;
     fprintf(stderr, "[TerrainRenderer] KROK3 detail array ready (%d layers)\n", tex_count);
     return true;
-#else
-    (void)dir;
-    return false;
-#endif
 }
 
 bool TerrainRenderer::InitGroundBaked(const char* path)
 {
-#ifdef MD_SDL_GPU
     // Offline-baked flat-ground colour (task #306, tools/md_bake_ground_
     // layers.py + tools/md_encode_ground_bake.py) -- replaces the old
     // live per-pixel base/slope/grass/dirt/road blend (GetSharedGroundSamplers'
@@ -256,14 +242,10 @@ bool TerrainRenderer::InitGroundBaked(const char* path)
     sd.flip_v     = false;
 
     return LoadTerrainTexture(tex_ground_baked_, path, sd, ground_baked_ready_, "ground baked texture");
-#else
-    return false;
-#endif
 }
 
 bool TerrainRenderer::InitSteepnessSmoothed(const char* path)
 {
-#ifdef MD_SDL_GPU
     // Single channel (R=G=B=steepness after stbi's forced 4-channel
     // expansion, see InitFromFile) -- LINEAR_MIPMAP same as InitGroundBaked,
     // this is sampled at the same varying view distances as that texture.
@@ -277,14 +259,10 @@ bool TerrainRenderer::InitSteepnessSmoothed(const char* path)
 
     return LoadTerrainTexture(tex_steepness_smoothed_, path, sd, steepness_smoothed_ready_,
                                "steepness-smoothed texture");
-#else
-    return false;
-#endif
 }
 
 bool TerrainRenderer::InitBiomeBlend(const char* path)
 {
-#ifdef MD_SDL_GPU
     GpuSamplerDesc sd;
     // LINEAR safe: this file (private/md_gen_biome_blendmap.py, v6,
     // 2026-07-19) is now a direct 1:1 copy of the REAL Kenshi
@@ -302,14 +280,10 @@ bool TerrainRenderer::InitBiomeBlend(const char* path)
     sd.flip_v     = false;
 
     return LoadTerrainTexture(tex_biome_blend_, path, sd, biome_blend_ready_, "biome blend map");
-#else
-    return false;
-#endif
 }
 
 bool TerrainRenderer::InitAmbientMap(const char* path)
 {
-#ifdef MD_SDL_GPU
     GpuSamplerDesc sd;
     sd.min_filter = GpuSamplerDesc::Filter::LINEAR;
     sd.mag_filter = GpuSamplerDesc::Filter::LINEAR;
@@ -318,27 +292,17 @@ bool TerrainRenderer::InitAmbientMap(const char* path)
     sd.gen_mipmap = false;
     sd.flip_v     = false;
     return LoadTerrainTexture(tex_ambient_map_, path, sd, ambient_map_ready_, "ambient map");
-#else
-    (void)path;
-    return false;
-#endif
 }
 
 bool TerrainRenderer::InitKenshiLightCubes(const char* irradiance_path, const char* specularity_path)
 {
-#ifdef MD_SDL_GPU
     klight_cubes_ready_ = tex_klight_irr_.InitFromDDSCube(irradiance_path) && tex_klight_spec_.InitFromDDSCube(specularity_path);
     if (!klight_cubes_ready_) { tex_klight_irr_.Shutdown(); tex_klight_spec_.Shutdown(); }
     return klight_cubes_ready_;
-#else
-    (void)irradiance_path; (void)specularity_path;
-    return false;
-#endif
 }
 
 bool TerrainRenderer::InitKbi1BlendLookup(const char* path)
 {
-#ifdef MD_SDL_GPU
     GpuSamplerDesc sd;
     // NEAREST: a discrete 32x32 per-cell lookup (baked by a private-repo
     // tool, not vendored here -- see terrain_renderer.h's own doc
@@ -355,15 +319,10 @@ bool TerrainRenderer::InitKbi1BlendLookup(const char* path)
 
     bool ready = false;
     return LoadTerrainTexture(kbi1_lookup_tex_, path, sd, ready, "KBI1 blend lookup");
-#else
-    (void)path;
-    return false;
-#endif
 }
 
 void TerrainRenderer::UploadBiomeLayersTex()
 {
-#ifdef MD_SDL_GPU
     md::GpuDeviceHandle dev = md::GpuDevice::Get().SDLDevice();
     if (!dev) return;
 
@@ -473,12 +432,10 @@ void TerrainRenderer::UploadBiomeLayersTex()
     cp.End();
     md::GpuDevice::Get().Submit(cmd);
     GpuReleaseTransferBuffer(dev, tb);
-#endif
 }
 
 bool TerrainRenderer::InitOverlayMask(const char* path)
 {
-#ifdef MD_SDL_GPU
     GpuSamplerDesc sd;
     // Same rationale as InitBiomeBlend: LINEAR (not LINEAR_MIPMAP) — this is
     // a mask sampled at a live per-fragment UV close to the camera, not a
@@ -526,9 +483,6 @@ bool TerrainRenderer::InitOverlayMask(const char* path)
     overlay_mask_ready_ = true;
     fprintf(stdout, "[TerrainRenderer] overlay mask loaded: %s\n", path);
     return true;
-#else
-    return false;
-#endif
 }
 
 void TerrainRenderer::Shutdown() {
@@ -547,7 +501,6 @@ void TerrainRenderer::Shutdown() {
     ground_array_ready_ = false;
     kbi1_lookup_tex_.Shutdown();
 
-#ifdef MD_SDL_GPU
     md::GpuDeviceHandle dev = md::GpuDevice::Get().SDLDevice();
     if (dev) {
         if (fallback_sampler_)       GpuReleaseSampler(dev, fallback_sampler_);
@@ -572,7 +525,6 @@ void TerrainRenderer::Shutdown() {
     fallback_mask_sampler_   = nullptr;
     fallback_blend_tex_      = nullptr;
     fallback_blend_sampler_  = nullptr;
-#endif
 }
 
 bool TerrainRenderer::IsReady() const {
@@ -600,7 +552,6 @@ bool TerrainRenderer::InitKenshiOverlay(const char* path)
 }
 
 
-#ifdef MD_SDL_GPU
 void TerrainRenderer::FillSamplerBindings(SDL_GPUTextureSamplerBinding out[6]) const
 {
     // Shared check-and-select shape behind every slot below (surgical-
@@ -658,10 +609,8 @@ void TerrainRenderer::GetSharedGroundSamplers(SDL_GPUTextureSamplerBinding out[7
     out[5] = all[6];  // КРОК 3 tex_detail_array
     out[6] = all[7];  // КРОК 3 tex_detail_tint
 }
-#endif
 
 void TerrainRenderer::UploadZoneGroundLayers(const uint32_t* data, int count_uints) {
-#ifdef MD_SDL_GPU
     if (count_uints != 64 * 64 * 28) {
         fprintf(stderr, "[TerrainRenderer] UploadZoneGroundLayers: expected %d uints, got %d — skipped\n",
                 64 * 64 * 28, count_uints);
@@ -710,8 +659,5 @@ void TerrainRenderer::UploadZoneGroundLayers(const uint32_t* data, int count_uin
     cp.End();
     md::GpuDevice::Get().Submit(cmd);
     GpuReleaseTransferBuffer(dev, tb);
-#else
-    (void)data; (void)count_uints;
-#endif
 }
 

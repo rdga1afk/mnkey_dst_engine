@@ -1,5 +1,4 @@
 #pragma once
-#ifdef MD_SDL_GPU
 #include <SDL3/SDL_gpu.h>
 #include <monkey_dust/render/gpu_pipeline.h>
 // ── SSAOSystem (VBfA-R1 + R2) ─────────────────────────────────────────────────
@@ -165,4 +164,3 @@ struct SSAOBlurUBO {
 };
 static_assert(sizeof(SSAOBlurUBO) == 16);
 
-#endif // MD_SDL_GPU

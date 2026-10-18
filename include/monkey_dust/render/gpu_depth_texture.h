@@ -4,9 +4,7 @@
 
 #include <cstdint>
 
-#ifdef MD_SDL_GPU
 #include <SDL3/SDL_gpu.h>
-#endif
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GpuDepthTexture — depth texture for shadow passes.
@@ -30,19 +28,15 @@ public:
     unsigned int Texture() const { return tex_; }   // 0 in SDL_GPU path
     int Width()  const { return w_; }
     int Height() const { return h_; }
-#ifdef MD_SDL_GPU
     // TEMPORARY raw-SDL bridge, same idiom as GpuDevice::SDLDevice() --
     // see its comment. Do not add new call sites.
     SDL_GPUTexture*  SDLTexture() const { return sdl_tex_; }
     SDL_GPUSampler*  SDLSampler() const { return sdl_sampler_; }
-#endif
 
 private:
     unsigned int fbo_ = 0;
     unsigned int tex_ = 0;
     int w_ = 0, h_ = 0;
-#ifdef MD_SDL_GPU
     SDL_GPUTexture* sdl_tex_     = nullptr;
     SDL_GPUSampler* sdl_sampler_ = nullptr;
-#endif
 };

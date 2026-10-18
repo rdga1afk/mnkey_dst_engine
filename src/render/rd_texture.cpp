@@ -1,5 +1,4 @@
 #include <monkey_dust/render/rd_texture.h>
-#ifdef MD_SDL_GPU
 #include <monkey_dust/render/rd_device.h>
 #include <monkey_dust/render/gpu_device.h>
 #include <monkey_dust/render/gpu_copy_pass.h>
@@ -123,4 +122,3 @@ void RdTexture::Release() {
 }
 
 } // namespace md
-#endif // MD_SDL_GPU

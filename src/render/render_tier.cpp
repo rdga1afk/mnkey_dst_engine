@@ -1,4 +1,3 @@
-#ifdef MD_SDL_GPU
 #include <monkey_dust/render/render_tier.h>
 #include <monkey_dust/platform/md_log.h>
 #include <SDL3/SDL_properties.h>
@@ -160,4 +159,3 @@ RenderTier RenderTierSystem::Detect(md::GpuDeviceHandle dev, const char* json_ov
 
 } // namespace md
 
-#endif // MD_SDL_GPU

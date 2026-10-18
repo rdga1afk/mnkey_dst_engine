@@ -5,7 +5,6 @@
 
 bool VegetationRenderer::Init(const char* mesh_path) {
     mesh_.Init(mesh_path);
-#ifdef MD_SDL_GPU
     pos_buf_.Init(MAX_INSTANCES * 16,
                   SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ);
 
@@ -20,32 +19,24 @@ bool VegetationRenderer::Init(const char* mesh_path) {
     // Billboard faces camera — back face never visible, but disable culling for safety.
     d.raster.cull_back  = false;
     bill_pipe_.Create(d);
-#endif
     return true;
 }
 
 void VegetationRenderer::Shutdown() {
     mesh_.Shutdown();
-#ifdef MD_SDL_GPU
     bill_pipe_.Destroy();
     pos_buf_.Shutdown();
-#endif
 }
 
 void VegetationRenderer::DrawMesh(
-#ifdef MD_SDL_GPU
     SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd,
-#endif
     const float* pos3, int count, const float* vp16, const float* sun32,
     float scale, float anim_mode, float anim_time) {
     mesh_.DrawRaw(
-#ifdef MD_SDL_GPU
         rp, cmd,
-#endif
         pos3, count, vp16, sun32, scale, anim_mode, anim_time);
 }
 
-#ifdef MD_SDL_GPU
 void VegetationRenderer::DrawBillboards(
     SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd,
     const float* pos3, int count,
@@ -91,9 +82,3 @@ void VegetationRenderer::DrawBillboards(
 
     pv.Draw(6, (uint32_t)count, 0, 0);
 }
-#else
-void VegetationRenderer::DrawBillboards(
-    const float* /*pos3*/, int /*count*/,
-    const float* /*vp16*/, const float* /*cam_right3*/,
-    const float* /*sun_col3*/, const float* /*ambient3*/) {}
-#endif

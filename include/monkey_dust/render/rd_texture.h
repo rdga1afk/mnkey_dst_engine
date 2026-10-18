@@ -4,7 +4,6 @@
 // Mip chain: num_levels = floor(log2(max(w,h)))+1 when gen_mipmaps=true.
 // Sampler: LINEAR min+mag, LINEAR_MIPMAP when mips>1, NEAREST when single-mip
 //          (Intel ANV HD 520 returns (0,1,0,1) sentinel with LINEAR on single-mip).
-#ifdef MD_SDL_GPU
 #include <SDL3/SDL_gpu.h>
 #include <monkey_dust/render/gpu_device.h>
 #include <cstdint>
@@ -42,4 +41,3 @@ private:
 };
 
 } // namespace md
-#endif // MD_SDL_GPU

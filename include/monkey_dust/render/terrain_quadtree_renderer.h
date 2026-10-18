@@ -1,7 +1,6 @@
 #pragma once
 #include <chrono>
 #include <monkey_dust/platform/md_log.h>
-#ifdef MD_SDL_GPU
 #include <SDL3/SDL_gpu.h>
 #include <string>
 #include <cstdint>
@@ -304,4 +303,3 @@ private:
     float height_min_ = 0.f, height_range_ = 1.f;
     std::string tif_path_;
 };
-#endif

@@ -266,7 +266,6 @@ private:
     md::GpuTextureHandle biome_layers_tex_     = nullptr;
     SDL_GPUSampler* biome_layers_sampler_ = nullptr;
 
-#ifdef MD_SDL_GPU
     md::GpuTextureHandle fallback_tex_            = nullptr;
     SDL_GPUSampler* fallback_sampler_        = nullptr;
     md::GpuTextureHandle fallback_mask_tex_       = nullptr;
@@ -274,5 +273,4 @@ private:
     md::GpuTextureHandle fallback_blend_tex_      = nullptr;
     SDL_GPUSampler* fallback_blend_sampler_  = nullptr;
     void FillSamplerBindings(SDL_GPUTextureSamplerBinding out[8]) const;
-#endif
 };

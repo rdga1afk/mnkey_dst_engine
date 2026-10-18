@@ -1,4 +1,3 @@
-#ifdef MD_SDL_GPU
 #include <monkey_dust/render/ambient_probe.h>
 #include <monkey_dust/platform/md_log.h>
 #include <cstring>
@@ -87,4 +86,3 @@ void AmbientProbeSystem::Shutdown() {
     count_ = 0;
 }
 
-#endif // MD_SDL_GPU

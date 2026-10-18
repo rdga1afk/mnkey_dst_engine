@@ -10,9 +10,7 @@
 // uploading PropMesh::custom_tex_rgba to the GPU below.
 #include "stb_image.h"
 
-#ifdef MD_SDL_GPU
 #include <SDL3/SDL_gpu.h>
-#endif
 
 bool PropRenderer::Init(const char* glb_path, float layer) {
     if (!glb_path) {
@@ -62,7 +60,6 @@ bool PropRenderer::FinishInit() {
         tex_custom_.InitFromMemory(white1x1, 1, 1, GpuSamplerDesc{});
     }
 
-#ifdef MD_SDL_GPU
     GpuPipeline::Desc pd;
     pd.vert_path = "shaders/prop.vert";
     pd.frag_path = "shaders/prop.frag";
@@ -90,7 +87,6 @@ bool PropRenderer::FinishInit() {
         mesh_.Shutdown();
         return false;
     }
-#endif
 
     return true;
 }
@@ -120,10 +116,8 @@ struct alignas(16) PropVertUBO {
 static_assert(sizeof(PropVertUBO) == 128, "PropVertUBO size mismatch");
 
 void PropRenderer::DrawRaw(
-#ifdef MD_SDL_GPU
     SDL_GPURenderPass*    rp,
     md::GpuCommandBufferHandle cmd,
-#endif
     const float* positions_xyz,
     int          count,
     const float* vp16,
@@ -138,7 +132,6 @@ void PropRenderer::DrawRaw(
     if (!mesh_.loaded || count <= 0) return;
     if (count > MAX_PROPS) count = MAX_PROPS;
 
-#ifdef MD_SDL_GPU
     if (!pipeline_.SDLPipeline()) return;
     if (!mesh_.vbo.SDLBuffer() || !mesh_.ibo.SDLBuffer()) return;
 
@@ -211,13 +204,8 @@ void PropRenderer::DrawRaw(
         pv.PushVertexUniforms(0, &v_ubo, sizeof(v_ubo));
         pv.DrawIndexed(mesh_.index_count, 1, 0, 0, 0);
     }
-#else
-    (void)positions_xyz; (void)count; (void)vp16; (void)sun32;
-    (void)scale; (void)anim_mode; (void)anim_time;
-#endif
 }
 
-#ifdef MD_SDL_GPU
 void PropRenderer::DrawGbuf(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, GpuPipeline& pipe, const float* positions_xyz, const float* quats_xyzw, int count, const float* vp16) {
     if (!mesh_.loaded || count <= 0 || !pipe.SDLPipeline()) return;
     if (!mesh_.vbo.SDLBuffer() || !mesh_.ibo.SDLBuffer()) return;
@@ -234,9 +222,7 @@ void PropRenderer::DrawGbuf(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cm
         pv.DrawIndexed(mesh_.index_count, 1, 0, 0, 0);
     }
 }
-#endif
 
-#ifdef MD_SDL_GPU
 void PropRenderer::BeginInstanced(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, GpuPipeline& pipe, const GpuStaticBuffer& inst, const float* vp16, const float* sun32, bool samplers, bool sun_ubo) {
     if (!mesh_.loaded || !pipe.SDLPipeline() || !mesh_.vbo.SDLBuffer() || !mesh_.ibo.SDLBuffer() || !inst.SDLBuffer()) return;
     GpuPassView pv = GpuPassView::FromRaw(rp, cmd);
@@ -261,4 +247,3 @@ void PropRenderer::DrawInstancedRange(SDL_GPURenderPass* rp, md::GpuCommandBuffe
     if (!mesh_.loaded || count == 0) return;
     GpuPassView::FromRaw(rp, cmd).DrawIndexed(mesh_.index_count, count, 0, 0, first);
 }
-#endif

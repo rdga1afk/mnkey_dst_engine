@@ -4,7 +4,6 @@
 
 #include <cstdint>
 
-#ifdef MD_SDL_GPU
 #include <SDL3/SDL_gpu.h>
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -95,4 +94,3 @@ inline void GpuGenerateMipmaps(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* tex) {
 inline void GpuBlitTexture(SDL_GPUCommandBuffer* cmd, const SDL_GPUBlitInfo& info) {
     if (cmd) SDL_BlitGPUTexture(cmd, &info);
 }
-#endif // MD_SDL_GPU

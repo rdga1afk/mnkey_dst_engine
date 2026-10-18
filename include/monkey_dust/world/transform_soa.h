@@ -7,9 +7,7 @@
 #include <monkey_dust/platform/math_types.h>
 #include <cstdint>
 
-#ifdef MD_SDL_GPU
 #include <SDL3/SDL_gpu.h>
-#endif
 
 // CPU-side Structure-of-Arrays for NPC transforms.
 // GPU upload via:
@@ -61,14 +59,12 @@ public:
     // Call once per frame AFTER all draw/compute that read transform_ring_.
     void     AdvanceFrame();
 
-#ifdef MD_SDL_GPU
     // Upload xzyr + faction to SDL_GPU device buffers via copy passes in cmd.
     // Call before any SDL_GPU compute pass that reads transform or faction data.
     void UploadSDLGPU(md::GpuCommandBufferHandle cmd);
     SDL_GPUBuffer* SDLTransformBuffer() const;
     SDL_GPUBuffer* SDLFactionBuffer()   const;
     SDL_GPUBuffer* SDLSkinBuffer()      const;
-#endif
     MD_HOT void BulkComputeDistSq(float cam_x, float cam_z);
     MD_HOT void BulkComputeLOD(float near_sq, float far_sq, uint8_t* out_lod) const;
     int      BuildMatrices(const uint8_t* lod, float far_sq,
@@ -141,12 +137,10 @@ private:
     bool     xzyr_dirty_     = true;  // true on first frame → full upload
     uint32_t xzyr_dirty_min_ = 0;
     uint32_t xzyr_dirty_max_ = 0;
-#ifdef MD_SDL_GPU
     SDL_GPUBuffer*         sdl_xzyr_buf_[3]    = {};
     SDL_GPUTransferBuffer* sdl_xzyr_stg_[3]    = {};
     SDL_GPUBuffer*         sdl_faction_buf_[3] = {};
     SDL_GPUTransferBuffer* sdl_faction_stg_[3] = {};
     SDL_GPUBuffer*         sdl_skin_buf_[3]    = {};
     SDL_GPUTransferBuffer* sdl_skin_stg_[3]    = {};
-#endif
 };

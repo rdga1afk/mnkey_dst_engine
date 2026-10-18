@@ -4,9 +4,7 @@
 
 #include <cstdint>
 
-#ifdef MD_SDL_GPU
 #include <SDL3/SDL_gpu.h>
-#endif
 
 // Sentinel gl_target value for GpuStaticBuffer::Init/InitEmpty — requests
 // SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ instead of VERTEX/INDEX, so the
@@ -53,18 +51,14 @@ public:
     void BindVertex(uint32_t slot, uint32_t stride, uint64_t offset = 0) const;
 
     unsigned int GLBuffer() const { return gl_buf_; }
-#ifdef MD_SDL_GPU
     SDL_GPUBuffer* SDLBuffer() const { return sdl_buf_; }
-#endif
 
     // Transfer GL buffer ownership (for MdMesh legacy interop).
     unsigned int Release() { unsigned int id = gl_buf_; gl_buf_ = 0; return id; }
 
 private:
     unsigned int gl_buf_ = 0;
-#ifdef MD_SDL_GPU
     SDL_GPUBuffer* sdl_buf_ = nullptr;
-#endif
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -89,12 +83,10 @@ public:
     void End();
 
 private:
-#ifdef MD_SDL_GPU
     SDL_GPUTransferBuffer* transfer_ = nullptr;
     uint8_t*               map_      = nullptr;
     struct Item { SDL_GPUBuffer* dst; uint32_t offset; uint32_t size; };
     Item items_[MAX_ITEMS];
-#endif
     uint32_t cursor_      = 0;
     uint32_t total_bytes_ = 0;
     int      item_count_  = 0;

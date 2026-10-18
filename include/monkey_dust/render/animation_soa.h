@@ -185,7 +185,6 @@ public:
     // Call once per frame after all draw/compute that reads GPU anim data.
     void AdvanceFrame() { ++frame_counter_; }
 
-#ifdef MD_SDL_GPU
     SDL_GPUBuffer* SDLBonesBuffer()    const { return bones_ssbo_.SDLBuffer(); }
     // CPU-side bone matrices upload (real-mesh animation path — OzzAnimator::Sample/Blend
     // writes s_all_bones in npc_render_frame_prep.cpp, this uploads it each frame).
@@ -193,7 +192,6 @@ public:
     void UploadBonesInCmd(md::GpuCommandBufferHandle cmd, const void* data, int bytes, int byte_offset = 0) {
         if (bones_ssbo_.SDLBuffer()) bones_ssbo_.UploadInCmd(cmd, data, bytes, byte_offset);
     }
-#endif
 
     // KEN-MORPH-1 (setBoneSize equivalent) is live via the CPU path:
     // CharBodyState::bone_scales/pos_scales, consumed directly by OzzAnimator::Sample/Blend.

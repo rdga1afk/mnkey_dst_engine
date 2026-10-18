@@ -6,9 +6,7 @@
 
 #include <cstdint>
 
-#ifdef MD_SDL_GPU
 #include <SDL3/SDL_gpu.h>
-#endif
 
 // ── Vertex topology ───────────────────────────────────────────────────────────
 enum class GpuTopology : uint8_t { TRIANGLES, POINTS, LINES };
@@ -71,11 +69,9 @@ struct GpuRasterState {
     // Requires the driver's fillModeNonSolid feature; confirmed present on
     // this project's target hardware (Intel Gen9 ANV).
     bool  wireframe            = false;
-#ifdef MD_SDL_GPU
     // Depth compare function. Default LESS_OR_EQUAL matches the prepass write.
     // Set to EQUAL for main pass after an Early-Z prepass (depth_write=false).
     SDL_GPUCompareOp depth_compare_op = SDL_GPU_COMPAREOP_LESS_OR_EQUAL;
-#endif
 };
 
 // ── ShaderFeature — SPIR-V variant selection ──────────────────────────────────

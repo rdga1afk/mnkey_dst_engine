@@ -15,9 +15,7 @@
 #include <monkey_dust/render/prop_renderer.h>
 #include <cstdint>
 
-#ifdef MD_SDL_GPU
 #include <SDL3/SDL_gpu.h>
-#endif
 
 class FeatureScatterSystem {
 public:
@@ -39,9 +37,7 @@ public:
     // #176: placements with texture mode 2 (TERRAIN) are drawn into the terrain G-buffer by DrawGbuf (shaded as ground) instead of by Draw, when on.
     void SetTerrainInGbuffer(bool on) { terrain_in_gbuf_ = on; }
     bool TerrainInGbuffer() const { return terrain_in_gbuf_; }
-#ifdef MD_SDL_GPU
     void DrawGbuf(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, const float* vp16, float cam_x, float cam_z, float radius);
-#endif
 
     int PlacementCount() const { return placement_count_; }
 
@@ -49,10 +45,8 @@ public:
     // batched per mesh type (one PropRenderer::DrawRaw call per mesh that
     // has >=1 visible instance this frame).
     void Draw(
-#ifdef MD_SDL_GPU
         SDL_GPURenderPass*    rp,
         md::GpuCommandBufferHandle cmd,
-#endif
         const float* vp16,
         const float* sun32,
         float        cam_x,
@@ -76,8 +70,6 @@ private:
     int       placement_count_ = 0;
 
     bool terrain_in_gbuf_ = true;   // default on: #176 (Gates-approved)
-#ifdef MD_SDL_GPU
     GpuPipeline gbuf_pipeline_;
-#endif
     int FindOrSkipMesh(const char* kenshi_mesh_path) const;
 };

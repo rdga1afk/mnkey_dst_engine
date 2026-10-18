@@ -1,7 +1,5 @@
 #pragma once
 // MdShader — minimal vert+frag shader wrapper using direct glad (no Raylib).
-// Active under MD_OPENGL43_ENABLED or MD_SDL_GPU (GL fallback path for standalone editor).
-// Under neither flag all functions are no-ops / return {}.
 
 struct MdShader { unsigned int id = 0; };
 

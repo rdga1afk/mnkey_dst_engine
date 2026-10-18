@@ -80,7 +80,6 @@ inline bool ValidateComputePipelineDesc(const ::GpuComputePipeline::Desc& desc,
 // makes it worse to debug live -- catch it here instead.
 inline bool ValidateGraphicsPipelineDesc(const ::GpuPipeline::Desc& desc,
                                           const char** out_reason) {
-#ifdef MD_SDL_GPU
     if (desc.frag_samplers > 0 && desc.vert_storage_bufs > 0) {
         *out_reason =
             "frag_samplers>0 combined with vert_storage_bufs>0 silently fails "
@@ -88,9 +87,6 @@ inline bool ValidateGraphicsPipelineDesc(const ::GpuPipeline::Desc& desc,
             "no Vulkan validation error, just wrong sampling results";
         return false;
     }
-#else
-    (void)desc;
-#endif
     (void)out_reason;
     return true;
 }

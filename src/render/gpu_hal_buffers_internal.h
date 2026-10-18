@@ -22,12 +22,10 @@
 
 #include "stb_image.h"
 
-#ifdef MD_SDL_GPU
 #include <monkey_dust/render/gpu_device.h>
 
 uint32_t MipLevels(int w, int h);
 SDL_GPUSampler* CreateSDLSampler(SDL_GPUDevice* dev, const GpuSamplerDesc& s);
-#endif
 
 // Per-mip BC-compressed byte size (4×4 texel blocks) — shared by
 // GpuTexture::InitFromDDS (single texture) and InitFromDDSArray (layered).

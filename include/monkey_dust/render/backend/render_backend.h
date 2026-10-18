@@ -76,8 +76,7 @@ public:
     // цієї фази -- §9).
     virtual void RunPostProcessChain() { MD_LOG(MD_LOG_WARNING, "[%s] not implemented", BackendName()); }
     // МОЖЕ не відповідати живому call site у non-editor release-білді --
-    // MdDraw2D-based HUD весь під #ifndef MD_SDL_GPU (мертвий код,
-    // MD_SDL_GPU єдина буксована конфігурація). Реальний HUD зараз --
+    // MdDraw2D-based HUD видалено (#185 K2). Реальний HUD зараз --
     // ImGui minimap/dialog всередині game_render_frame.cpp's кроку 3
     // (EditorImGui), не окремий GPU-виклик.
     virtual void RenderHud() { MD_LOG(MD_LOG_WARNING, "[%s] not implemented", BackendName()); }

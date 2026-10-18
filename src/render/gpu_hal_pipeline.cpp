@@ -10,9 +10,7 @@
 #include <cstring>
 
 
-#ifdef MD_SDL_GPU
 #include <monkey_dust/render/gpu_device.h>
-#endif
 
 // ── Common helpers ─────────────────────────────────────────────────────────────
 
@@ -30,7 +28,6 @@ static char* ReadTextFile(const char* path) {
     return buf;
 }
 
-#ifdef MD_SDL_GPU
 
 // ── SDL_GPUGraphicsPipeline object cache ─────────────────────────────────────
 // Vulkan pattern: VkPipelineCache reuses driver-compiled binaries.
@@ -315,7 +312,6 @@ static SDL_GPUShader* LoadSpvShader(SDL_GPUDevice* dev,
     return sh;
 }
 
-#endif // MD_SDL_GPU
 
 // ── GpuPipeline ───────────────────────────────────────────────────────────────
 
@@ -327,7 +323,6 @@ bool GpuPipeline::Create(const Desc& desc) {
     desc_   = desc;
     raster_ = desc.raster;
 
-#ifdef MD_SDL_GPU
     // ── Intel HD 520 / ANV binding validation ─────────────────────────────────
     // These combinations are silent GPU hangs or garbage output on Gen9 ANV.
     // Fail fast at pipeline creation rather than debugging corrupted frames.
@@ -528,14 +523,9 @@ bool GpuPipeline::Create(const Desc& desc) {
     MD_LOG(MD_LOG_INFO, "[GpuPipeline] SDL_GPU pipeline created: %s / %s",
            desc.vert_path, desc.frag_path);
     return true;
-#else
-    (void)desc;
-    return false;
-#endif
 }
 
 void GpuPipeline::Destroy() {
-#ifdef MD_SDL_GPU
     if (sdl_pipeline_) {
         // gaia-migration Phase 5 GATE 5 follow-up (2026-09-10): was a raw
         // SDL_ReleaseGPUGraphicsPipeline() that freed sdl_pipeline_ but left
@@ -558,7 +548,6 @@ void GpuPipeline::Destroy() {
         sdl_pipeline_ = nullptr;
         md::GpuResourceTracker::Get().OnPipelineDestroy();
     }
-#endif
 }
 
 bool GpuPipeline::Reload() {
@@ -593,7 +582,6 @@ bool GpuComputePipeline::Create(const Desc& desc) {
         return false;
     }
 
-#ifdef MD_SDL_GPU
     SDL_GPUDevice* dev = md::GpuDevice::Get().SDLDevice();
     if (dev) {
         char spv[256];
@@ -630,19 +618,14 @@ bool GpuComputePipeline::Create(const Desc& desc) {
         }
     }
     return sdl_pipeline_ != nullptr;
-#else
-    return false;
-#endif
 }
 
 void GpuComputePipeline::Destroy() {
-#ifdef MD_SDL_GPU
     if (sdl_pipeline_) {
         SDL_ReleaseGPUComputePipeline(md::GpuDevice::Get().SDLDevice(), sdl_pipeline_);
         sdl_pipeline_ = nullptr;
         md::GpuResourceTracker::Get().OnComputePipelineDestroy();
     }
-#endif
 }
 
 int GpuComputePipeline::UniformLoc(const char* name) const {

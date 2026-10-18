@@ -2,10 +2,8 @@
 
 #include <monkey_dust/platform/md_log.h>
 
-#ifdef MD_SDL_GPU
 #include <monkey_dust/render/gpu_device.h>
 #include <monkey_dust/render/gpu_copy_pass.h>
-#endif
 
 
 // ── Init / Shutdown ────────────────────────────────────────────────────────────
@@ -14,7 +12,6 @@ void GpuRingBuffer::Init(uint32_t size_bytes, int binding_hint) {
     size_ = size_bytes;
     cur_  = 0;
 
-#ifdef MD_SDL_GPU
     sdl_size_ = size_bytes;
     md::GpuDeviceHandle dev = md::GpuDevice::Get().SDLDevice();
     if (dev && size_bytes > 0) {
@@ -36,20 +33,17 @@ void GpuRingBuffer::Init(uint32_t size_bytes, int binding_hint) {
                 MD_LOG(MD_LOG_WARNING, "[GpuRingBuffer] SDL_CreateGPUTransferBuffer[%d] failed: %s", s, SDL_GetError());
         }
     }
-#endif
 
     (void)binding_hint;
 }
 
 void GpuRingBuffer::Shutdown() {
-#ifdef MD_SDL_GPU
     md::GpuDeviceHandle dev = md::GpuDevice::Get().SDLDevice();
     for (int s = 0; s < N_FRAMES; ++s) {
         if (sdl_device_[s])  { SDL_ReleaseGPUBuffer        (dev, sdl_device_[s]);  sdl_device_[s]  = nullptr; }
         if (sdl_staging_[s]) { SDL_ReleaseGPUTransferBuffer(dev, sdl_staging_[s]); sdl_staging_[s] = nullptr; }
     }
     sdl_size_ = 0;
-#endif
     size_ = 0;
     cur_  = 0;
 }
@@ -74,7 +68,6 @@ void GpuRingBuffer::Advance() {
 
 // ── SDL_GPU staging path ───────────────────────────────────────────────────────
 
-#ifdef MD_SDL_GPU
 SDL_GPUBuffer* GpuRingBuffer::SDLBuffer() const {
     return sdl_device_[md::GpuDevice::Get().FrameSlot()];
 }
@@ -114,4 +107,3 @@ void GpuRingBuffer::UploadInPass(SDL_GPUCopyPass* pass) {
     dst.size   = sdl_size_;
     GpuCopyPass::FromRaw(pass, nullptr).UploadBuffer(src, dst, false);
 }
-#endif

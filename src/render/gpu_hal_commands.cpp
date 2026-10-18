@@ -8,9 +8,7 @@
 #include <cstring>
 
 
-#ifdef MD_SDL_GPU
 #include <monkey_dust/render/gpu_device.h>
-#endif
 
 // ── GpuCommandBuffer ─────────────────────────────────────────────────────────
 
@@ -44,16 +42,13 @@ void GpuCommandBuffer::BindPipeline(GpuPipeline* p) {
     pipeline_ = p;
     if (!p || same) return;
 
-#ifdef MD_SDL_GPU
     if (sdl_cmd_) {
         if (sdl_pass_) SDL_BindGPUGraphicsPipeline(sdl_pass_, p->sdl_pipeline_);
         return;  // dual-backend: skip GL path when SDL_GPU command buffer is active
     }
-#endif
 }
 
 void GpuCommandBuffer::BindVertexBuffer(GpuVertexBuffer* buf) {
-#ifdef MD_SDL_GPU
     if (sdl_cmd_) {
         if (sdl_pass_ && buf && buf->sdl_buf_) {
             SDL_GPUBufferBinding binding = {};
@@ -63,35 +58,29 @@ void GpuCommandBuffer::BindVertexBuffer(GpuVertexBuffer* buf) {
         }
         return;
     }
-#endif
     (void)buf;
 }
 
 void GpuCommandBuffer::Draw(uint32_t vertex_count, uint32_t first_vertex) {
-#ifdef MD_SDL_GPU
     if (sdl_cmd_) {
         if (sdl_pass_) SDL_DrawGPUPrimitives(sdl_pass_, vertex_count, 1, first_vertex, 0);
         return;
     }
-#endif
     (void)vertex_count; (void)first_vertex;
 }
 
 void GpuCommandBuffer::EndPass() {
-#ifdef MD_SDL_GPU
     if (sdl_cmd_) {
         if (sdl_pass_) { SDL_EndGPURenderPass(sdl_pass_); sdl_pass_ = nullptr; }
         sdl_cmd_ = nullptr;
         pipeline_ = nullptr;
         return;  // dual-backend: skip GL path when SDL_GPU command buffer is active
     }
-#endif
     pipeline_ = nullptr;
 }
 
 // ── GpuCommandBuffer + GpuRenderPass — SDL_GPU paths ─────────────────────────
 
-#ifdef MD_SDL_GPU
 
 void GpuCommandBuffer::BeginColorPass(const ColorPassDesc& desc) {
     sdl_cmd_ = desc.cmd;
@@ -253,12 +242,10 @@ void GpuRenderPass::BeginDepthOnly(SDL_GPUCommandBuffer* cmd, const DepthDesc& d
     cull_front_ = desc.cull_front; // stored for symmetry; SDL_GPU cull is pipeline-configured
 }
 
-#endif // MD_SDL_GPU
 
 // ── GpuRenderPass::BeginColor (dual-backend) ─────────────────────────────────
 
 void GpuRenderPass::BeginColor(const ColorDesc& desc) {
-#ifdef MD_SDL_GPU
     if (desc.cmd) {
         uint32_t sw = 0, sh = 0;
         SDL_GPUTexture* color_tex =
@@ -288,19 +275,16 @@ void GpuRenderPass::BeginColor(const ColorDesc& desc) {
             if (!sdl_pass_) fprintf(stderr, "[GPU] BeginColor FAILED: %s\n", SDL_GetError());
         }
     }
-#endif
     (void)desc;
 }
 
 // ── GpuRenderPass::End ────────────────────────────────────────────────────────
 
 void GpuRenderPass::End() {
-#ifdef MD_SDL_GPU
     if (sdl_pass_) {
         SDL_EndGPURenderPass(sdl_pass_);
         sdl_pass_ = nullptr;
     }
-#endif
     cull_front_ = false;
 }
 
@@ -308,7 +292,6 @@ void GpuRenderPass::End() {
 
 void GpuComputePass::Begin(GpuComputePipeline* pipeline, const StorageBindings& bindings) {
     pipeline_ = pipeline;
-#ifdef MD_SDL_GPU
     sdl_cmd_ = bindings.cmd;
     if (sdl_cmd_ && pipeline && pipeline->sdl_pipeline_) {
         sdl_pass_ = SDL_BeginGPUComputePass(
@@ -323,12 +306,8 @@ void GpuComputePass::Begin(GpuComputePipeline* pipeline, const StorageBindings& 
                     sdl_pass_, 0, bindings.ro_buffers, bindings.num_ro_buffers);
         }
     }
-#else
-    (void)bindings;
-#endif
 }
 
-#ifdef MD_SDL_GPU
 void GpuComputePass::PushUniforms(uint32_t slot, const void* data, uint32_t size_bytes) {
     if (sdl_cmd_)
         SDL_PushGPUComputeUniformData(sdl_cmd_, slot, data, size_bytes);
@@ -337,22 +316,17 @@ void GpuComputePass::PushUniforms(uint32_t slot, const void* data, uint32_t size
 void GpuComputePass::BindSamplers(uint32_t first_slot, const SDL_GPUTextureSamplerBinding* bindings, uint32_t count) {
     if (sdl_pass_) SDL_BindGPUComputeSamplers(sdl_pass_, first_slot, bindings, count);
 }
-#endif
 
 void GpuComputePass::Dispatch(uint32_t gx, uint32_t gy, uint32_t gz) {
-#ifdef MD_SDL_GPU
     if (sdl_pass_) SDL_DispatchGPUCompute(sdl_pass_, gx, gy, gz);
-#endif
 }
 
 void GpuComputePass::End(uint32_t barrier_flags) {
-#ifdef MD_SDL_GPU
     if (sdl_pass_) {
         SDL_EndGPUComputePass(sdl_pass_);
         sdl_pass_ = nullptr;
     }
     sdl_cmd_ = nullptr;
-#endif
     (void)barrier_flags;
     pipeline_ = nullptr;
 }

@@ -1,5 +1,4 @@
 #include <monkey_dust/render/evsm_shadow.h>
-#ifdef MD_SDL_GPU
 #include <monkey_dust/render/gpu_device.h>
 #include <monkey_dust/render/gpu_pipeline.h>
 #include <monkey_dust/render/gpu_hal_free_functions.h>
@@ -324,4 +323,3 @@ void EvsmShadow::BindArrayForSampling(SDL_GPURenderPass* pass, uint32_t slot) {
 }
 
 } // namespace md
-#endif // MD_SDL_GPU

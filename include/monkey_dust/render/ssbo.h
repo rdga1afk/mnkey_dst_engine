@@ -1,18 +1,12 @@
 #pragma once
 #include <cstdint>
 
-#ifdef MD_SDL_GPU
 #include <SDL3/SDL_gpu.h>
 #include <monkey_dust/render/gpu_device.h>
-#endif
 
 // Portable flag for indirect-draw usage (pass as extra_sdl_usage to Init).
 // Resolves to SDL_GPU_BUFFERUSAGE_INDIRECT in SDL_GPU builds, 0 otherwise.
-#ifdef MD_SDL_GPU
 static constexpr uint32_t SSBO_INDIRECT = SDL_GPU_BUFFERUSAGE_INDIRECT;
-#else
-static constexpr uint32_t SSBO_INDIRECT = 0u;
-#endif
 
 // GPU Shader Storage Buffer Object wrapper.
 // OpenGL: glGenBuffers + GL_SHADER_STORAGE_BUFFER.
@@ -31,17 +25,13 @@ public:
     void Bind(int binding_point);
     void Shutdown();
 
-#ifdef MD_SDL_GPU
     // Returns the current frame's GPU buffer (slot = GpuDevice::FrameSlot()).
     SDL_GPUBuffer* SDLBuffer() const;
     // Upload within an existing frame command buffer's copy pass (writes to current slot).
     void UploadInCmd(md::GpuCommandBufferHandle cmd, const void* data, int size_bytes, int offset = 0);
-#endif
 
 private:
-#ifdef MD_SDL_GPU
     SDL_GPUBuffer*         sdl_buf_[3]      = {};
     SDL_GPUTransferBuffer* sdl_transfer_[3] = {};
     uint32_t               sdl_cap_         = 0;
-#endif
 };

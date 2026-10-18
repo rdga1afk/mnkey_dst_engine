@@ -11,7 +11,6 @@ size_t s_bc_mip_bytes(int w, int h, int bytes_per_block)
     return (size_t)bw * bh * (size_t)bytes_per_block;
 }
 
-#ifdef MD_SDL_GPU
 // ── DDS (BC1/DXT1 or BC3/DXT5) 2D texture array loader ───────────────────────
 
 // Returns height(12), width(16), mip_count(28), is_bc3/is_bc1, data_offset.
@@ -350,10 +349,8 @@ bool GpuTexture::InitFromDDSCube(const char* path)
     if (!sdl_sampler_) { SDL_ReleaseGPUTexture(dev, sdl_tex_); sdl_tex_ = nullptr; md::GpuResourceTracker::Get().OnTextureDestroy(); return false; }
     return true;
 }
-#endif // MD_SDL_GPU (InitFromDDSArray)
 
 void GpuTexture::Shutdown() {
-#ifdef MD_SDL_GPU
     SDL_GPUDevice* dev = md::GpuDevice::Get().SDLDevice();
     if (sdl_sampler_) { SDL_ReleaseGPUSampler(dev, sdl_sampler_); sdl_sampler_ = nullptr; }
     if (sdl_tex_) {
@@ -361,20 +358,9 @@ void GpuTexture::Shutdown() {
         sdl_tex_ = nullptr;
         md::GpuResourceTracker::Get().OnTextureDestroy();
     }
-#endif
-#ifndef MD_SDL_GPU
-    if (id_) { glDeleteTextures(1, &id_); id_ = 0; }
-#endif
     w_ = h_ = 0;
 }
 
 void GpuTexture::Bind(uint32_t unit) const {
-#ifndef MD_SDL_GPU
-    if (id_) {
-        glActiveTexture(GL_TEXTURE0 + unit);
-        glBindTexture(GL_TEXTURE_2D, id_);
-    }
-#else
     (void)unit;
-#endif
 }

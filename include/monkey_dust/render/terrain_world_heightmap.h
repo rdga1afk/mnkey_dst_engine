@@ -1,5 +1,4 @@
 #pragma once
-#ifdef MD_SDL_GPU
 #include <SDL3/SDL_gpu.h>
 #include <monkey_dust/render/gpu_device.h>
 #include <monkey_dust/render/gpu_sampler_texture.h>
@@ -75,4 +74,3 @@ private:
     float world_extent_ = 0.f;
     int   res_           = 0;
 };
-#endif

@@ -1,5 +1,4 @@
 #pragma once
-#ifdef MD_SDL_GPU
 #include <SDL3/SDL_gpu.h>
 #include <monkey_dust/render/gpu_pipeline.h>
 #include <monkey_dust/render/gpu_compute.h>
@@ -92,4 +91,3 @@ private:
     GpuComputePipeline update_pipeline_;
     GpuPipeline apply_pipeline_;
 };
-#endif

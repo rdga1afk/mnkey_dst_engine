@@ -3,7 +3,6 @@
 #include <monkey_dust/render/gpu_copy_pass.h>
 #include <monkey_dust/render/gpu_pass_view.h>
 #include <monkey_dust/render/gpu_hal_free_functions.h>
-#ifdef MD_SDL_GPU
 #include <monkey_dust/platform/md_log.h>
 #include <monkey_dust/world/terrain_quadtree_mesh.h>
 #include <monkey_dust/io/tiff.h>
@@ -870,4 +869,3 @@ void TerrainQuadtreeRenderer::DrawBatchedBoundary(SDL_GPURenderPass* rp, md::Gpu
     // corner vertices/instance from gl_VertexIndex + nodeDataTex directly.
     pv.Draw(8, (uint32_t)count, 0, 0);
 }
-#endif // MD_SDL_GPU

@@ -1,5 +1,4 @@
 #include <monkey_dust/render/npc_gpu_culler.h>
-#ifdef MD_SDL_GPU
 #include <monkey_dust/render/gpu_device.h>
 #include <monkey_dust/render/gpu_compute.h>
 #include <monkey_dust/render/gpu_copy_pass.h>
@@ -173,4 +172,3 @@ int NpcGpuCuller::Cull(const float* npc_x, const float* npc_z, int count,
 }
 
 } // namespace md
-#endif // MD_SDL_GPU

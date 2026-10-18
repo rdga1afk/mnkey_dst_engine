@@ -21,9 +21,7 @@ void ParticleRenderer::Init() {
     desc.raster.cull_back   = false;  // points have no faces
     desc.raster.point_size  = true;   // GL_PROGRAM_POINT_SIZE for distance-based radius
 
-#ifdef MD_SDL_GPU
     desc.vert_uniform_bufs = 1;  // particle.vert set=1 binding=0: viewProj + cameraPos (80B)
-#endif
     pipeline_.Create(desc);
 
     vbuf_.Init(MAX_PARTICLES, 20);
@@ -34,7 +32,6 @@ void ParticleRenderer::Shutdown() {
     pipeline_.Destroy();
 }
 
-#ifdef MD_SDL_GPU
 
 int ParticleRenderer::PrepareSDLGPU(md::GpuCommandBufferHandle cmd, Vec3 cam_pos) {
     void* ptr = vbuf_.MapWrite();
@@ -66,5 +63,4 @@ void ParticleRenderer::DrawSDLGPU(SDL_GPURenderPass* rp, md::GpuCommandBufferHan
     pv.Draw((uint32_t)count, 1, 0, 0);
 }
 
-#endif // MD_SDL_GPU
 

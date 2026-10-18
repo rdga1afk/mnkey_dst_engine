@@ -4,7 +4,6 @@
 
 void GpuVertexBuffer::Init(uint32_t max_vertices, uint32_t vertex_stride) {
     stride_ = vertex_stride;
-#ifdef MD_SDL_GPU
     sdl_size_ = max_vertices * vertex_stride;
     SDL_GPUDevice* dev = md::GpuDevice::Get().SDLDevice();
 
@@ -21,37 +20,27 @@ void GpuVertexBuffer::Init(uint32_t max_vertices, uint32_t vertex_stride) {
     sdl_transfer_ = SDL_CreateGPUTransferBuffer(dev, &tbuf_info);
     if (!sdl_transfer_)
         MD_LOG(MD_LOG_WARNING, "[GpuVertexBuffer] SDL_CreateGPUTransferBuffer failed: %s", SDL_GetError());
-#endif
 }
 
 void GpuVertexBuffer::Shutdown() {
-#ifdef MD_SDL_GPU
     SDL_GPUDevice* dev = md::GpuDevice::Get().SDLDevice();
     if (sdl_buf_)      { SDL_ReleaseGPUBuffer(dev, sdl_buf_);                sdl_buf_      = nullptr; }
     if (sdl_transfer_) { SDL_ReleaseGPUTransferBuffer(dev, sdl_transfer_);   sdl_transfer_ = nullptr; }
     sdl_size_ = 0;
-#endif
     stride_ = 0;
 }
 
 void* GpuVertexBuffer::MapWrite() {
-#ifdef MD_SDL_GPU
     if (!sdl_transfer_) return nullptr;
     return SDL_MapGPUTransferBuffer(md::GpuDevice::Get().SDLDevice(),
                                     sdl_transfer_, true /*cycle*/);
-#else
-    return nullptr;
-#endif
 }
 
 void GpuVertexBuffer::Unmap() {
-#ifdef MD_SDL_GPU
     if (sdl_transfer_)
         SDL_UnmapGPUTransferBuffer(md::GpuDevice::Get().SDLDevice(), sdl_transfer_);
-#endif
 }
 
-#ifdef MD_SDL_GPU
 void GpuVertexBuffer::Upload(SDL_GPUCommandBuffer* cmd) {
     if (!cmd || !sdl_buf_ || !sdl_transfer_) return;
     SDL_GPUCopyPass* pass = SDL_BeginGPUCopyPass(cmd);
@@ -65,7 +54,6 @@ void GpuVertexBuffer::Upload(SDL_GPUCommandBuffer* cmd) {
     SDL_UploadToGPUBuffer(pass, &src, &dst, true /*cycle*/);
     SDL_EndGPUCopyPass(pass);
 }
-#endif
 
 void GpuVertexBuffer::Advance() {
     // SDL_GPU: cycle=true in MapWrite/Upload handles versioning — no explicit advance needed.
@@ -75,7 +63,6 @@ void GpuVertexBuffer::Advance() {
 
 void GpuDepthTexture::Init(int w, int h, bool shadow_border) {
     w_ = w; h_ = h;
-#ifdef MD_SDL_GPU
     SDL_GPUDevice* dev = md::GpuDevice::Get().SDLDevice();
 
     SDL_GPUTextureCreateInfo ti = {};
@@ -105,12 +92,10 @@ void GpuDepthTexture::Init(int w, int h, bool shadow_border) {
     si.max_lod        = 0.0f;
     sdl_sampler_ = SDL_CreateGPUSampler(dev, &si);
     md::GpuResourceTracker::Get().OnDepthTextureCreate();
-#endif
     (void)shadow_border;
 }
 
 void GpuDepthTexture::Shutdown() {
-#ifdef MD_SDL_GPU
     SDL_GPUDevice* dev = md::GpuDevice::Get().SDLDevice();
     if (sdl_sampler_) { SDL_ReleaseGPUSampler(dev, sdl_sampler_); sdl_sampler_ = nullptr; }
     if (sdl_tex_)     {
@@ -118,7 +103,6 @@ void GpuDepthTexture::Shutdown() {
         sdl_tex_ = nullptr;
         md::GpuResourceTracker::Get().OnDepthTextureDestroy();
     }
-#endif
     w_ = h_ = 0;
 }
 
@@ -128,7 +112,6 @@ void GpuDepthTexture::Bind(uint32_t unit) const {
 
 // ── GpuSampler ────────────────────────────────────────────────────────────────
 
-#ifdef MD_SDL_GPU
 bool GpuSampler::Init(const GpuSamplerDesc& desc) {
     SDL_GPUDevice* dev = md::GpuDevice::Get().SDLDevice();
     if (!dev) return false;
@@ -180,4 +163,3 @@ void GpuColorTexture::Shutdown() {
     }
     w_ = h_ = 0;
 }
-#endif // MD_SDL_GPU

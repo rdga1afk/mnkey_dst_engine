@@ -4,7 +4,6 @@
 // ── GpuStaticBuffer ───────────────────────────────────────────────────────────
 
 void GpuStaticBuffer::Init(unsigned int target, const void* data, uint32_t size) {
-#ifdef MD_SDL_GPU
     SDL_GPUDevice* dev = md::GpuDevice::Get().SDLDevice();
 
     // Map GL target → SDL_GPU buffer usage.
@@ -55,12 +54,10 @@ void GpuStaticBuffer::Init(unsigned int target, const void* data, uint32_t size)
         MD_LOG(MD_LOG_WARNING, "[GpuStaticBuffer] submit failed: %s", SDL_GetError());
 
     SDL_ReleaseGPUTransferBuffer(dev, transfer); // staging no longer needed
-#endif
 
 }
 
 void GpuStaticBuffer::InitEmpty(unsigned int target, uint32_t size) {
-#ifdef MD_SDL_GPU
     if (size == 0) { sdl_buf_ = nullptr; return; } // SDL_CreateGPUBuffer asserts on size<4 (audit S1-0b)
     SDL_GPUDevice* dev = md::GpuDevice::Get().SDLDevice();
     SDL_GPUBufferUsageFlags usage = (target == 0x8893u)  ? SDL_GPU_BUFFERUSAGE_INDEX
@@ -76,14 +73,10 @@ void GpuStaticBuffer::InitEmpty(unsigned int target, uint32_t size) {
         MD_LOG(MD_LOG_WARNING, "[GpuStaticBuffer] InitEmpty: SDL_CreateGPUBuffer failed: %s", SDL_GetError());
     else
         md::GpuResourceTracker::Get().OnBufferCreate();
-#else
-    (void)target; (void)size;
-#endif
 }
 
 bool GpuUploadBatch::Begin(uint32_t total_bytes) {
     cursor_ = 0; total_bytes_ = total_bytes; item_count_ = 0;
-#ifdef MD_SDL_GPU
     transfer_ = nullptr; map_ = nullptr;
     if (total_bytes == 0) return true;
     SDL_GPUDevice* dev = md::GpuDevice::Get().SDLDevice();
@@ -103,25 +96,17 @@ bool GpuUploadBatch::Begin(uint32_t total_bytes) {
         return false;
     }
     return true;
-#else
-    return true;
-#endif
 }
 
 void GpuUploadBatch::Add(GpuStaticBuffer& buf, unsigned int target, const void* data, uint32_t size) {
     buf.InitEmpty(target, size);
-#ifdef MD_SDL_GPU
     if (!map_ || item_count_ >= MAX_ITEMS || cursor_ + size > total_bytes_) return;
     if (data && size) memcpy(map_ + cursor_, data, size);
     items_[item_count_++] = { buf.SDLBuffer(), cursor_, size };
     cursor_ += size;
-#else
-    (void)buf; (void)target; (void)data; (void)size;
-#endif
 }
 
 void GpuUploadBatch::End() {
-#ifdef MD_SDL_GPU
     if (!transfer_) return;
     SDL_GPUDevice* dev = md::GpuDevice::Get().SDLDevice();
     SDL_UnmapGPUTransferBuffer(dev, transfer_);
@@ -151,17 +136,14 @@ void GpuUploadBatch::End() {
 
     SDL_ReleaseGPUTransferBuffer(dev, transfer_);
     transfer_ = nullptr;
-#endif
 }
 
 void GpuStaticBuffer::Shutdown() {
-#ifdef MD_SDL_GPU
     if (sdl_buf_) {
         SDL_ReleaseGPUBuffer(md::GpuDevice::Get().SDLDevice(), sdl_buf_);
         sdl_buf_ = nullptr;
         md::GpuResourceTracker::Get().OnBufferDestroy();
     }
-#endif
 }
 
 void GpuStaticBuffer::Bind(unsigned int target) const {

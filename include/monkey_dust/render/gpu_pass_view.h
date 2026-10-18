@@ -9,11 +9,8 @@
 #include <monkey_dust/render/gpu_depth_texture.h>
 #include <cstdint>
 
-#ifdef MD_SDL_GPU
 #include <SDL3/SDL_gpu.h>
-#endif
 
-#ifdef MD_SDL_GPU
 class GpuStaticBuffer; // defined below -- GpuPassView only needs pointer params
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -97,7 +94,6 @@ private:
     SDL_GPUCommandBuffer* sdl_cmd_  = nullptr;
     friend class GpuRenderPass;
 };
-#endif // MD_SDL_GPU
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GpuRenderPass — scoped render pass bound to one or more attachments.
@@ -121,10 +117,8 @@ public:
     // OpenGL: FBO bind + clear.
     void BeginDepthOnly(const DepthDesc& desc);
 
-#ifdef MD_SDL_GPU
     // SDL_GPU depth-only variant: requires the frame command buffer.
     void BeginDepthOnly(SDL_GPUCommandBuffer* cmd, const DepthDesc& desc);
-#endif
 
     // ── Color pass (main render target) ──────────────────────────────────────
     struct ColorDesc {
@@ -132,10 +126,8 @@ public:
         float            clear_depth = 1.0f;
         GpuDepthTexture* depth       = nullptr; // optional depth attachment
         bool             load_depth  = false;   // true = LOAD (e.g. after Early-Z prepass)
-#ifdef MD_SDL_GPU
         // SDL_GPU: frame command buffer acquired from GpuDevice::AcquireCommandBuffer().
         SDL_GPUCommandBuffer* cmd = nullptr;
-#endif
     };
 
     // SDL_GPU: AcquireSwapchainTexture + SDL_BeginGPURenderPass(color+depth).
@@ -145,7 +137,6 @@ public:
     // SDL_GPU: SDL_EndGPURenderPass. OpenGL: restore FBO + viewport.
     void End();
 
-#ifdef MD_SDL_GPU
     SDL_GPURenderPass* SDLPass() const { return sdl_pass_; }
 
     // Non-owning view for binding/drawing into this pass. `cmd` is the same
@@ -153,13 +144,10 @@ public:
     // itself (only sdl_pass_), so the caller (who still holds it) supplies
     // it here. See GpuPassView's doc comment for why this exists.
     GpuPassView View(SDL_GPUCommandBuffer* cmd) const { return GpuPassView(sdl_pass_, cmd); }
-#endif
 
 private:
     int  saved_vp_[4]  = {};
     bool cull_front_   = false;
-#ifdef MD_SDL_GPU
     SDL_GPURenderPass* sdl_pass_ = nullptr;
-#endif
 };
 

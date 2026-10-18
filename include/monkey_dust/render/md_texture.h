@@ -1,15 +1,13 @@
 #pragma once
 // MdTexture — texture loader using stb_image (no Raylib).
-// Supported backends: OpenGL 4.3 (MD_OPENGL43_ENABLED) and SDL_GPU (MD_SDL_GPU).
-// Under neither flag all functions are no-ops / return {}.
+// Backend: SDL_GPU only (the OpenGL path was removed in #185 K2).
 //
 // Implementation lives in md_texture.cpp.
 
 #include <cstdint>
 
-// IMPORTANT: layout must NOT change between MD_SDL_GPU and non-SDL_GPU builds.
-// Engine lib is always compiled with MD_SDL_GPU; editor/tools may omit it.
-// Mismatched struct sizes cause ABI breakage (wrong array offsets, bad returns).
+// IMPORTANT: layout must stay identical in every binary that includes this header
+// (mismatched struct sizes cause ABI breakage: wrong array offsets, bad returns).
 struct MdTexture {
     unsigned int id = 0;           // OpenGL texture name (0 in SDL_GPU path)
     int w = 0, h = 0;
@@ -30,7 +28,6 @@ MdTexture MdLoadTexturePixelArt(const char* path);
 // Upload raw RGBA8 pixel data (for procedural textures such as BRDF LUT).
 MdTexture MdLoadTextureFromMemory(const uint8_t* data, int w, int h);
 
-#ifdef MD_SDL_GPU
 #include <monkey_dust/render/gpu_device.h>
 #include <monkey_dust/render/gpu_sampler_texture.h>
 // 2026-09-05 (simplification audit, dead-duplicate finding): upload a
@@ -45,7 +42,6 @@ MdTexture MdLoadTextureFromMemory(const uint8_t* data, int w, int h);
 // received. Consolidated here so a future fix lands once, not per-copy.
 bool MdUploadSquareRGBA8ToGpuColorTexture(md::GpuDeviceHandle dev, const uint8_t* pixels,
                                             int size, GpuColorTexture& out);
-#endif // MD_SDL_GPU
 
 void MdUnloadTexture(MdTexture& t);
 

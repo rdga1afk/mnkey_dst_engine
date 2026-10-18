@@ -15,7 +15,6 @@
 // Stalls via SDL_WaitForGPUIdle after submit — acceptable for 64 NPCs.
 // For >1000 NPCs consider one-frame-latency double-buffered readback.
 
-#ifdef MD_SDL_GPU
 #include <SDL3/SDL_gpu.h>
 #include <monkey_dust/render/gpu_compute.h>
 #include <monkey_dust/render/gpu_static_buffer.h>
@@ -62,4 +61,3 @@ private:
 };
 
 } // namespace md
-#endif // MD_SDL_GPU

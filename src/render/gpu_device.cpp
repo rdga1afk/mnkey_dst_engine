@@ -1,4 +1,3 @@
-#ifdef MD_SDL_GPU
 #include <monkey_dust/render/gpu_device.h>
 #include <monkey_dust/render/gpu_frame_timeline.h>
 #include <monkey_dust/render/gpu_sampler_texture.h>
@@ -220,4 +219,3 @@ void GpuDevice::WaitForIdle() {
 }
 
 } // namespace md
-#endif // MD_SDL_GPU

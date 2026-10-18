@@ -22,11 +22,7 @@ struct MdCamera {
     // SDL_GPU (column-major, depth [0,1]): clip = Proj * View * pos → P * V.
     // Raylib/OpenGL (row-major convention): V * P was correct historically.
     Mat4 ViewProjMatrix(float aspect) const {
-#ifdef MD_SDL_GPU
         return mat4_mul(ProjMatrix(aspect), ViewMatrix());
-#else
-        return mat4_mul(ViewMatrix(), ProjMatrix(aspect));
-#endif
     }
 
     Mat4 ProjMatrix(float aspect) const {

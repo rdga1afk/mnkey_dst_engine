@@ -8,11 +8,8 @@
 #include <monkey_dust/render/gpu_device.h>
 #include <cstdint>
 
-#ifdef MD_SDL_GPU
 #include <SDL3/SDL_gpu.h>
-#endif
 
-#ifdef MD_SDL_GPU
 // ─────────────────────────────────────────────────────────────────────────────
 // GpuPush{Vertex,Fragment,Compute}Uniforms — stateless passthrough.
 //
@@ -187,7 +184,6 @@ inline bool GpuSetSwapchainParameters(SDL_GPUDevice* dev, SDL_Window* win,
                                        SDL_GPUPresentMode mode) {
     return SDL_SetGPUSwapchainParameters(dev, win, composition, mode);
 }
-#endif // MD_SDL_GPU
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GpuDrawIndexedIndirect — indexed draw using a GPU-side indirect buffer.

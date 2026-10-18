@@ -1,5 +1,4 @@
 #include <monkey_dust/render/rd_pipeline.h>
-#ifdef MD_SDL_GPU
 #include <monkey_dust/render/rd_device.h>
 #include <cstdio>
 
@@ -45,4 +44,3 @@ void RdPipeline::Destroy() {
 }
 
 } // namespace md
-#endif // MD_SDL_GPU
