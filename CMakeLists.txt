@@ -11,6 +11,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # В обох випадках third_party/ резолвиться правильно.
 set(MD_THIRD_PARTY "${CMAKE_CURRENT_SOURCE_DIR}/third_party")
 
+# #189: standalone ASan/UBSan package variant (same flags as MONKEY_DUST_ASAN in the root CMakeLists.txt; must come before the third-party targets so they are instrumented too)
+option(MD_ENGINE_ASAN "Standalone engine build with AddressSanitizer + UndefinedBehaviorSanitizer" OFF)
+if(MD_ENGINE_ASAN AND CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+    add_compile_options(-fsanitize=address,undefined -fno-sanitize=vptr -fno-omit-frame-pointer -g -O1)
+    add_link_options(-fsanitize=address,undefined -fno-sanitize=vptr)
+endif()
+
 # Додаємо compile targets тільки якщо ще не визначені (при monorepo build
 # root може додати їх раніше — захищаємо від подвійного add_subdirectory).
 if(NOT TARGET glm)
@@ -333,3 +340,47 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.16")
     endif()
 endif()
 
+
+# ── #189: install the engine as a prebuilt package (CI publishes it as a GitHub Release asset) ─────────────────────────────────────────────────────
+# cmake --install <build> --prefix <dir>  ->  <dir>/lib/*.a, <dir>/include/ (the headers the PUBLIC include paths point at) and
+# <dir>/lib/cmake/MonkeyDustEngine/MonkeyDustEngineConfig.cmake (imported target monkey_dust::engine, same PUBLIC definitions). The game / tools / tests use it
+# with -DMD_ENGINE_PREBUILT=<dir> (root CMakeLists.txt); without that option they build this directory from source as before.
+set(MD_ENGINE_VARIANT "release" CACHE STRING "Package variant name stored in the config: release | asan")
+block()
+    execute_process(COMMAND git -C "${CMAKE_CURRENT_SOURCE_DIR}" rev-parse HEAD OUTPUT_VARIABLE MD_ENGINE_SHA OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+    if(NOT MD_ENGINE_SHA)
+        set(MD_ENGINE_SHA "unknown")
+    endif()
+    get_target_property(MD_ENGINE_DEFS monkey_dust_engine INTERFACE_COMPILE_DEFINITIONS)
+    list(JOIN MD_ENGINE_DEFS ";" MD_ENGINE_DEFS)
+    set(MD_ENGINE_COPTS "")
+    set(MD_ENGINE_LOPTS "")
+    if(MD_ENGINE_ASAN OR MONKEY_DUST_ASAN)
+        set(MD_ENGINE_COPTS "-fsanitize=address,undefined;-fno-sanitize=vptr;-fno-omit-frame-pointer")
+        set(MD_ENGINE_LOPTS "-fsanitize=address,undefined;-fno-sanitize=vptr")
+    endif()
+    set(MD_ENGINE_CXX_ID "${CMAKE_CXX_COMPILER_ID}")
+    set(MD_ENGINE_CXX_VERSION "${CMAKE_CXX_COMPILER_VERSION}")
+    set(MD_ENGINE_LUA "${_LUA_LINK}")
+    if(MD_STATIC_DEPS)
+        set(MD_ENGINE_LUA "lua54_static")
+    endif()
+
+    install(TARGETS monkey_dust_engine Jolt ozz_animation ozz_animation_offline ozz_base ARCHIVE DESTINATION lib COMPONENT md_engine)
+    install(DIRECTORY include/ DESTINATION include COMPONENT md_engine FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp" PATTERN "*.inl")
+    install(DIRECTORY ${MD_THIRD_PARTY}/ozz-animation/include/ DESTINATION include/third_party/ozz-animation  COMPONENT md_engine)
+    install(DIRECTORY ${MD_THIRD_PARTY}/gaia-ecs/single_include/ DESTINATION include/third_party/gaia-ecs  COMPONENT md_engine)
+    install(DIRECTORY ${MD_THIRD_PARTY}/glm/glm DESTINATION include/third_party/glm COMPONENT md_engine FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp" PATTERN "*.inl")
+    install(DIRECTORY ${MD_THIRD_PARTY}/JoltPhysics/Jolt DESTINATION include/third_party/JoltPhysics COMPONENT md_engine FILES_MATCHING PATTERN "*.h" PATTERN "*.inl" PATTERN "*.hpp")
+    install(DIRECTORY src/vendor/ DESTINATION include/vendor COMPONENT md_engine FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp" PATTERN "*.inl")
+    install(DIRECTORY src/audio/ DESTINATION include/audio COMPONENT md_engine FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp")
+    install(FILES NOTICE THIRD_PARTY.md LICENSE DESTINATION share/doc/monkey_dust_engine COMPONENT md_engine OPTIONAL)
+
+    # the file names of the static archives are a generator-time fact (<LIB>_<CONFIG> names of ozz): generate the config from the template
+    foreach(_t Jolt ozz_animation ozz_animation_offline ozz_base)
+        set(MD_ENGINE_FILE_${_t} "$<TARGET_FILE_NAME:${_t}>")
+    endforeach()
+    configure_file(cmake/MonkeyDustEngineConfig.cmake.in "${CMAKE_CURRENT_BINARY_DIR}/MonkeyDustEngineConfig.in.cmake" @ONLY)
+    file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/MonkeyDustEngineConfig.cmake" INPUT "${CMAKE_CURRENT_BINARY_DIR}/MonkeyDustEngineConfig.in.cmake")
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/MonkeyDustEngineConfig.cmake" DESTINATION lib/cmake/MonkeyDustEngine COMPONENT md_engine)
+endblock()

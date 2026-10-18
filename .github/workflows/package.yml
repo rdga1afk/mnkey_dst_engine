@@ -1,0 +1,117 @@
+name: Package
+
+# #189: the engine and its static third-party libraries (Jolt, ozz) are compiled here, not on the owner's laptop. The result is a CMake package (cmake --install tree) published
+# as a GitHub Release asset tagged build-<sha12> (artifacts expire after 90 days, release assets do not). Two variants: release (CMAKE_BUILD_TYPE=Release, the laptop's build)
+# and asan (-fsanitize=address,undefined). The build runs in archlinux:latest with clang, the toolchain family of the laptop, so the libstdc++ ABI of the objects matches.
+# No Kenshi files here: only our code and the vendored third-party libraries (submodules pinned by the commit).
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'include/**'
+      - 'src/**'
+      - 'third_party/**'
+      - 'CMakeLists.txt'
+      - 'cmake/**'
+      - '.github/workflows/package.yml'
+  workflow_dispatch: {}
+
+concurrency:
+  group: package-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    name: Package/${{ matrix.variant }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    container: archlinux:latest
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [release, asan]
+    steps:
+      - name: Toolchain (Arch Linux, rolling)
+        run: |
+          pacman -Syu --noconfirm --needed base-devel clang cmake ninja git ccache zstd sdl3 lua54 mold
+          clang --version | head -1
+          pacman -Q gcc-libs clang cmake sdl3 lua54 glibc
+
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Mark the workspace as safe for git (container user differs from the owner)
+        run: git config --global --add safe.directory '*'
+
+      - name: ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-${{ matrix.variant }}-${{ github.sha }}
+          restore-keys: |
+            ccache-${{ matrix.variant }}-
+
+      - name: Configure
+        run: |
+          EXTRA=""
+          if [ "${{ matrix.variant }}" = "asan" ]; then EXTRA="-DMD_ENGINE_ASAN=ON"; fi
+          # MONKEY_DUST_EDITOR=ON: the root project's default; it adds the PUBLIC definition DEBUG to the engine target, so the package must be built with it.
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DMONKEY_DUST_EDITOR=ON -DMD_ENGINE_VARIANT=${{ matrix.variant }} $EXTRA
+
+      - name: Build
+        run: |
+          ccache -z
+          ninja -C build monkey_dust_engine
+          ccache -s | head -8
+
+      - name: Install the package
+        run: |
+          cmake --install build --prefix pkg --component md_engine
+          SHA12=$(git rev-parse --short=12 HEAD)
+          NAME=engine-${SHA12}-${{ matrix.variant }}
+          tar --zstd -cf ${NAME}.tar.zst -C pkg .
+          sha256sum ${NAME}.tar.zst | tee ${NAME}.tar.zst.sha256
+          ls -la ${NAME}.tar.zst
+          echo "NAME=${NAME}" >> $GITHUB_ENV
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.NAME }}
+          path: |
+            ${{ env.NAME }}.tar.zst
+            ${{ env.NAME }}.tar.zst.sha256
+          retention-days: 7
+
+  release:
+    name: Release
+    needs: package
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+          merge-multiple: true
+      - name: Publish build-<sha12>
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SHA12=$(git rev-parse --short=12 HEAD)
+          TAG=build-${SHA12}
+          ls -la assets
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" assets/* --clobber
+          else
+            gh release create "$TAG" assets/* --target "${{ github.sha }}" --title "Engine package ${SHA12}" \
+              --notes "Prebuilt monkey_dust engine (commit ${{ github.sha }}): CMake package, variants release and asan, built in archlinux:latest with clang. No Kenshi files. See scripts/fetch_engine.sh in the main repo."
+          fi
