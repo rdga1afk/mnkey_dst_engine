@@ -39,12 +39,7 @@ SDL_GPUSampler* CreateSDLSampler(SDL_GPUDevice* dev, const GpuSamplerDesc& s) {
 }
 
 
-// ── GpuTexture ────────────────────────────────────────────────────────────────
 
-
-void GpuTexture::ApplySampler(const GpuSamplerDesc& s) const {
-    (void)s;  // sampler state baked into SDL_GPUSampler at creation
-}
 
 bool GpuTexture::InitFromFile(const char* path, const GpuSamplerDesc& s) {
     size_t len = strlen(path);

@@ -182,60 +182,7 @@ float TerrainAtlas_GetHeight(int zx, int zy, int col, int row) {
     return s_atlas_h[s_atlas_hi(zx, zy, col, row)];
 }
 
-void TerrainAtlas_SetHeight(int zx, int zy, int col, int row, float h) {
-    if (!s_atlas_loaded || zx < 0 || zx >= ATLAS_ZONES ||
-        zy < 0 || zy >= ATLAS_ZONES) return;
-    int idx = s_atlas_hi(zx, zy, col, row);
-    s_atlas_h[idx] = h;
-    int zi = s_atlas_zi(zx, zy);
-    s_atlas_dirty[zi] = 1;
-    if (h < s_atlas_hmin[zi]) s_atlas_hmin[zi] = h;
-    if (h > s_atlas_hmax[zi]) s_atlas_hmax[zi] = h;
-}
 
-bool TerrainAtlas_ZoneDirty(int zx, int zy) {
-    if (zx < 0 || zx >= ATLAS_ZONES || zy < 0 || zy >= ATLAS_ZONES) return false;
-    return s_atlas_dirty[s_atlas_zi(zx, zy)] != 0;
-}
-
-bool TerrainAtlas_Save(const char* path) {
-    if (!s_atlas_loaded) return false;
-    char r16_path[512], edits_path[512];
-    s_atlas_derive_paths(path, r16_path, edits_path, sizeof(r16_path));
-    (void)r16_path; // base is read-only, never rewritten here
-    FILE* f = fopen(edits_path, "wb");
-    if (!f) return false;
-    uint32_t n_dirty = 0;
-    for (int i = 0; i < ATLAS_ZONES * ATLAS_ZONES; ++i) if (s_atlas_dirty[i]) ++n_dirty;
-    uint32_t magic = ATLAS_EDITS_MAGIC;
-    fwrite(&magic, 4, 1, f);
-    fwrite(&n_dirty, 4, 1, f);
-    for (int zy = 0; zy < ATLAS_ZONES; ++zy) {
-        for (int zx = 0; zx < ATLAS_ZONES; ++zx) {
-            int zi = s_atlas_zi(zx, zy);
-            if (!s_atlas_dirty[zi]) continue;
-            uint32_t uzx = (uint32_t)zx, uzy = (uint32_t)zy;
-            fwrite(&uzx, 4, 1, f);
-            fwrite(&uzy, 4, 1, f);
-            fwrite(&s_atlas_hmin[zi], 4, 1, f);
-            fwrite(&s_atlas_hmax[zi], 4, 1, f);
-            fwrite(&s_atlas_h[zi * ATLAS_ZBLOCK], 4, ATLAS_ZBLOCK, f);
-        }
-    }
-    fclose(f);
-    fprintf(stdout, "[TerrainAtlas] saved %u edited zone(s) to %s\n", n_dirty, edits_path);
-    return true;
-}
-
-// SaveEdits/LoadEdits/HasEdits — thin wrappers over the atlas API
-// (editor brush tool calls these)
-bool TerrainAtlas_SaveEdits(const char* path) { return TerrainAtlas_Save(path); }
-bool TerrainAtlas_LoadEdits(const char*)       { return s_atlas_loaded; } // already loaded by TerrainAtlas_Load
-bool TerrainAtlas_HasEdits() {
-    for (int i = 0; i < ATLAS_ZONES * ATLAS_ZONES; ++i)
-        if (s_atlas_dirty[i]) return true;
-    return false;
-}
 
 // World-space bilinear height sample across the whole 64×64 atlas (wx,wz in
 // metres, [0, ATLAS_ZONES*CHUNK_SIZE)). Replaces TerrainMaster_SampleWorld

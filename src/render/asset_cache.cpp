@@ -58,7 +58,3 @@ void AssetCache::Release(const char* path) {
     }
 }
 
-int AssetCache::RefCount(const char* path) const {
-    const Entry* e = Find(path);
-    return e ? e->refcount : 0;
-}

@@ -598,12 +598,5 @@ void SkinMesh::GetFinalBonesBlend(int base_clip, float base_t,
     }
 }
 
-void SkinMesh::ApplyInvBind(float* bones) const {
-    float tmp[16];
-    for (int i = 0; i < bone_count; ++i) {
-        mat4_mul(tmp, bones + i*16, inv_bind_[i]);
-        memcpy(bones + i*16, tmp, 64);
-    }
-}
 
 

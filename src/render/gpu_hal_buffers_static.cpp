@@ -150,6 +150,3 @@ void GpuStaticBuffer::Bind(unsigned int target) const {
     (void)target;
 }
 
-void GpuStaticBuffer::BindVertex(uint32_t slot, uint32_t stride, uint64_t offset) const {
-    (void)slot; (void)stride; (void)offset;
-}

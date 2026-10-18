@@ -69,26 +69,13 @@ float FBM2(float x, float y, int octaves, float persistence, float lacunarity);
 
 bool  TerrainAtlas_Load(const char* path);  // load into static RAM buffer
 bool  TerrainAtlas_Loaded();                // true after successful Load
-// Smooth atlas heights at every zone boundary (3-vertex kernel) to eliminate
-// Kenshi fullmap zone-seam cliffs that create NdotL=0 faces at chunk edges.
-// Call once after Load, before any TerrainGen_Build.
-void  TerrainAtlas_SmoothBoundaries();
 // Stitch one boundary seam between adjacent zones after rolling-shift loads a new edge.
 // dir=0: X-seam between (zx,zy) and (zx+1,zy). dir=1: Z-seam (zx,zy) and (zx,zy+1).
 // No-op if already smoothed (idempotent — re-smoothing a smooth boundary is harmless).
 void  TerrainAtlas_StitchEdge(int zx, int zy, int dir);
 // Get/Set individual vertex height (zx,zy in 0..63; col,row in 0..64)
 float TerrainAtlas_GetHeight(int zx, int zy, int col, int row);
-void  TerrainAtlas_SetHeight(int zx, int zy, int col, int row, float h);
-// Save only dirty zones back to the atlas file (fast partial update)
-bool  TerrainAtlas_Save(const char* path);
-bool  TerrainAtlas_ZoneDirty(int zx, int zy);
 
-// Delta-edit layer (on top of read-only TIF mmap).
-// SaveEdits writes only edited zones; LoadEdits applies them at startup.
-bool  TerrainAtlas_SaveEdits(const char* path);
-bool  TerrainAtlas_LoadEdits(const char* path);
-bool  TerrainAtlas_HasEdits();
 
 // World-space bilinear height sample across the full 64×64 atlas (wx,wz in
 // metres, [0, 64*CHUNK_SIZE)=29491.2m). For ground-snapping/height-query

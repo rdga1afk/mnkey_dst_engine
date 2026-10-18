@@ -65,13 +65,6 @@ static bool CacheOwns(const MdTexture& t) {
     return false;
 }
 
-static void ReleaseCacheArray(TexCacheEntry* c) {
-    for (int i = 0; i < MAX_TEX_CACHE; ++i) {
-        if (!c[i].used) continue;
-        MdUnloadTexture(c[i].tex);   // safe: not in cache during Shutdown
-        c[i] = {};
-    }
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 

@@ -48,7 +48,6 @@ public:
 
     // OpenGL bind helpers (no-op in SDL_GPU-only builds).
     void Bind(unsigned int gl_target) const;
-    void BindVertex(uint32_t slot, uint32_t stride, uint64_t offset = 0) const;
 
     unsigned int GLBuffer() const { return gl_buf_; }
     SDL_GPUBuffer* SDLBuffer() const { return sdl_buf_; }

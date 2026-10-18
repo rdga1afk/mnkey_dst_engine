@@ -29,7 +29,6 @@ public:
     // Decrements refcount; frees the GPU texture and slot when it reaches 0.
     void Release(const char* path);
 
-    int RefCount(const char* path) const;
 
 private:
     AssetCache() = default;

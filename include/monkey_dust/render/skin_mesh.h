@@ -132,9 +132,6 @@ public:
     const char* ClipName(int i) const { return (i>=0&&i<clip_count_)?clips_[i].name:""; }
     float ClipDuration(int i)  const { return (i>=0&&i<clip_count_)?clips_[i].duration:0.f; }
 
-    // Apply inverse bind matrices: bones[i] = bones[i] * inv_bind_[i].
-    // Call after GetFinalBones*() to get correct GPU skinning matrices.
-    void ApplyInvBind(float* bones) const;
 
     // Returns the world-space Y of bone_idx from the last GetFinalBones*() call.
     // Used for foot-grounding queries without a full re-evaluation.

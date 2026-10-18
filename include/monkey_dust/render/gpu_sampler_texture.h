@@ -175,7 +175,6 @@ public:
     unsigned int Release() { unsigned int t = id_; id_ = 0; return t; }
 
 private:
-    void ApplySampler(const GpuSamplerDesc& s) const; // OpenGL only
     unsigned int id_ = 0;
     int w_ = 0, h_ = 0;
     SDL_GPUTexture* sdl_tex_     = nullptr;
