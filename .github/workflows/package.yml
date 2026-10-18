@@ -34,9 +34,9 @@ jobs:
     steps:
       - name: Toolchain (Arch Linux, rolling)
         run: |
-          pacman -Syu --noconfirm --needed base-devel clang cmake ninja git ccache zstd sdl3 lua54 mold
+          pacman -Syu --noconfirm --needed base-devel clang cmake ninja git ccache zstd sdl3 lua54 mold renderdoc
           clang --version | head -1
-          pacman -Q gcc-libs clang cmake sdl3 lua54 glibc
+          pacman -Q gcc-libs clang cmake sdl3 lua54 glibc renderdoc
 
       - uses: actions/checkout@v4
         with:
