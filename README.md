@@ -68,7 +68,7 @@ summary: "Public engine README (EN + UA): native Linux engine that renders Kensh
 ### Build
 ```bash
 # Engine library (this repository)
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DUSE_SDL3=ON
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 ninja -C build monkey_dust_engine
 ninja -C build md_tests            # small smoke tests
 ```
@@ -187,7 +187,7 @@ index.html             documentation site (GitHub Pages)
 
 ### Збірка
 ```bash
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DUSE_SDL3=ON
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 ninja -C build monkey_dust_engine
 ninja -C build md_tests
 ```

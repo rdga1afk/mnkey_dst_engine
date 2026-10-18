@@ -381,13 +381,13 @@
   <h3><span class="l-en">Engine library (public)</span><span class="l-uk">Бібліотека рушія (публічна)</span></h3>
 <pre><code>git clone https://github.com/rdga1afk/mnkey_dst_engine.git
 cd mnkey_dst_engine
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DUSE_SDL3=ON
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 ninja -C build monkey_dust_engine
 ninja -C build md_tests</code></pre>
   <h3><span class="l-en">Game (private repository)</span><span class="l-uk">Гра (приватний репозиторій)</span></h3>
 <pre><code>git clone --recurse-submodules https://github.com/rdga1afk/mnkey_dst.git
 cd mnkey_dst
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DUSE_SDL3=ON
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 ninja -C build monkey_dust
 bash scripts/compile_shaders.sh            # GLSL → SPIR-V
 export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"
