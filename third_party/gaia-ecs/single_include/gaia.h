@@ -754,6 +754,12 @@ namespace gaia {
 #endif
 
 //! If enabled, systems as entities are enabled
+// monkey_dust local patch (#187, upstream issue pending): 0 = core::sort skips the unrolled sorting networks (detail::sort_nwk) and uses the
+// insertion sort / quick sort path. Each comparator lambda instantiates its own network; -18 % compile time per translation unit with a query,
+// no runtime difference for query().each.
+#ifndef GAIA_USE_SORTING_NETWORKS
+	#define GAIA_USE_SORTING_NETWORKS 1
+#endif
 #ifndef GAIA_SYSTEMS_ENABLED
 	#define GAIA_SYSTEMS_ENABLED 1
 #endif
@@ -4138,8 +4144,10 @@ namespace gaia {
 						core::swap(beg[lhs], beg[rhs]);
 					}))
 				return;
+#if GAIA_USE_SORTING_NETWORKS
 			if (detail::sort_nwk(beg, end, cmpFunc))
 				return;
+#endif
 
 			quick_sort(beg, 0, (int)n - 1, cmpFunc);
 		}
@@ -4171,8 +4179,10 @@ namespace gaia {
 			const auto n = (uintptr_t)(end - beg);
 			if (detail::try_sorted_or_reversed(beg, (uint32_t)n, cmpFunc, swapFunc))
 				return;
+#if GAIA_USE_SORTING_NETWORKS
 			if (detail::sort_nwk(beg, end, cmpFunc, swapFunc))
 				return;
+#endif
 
 			quick_sort(beg, 0, (int)n - 1, cmpFunc, swapFunc);
 		}

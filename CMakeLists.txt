@@ -247,7 +247,7 @@ target_compile_definitions(monkey_dust_engine PUBLIC MD_RENDER_BACKEND_${MD_REND
 # SDL3 + SDL_GPU is the default rendering backend (GRANITE is the other
 # real implementation, see MD_RENDER_BACKEND above).
 # GLM provides math types; MD_LOG_NO_RAYLIB replaces TraceLog with fprintf.
-target_compile_definitions(monkey_dust_engine PUBLIC USE_GLM MD_LOG_NO_RAYLIB)
+target_compile_definitions(monkey_dust_engine PUBLIC USE_GLM MD_LOG_NO_RAYLIB GAIA_USE_SORTING_NETWORKS=0) # gaia.h local patch (#187)
 if(MD_STATIC_DEPS)
     target_link_libraries(monkey_dust_engine PUBLIC SDL3::SDL3-static)
 else()
