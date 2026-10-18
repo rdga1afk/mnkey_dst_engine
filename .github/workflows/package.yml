@@ -17,6 +17,12 @@ on:
       - '.github/workflows/package.yml'
   workflow_dispatch: {}
 
+env:
+  # The laptop's last full upgrade was 2026-10-02: the container is pinned to the Arch Linux Archive snapshot of that day, so clang / libstdc++ / glibc / SDL3 / Lua are the same
+  # versions as on the laptop (the objects must link there and give the same frames). Bump ARCH_DATE and EXPECT together with the laptop (pacman -Syu).
+  ARCH_DATE: "2026/10/02"
+  EXPECT: "clang 22.1.8-1|gcc-libs 16.2.1+r23+gd564253eb6c8-1|glibc 2.44+r50+g1848099f063e-1|sdl3 3.4.16-1|lua54 5.4.9-1|cmake 4.4.3-2"
+
 concurrency:
   group: package-${{ github.ref }}
   cancel-in-progress: true
@@ -32,11 +38,17 @@ jobs:
       matrix:
         variant: [release, asan]
     steps:
-      - name: Toolchain (Arch Linux, rolling)
+      - name: Toolchain (Arch Linux Archive snapshot = the laptop's package set)
         run: |
-          pacman -Syu --noconfirm --needed base-devel clang cmake ninja git ccache zstd sdl3 lua54 mold
+          echo "Server = https://archive.archlinux.org/repos/${ARCH_DATE}/\$repo/os/\$arch" > /etc/pacman.d/mirrorlist
+          pacman -Syyuu --noconfirm
+          pacman -S --noconfirm --needed base-devel clang cmake ninja git ccache zstd sdl3 lua54 mold
           clang --version | head -1
-          pacman -Q gcc-libs clang cmake sdl3 lua54 glibc
+          echo "$EXPECT" | tr '|' '\n' | while read -r n v; do
+            got=$(pacman -Q "$n" | cut -d' ' -f2)
+            echo "$n: laptop $v, container $got"
+            [ "$got" = "$v" ] || { echo "::error::$n differs from the laptop ($v)"; exit 1; }
+          done
 
       # renderdoc_app.h (MIT, one header; the laptop has the same file from renderdoc-bin 1.45): fetched pinned and checksummed
       - name: renderdoc_app.h
