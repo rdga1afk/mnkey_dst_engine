@@ -8,29 +8,10 @@
 
 // ── Miniaudio path (M17) — delegates to AudioSystem singleton ────────────────
 // MINIAUDIO_IMPLEMENTATION lives in audio_system.cpp (engine static lib).
-// AudioHandle is now an opaque slot id; no miniaudio types in this header.
 #  include <monkey_dust/audio/audio_system.h>
-
-   struct AudioHandle {
-       int  sfx_id = -1;
-       bool valid  = false;
-   };
 
    inline void audio_init()     { AudioSystem::Get().Init(); }
    inline void audio_shutdown() { AudioSystem::Get().Shutdown(); }
-
-   inline AudioHandle audio_load(const char* path) {
-       AudioHandle h;
-       h.sfx_id = AudioSystem::Get().LoadSFX(path);
-       h.valid  = h.sfx_id >= 0;
-       return h;
-   }
-   inline void audio_play(AudioHandle& h) {
-       if (h.valid) AudioSystem::Get().PlaySFX(h.sfx_id);
-   }
-   inline void audio_free(AudioHandle& h) {
-       if (h.valid) { AudioSystem::Get().FreeSFX(h.sfx_id); h.valid = false; h.sfx_id = -1; }
-   }
 
 // ── Frame timing abstraction ─────────────────────────────────────────────────
 // SDL_GetTicks() provides delta.
