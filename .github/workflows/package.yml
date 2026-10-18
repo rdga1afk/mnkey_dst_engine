@@ -34,9 +34,15 @@ jobs:
     steps:
       - name: Toolchain (Arch Linux, rolling)
         run: |
-          pacman -Syu --noconfirm --needed base-devel clang cmake ninja git ccache zstd sdl3 lua54 mold renderdoc
+          pacman -Syu --noconfirm --needed base-devel clang cmake ninja git ccache zstd sdl3 lua54 mold
           clang --version | head -1
-          pacman -Q gcc-libs clang cmake sdl3 lua54 glibc renderdoc
+          pacman -Q gcc-libs clang cmake sdl3 lua54 glibc
+
+      # renderdoc_app.h (MIT, one header; the laptop has the same file from renderdoc-bin 1.45): fetched pinned and checksummed
+      - name: renderdoc_app.h
+        run: |
+          curl -sSfL -o /usr/local/include/renderdoc_app.h https://raw.githubusercontent.com/baldurk/renderdoc/v1.45/renderdoc/api/app/renderdoc_app.h
+          echo "b7005e7dc34c3635046868bbd76d81b9b055aede0f56daa0bd39fedee0639ffb  /usr/local/include/renderdoc_app.h" | sha256sum -c -
 
       - uses: actions/checkout@v4
         with:
