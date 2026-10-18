@@ -39,7 +39,7 @@ summary: "Public engine README (EN + UA): native Linux engine that renders Kensh
 | FCS reader (`.base`/`.mod` v15–v17, `mods.cfg` load order, record merge) | **Done.** Checked on a real install: 20 481 records, 394 766 values, 0 mismatches against an independent dump. Biomes come from the merged data (mod overrides applied) |
 | Heightmap from `fullmap.tif` (16385², uint16) | **Done.** 68 161 536 heights, 0 differences. Near the camera a 1.8 m window (Kenshi's own grid), streamed on a background thread; further away every 2nd sample (3.6 m) |
 | `biomemap`, `blendmap`, `ambientmap`, ground textures | **Done.** Read from the install; textures are found by file name the way Ogre does it |
-| **Ground shader** | **Ported from [Project Okran](https://github.com/brayniac6-glitch/Project-Okran) (MIT)**, following Kenshi's `terrainfp4.hlsl`: per-pixel biomes from `blendMap` (up to four plus the cell's fifth slot), per-pixel cliff weight, Kenshi's default texture quality (one mip down for landscape layers), Kenshi units |
+| **Ground shader** | **Done.** Follows Kenshi's `terrainfp4.hlsl`: per-pixel biomes from `blendMap` (up to four plus the cell's fifth slot), per-pixel cliff weight, Kenshi's default texture quality (one mip down for landscape layers), Kenshi units |
 | **Ground filtering** | **Done.** Mip level chosen from the pixel's footprint (analytic ray differentials) instead of distance only. This removed ground shimmer in motion: reprojection residual 4.9 → 0.5. Setting: footprint mip (default) / anisotropic ×4 / ×16 (Kenshi's own filter) |
 | **Terrain LOD** | **Done, on by default.** Quadtree by screen-space error as in Kenshi's terrain plugin: thresholds 5 / 35 px with a 750 → 1500 m ramp, geomorph, skirts, per-vertex normals; patch size 16 ("Small"), 64 ("Large") as a setting |
 | Lighting, sky, water like Kenshi's | Not yet: frames are darker than Kenshi. Next: port Kenshi's lighting chain (sun, irradiance cube maps, auto exposure) |
@@ -132,7 +132,7 @@ index.html             documentation site (GitHub Pages)
 ### Legal and third-party code
 - **Kenshi** is a trademark of Lo-Fi Games. This project is not affiliated with or endorsed by Lo-Fi Games. No game files are distributed; you need your own copy.
 - Third-party code and its licences: [THIRD_PARTY.md](THIRD_PARTY.md).
-- Kenshi's own code (shaders, executable) is never copied. Where parity is needed, behaviour is ported from [Project Okran](https://github.com/brayniac6-glitch/Project-Okran) (MIT, attributed in [THIRD_PARTY.md](THIRD_PARTY.md)) or re-implemented from facts.
+- Kenshi's own code (shaders, executable) is never copied. Where parity is needed, behaviour is ported from permissively licensed open-source code (attributed in [THIRD_PARTY.md](THIRD_PARTY.md)) or re-implemented from facts.
 - **Licence:** MIT, see [LICENSE](LICENSE). The game executable and its sources are proprietary and not part of this repository.
 
 ---
@@ -159,7 +159,7 @@ index.html             documentation site (GitHub Pages)
 | Читач FCS (`.base`/`.mod` v15–v17, порядок `mods.cfg`, злиття записів) | **Готово.** Перевірено на справжній інсталяції: 20 481 запис, 394 766 значень, 0 розбіжностей з незалежним дампом. Біоми — зі злитих даних (з модами) |
 | Карта висот з `fullmap.tif` (16385², uint16) | **Готово.** 68 161 536 висот, 0 відмінностей. Біля камери — вікно 1,8 м (сітка самої Kenshi), підвантажується у фоновому потоці; далі — кожен 2-й відлік (3,6 м) |
 | `biomemap`, `blendmap`, `ambientmap`, текстури ґрунту | **Готово.** Читаються з інсталяції; текстури шукаються за іменем файлу, як в Ogre |
-| **Шейдер ґрунту** | **Перенесено з [Project Okran](https://github.com/brayniac6-glitch/Project-Okran) (MIT)** за `terrainfp4.hlsl` Kenshi: біоми для кожного пікселя за `blendMap` (до чотирьох + п'ятий слот клітинки), вага кручі для кожного пікселя, якість текстур Kenshi за замовчуванням (шари ландшафту на один mip нижче), одиниці Kenshi |
+| **Шейдер ґрунту** | **Готово.** За `terrainfp4.hlsl` Kenshi: біоми для кожного пікселя за `blendMap` (до чотирьох + п'ятий слот клітинки), вага кручі для кожного пікселя, якість текстур Kenshi за замовчуванням (шари ландшафту на один mip нижче), одиниці Kenshi |
 | **Фільтрація ґрунту** | **Готово.** Рівень mip вибирається за слідом пікселя (аналітичні похідні променя), а не лише за відстанню. Це прибрало мерехтіння ґрунту в русі: залишок репроєкції 4,9 → 0,5. Налаштування: mip за слідом (за замовчуванням) / анізотропія ×4 / ×16 (фільтр самої Kenshi) |
 | **LOD ландшафту** | **Готово, увімкнено за замовчуванням.** Квадродерево за екранною похибкою, як у плагіні ландшафту Kenshi: пороги 5 / 35 px з переходом 750 → 1500 м, геоморф, спідниці, нормалі у вершинах; розмір патча 16 («Small»), 64 («Large») — налаштування |
 | Світло, небо, вода, як у Kenshi | Ще ні: кадри темніші за Kenshi. Далі — перенос ланцюга світла Kenshi (сонце, кубічні карти опромінення, автоекспозиція) |
@@ -232,5 +232,5 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"   # тек�
 ### Правове
 - **Kenshi** — торгова марка Lo-Fi Games. Проєкт не пов'язаний з Lo-Fi Games і не схвалений ними. Файли гри не поширюються; потрібна власна копія.
 - Сторонній код і його ліцензії: [THIRD_PARTY.md](THIRD_PARTY.md).
-- Власний код Kenshi (шейдери, виконуваний файл) не копіюється. Де потрібен паритет, поведінка переноситься з [Project Okran](https://github.com/brayniac6-glitch/Project-Okran) (MIT, з атрибуцією в [THIRD_PARTY.md](THIRD_PARTY.md)) або відтворюється за фактами.
+- Власний код Kenshi (шейдери, виконуваний файл) не копіюється. Де потрібен паритет, поведінка переноситься з відкритого коду з дозвільною ліцензією (атрибуція в [THIRD_PARTY.md](THIRD_PARTY.md)) або відтворюється за фактами.
 - **Ліцензія:** MIT, див. [LICENSE](LICENSE). Виконуваний файл гри і його код — власницькі й не входять до цього репозиторію.

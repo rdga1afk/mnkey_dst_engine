@@ -325,7 +325,7 @@
     <tr><td><span class="l-en">Maps and ground textures from the install</span><span class="l-uk">Карти й текстури ґрунту з інсталяції</span></td>
         <td><span class="badge done">done</span> <span class="l-en">lookup by file name, as Ogre does</span><span class="l-uk">пошук за іменем файлу, як в Ogre</span></td></tr>
     <tr><td><span class="l-en">Ground shader (Kenshi's <code>terrainfp4.hlsl</code>)</span><span class="l-uk">Шейдер ґрунту (<code>terrainfp4.hlsl</code> Kenshi)</span></td>
-        <td><span class="badge done">done</span> <span class="l-en">ported from Project Okran (MIT): per-pixel <code>blendMap</code> biomes, per-pixel cliff weight, Kenshi's default texture quality, Kenshi units</span><span class="l-uk">перенесено з Project Okran (MIT): біоми за <code>blendMap</code> для кожного пікселя, вага кручі для кожного пікселя, якість текстур Kenshi за замовчуванням, одиниці Kenshi</span></td></tr>
+        <td><span class="badge done">done</span> <span class="l-en">following Kenshi's <code>terrainfp4.hlsl</code>: per-pixel <code>blendMap</code> biomes, per-pixel cliff weight, Kenshi's default texture quality, Kenshi units</span><span class="l-uk">за <code>terrainfp4.hlsl</code> Kenshi: біоми за <code>blendMap</code> для кожного пікселя, вага кручі для кожного пікселя, якість текстур Kenshi за замовчуванням, одиниці Kenshi</span></td></tr>
     <tr><td><span class="l-en">Ground filtering</span><span class="l-uk">Фільтрація ґрунту</span></td>
         <td><span class="badge done">done</span> <span class="l-en">mip from the pixel footprint (analytic ray differentials), not distance only: ground shimmer in motion gone (reprojection residual 4.9 → 0.5); setting: footprint mip (default) / aniso ×4 / ×16 (Kenshi)</span><span class="l-uk">mip за слідом пікселя (аналітичні похідні променя), а не лише за відстанню: мерехтіння ґрунту в русі зникло (залишок репроєкції 4,9 → 0,5); налаштування: mip за слідом (за замовчуванням) / aniso ×4 / ×16 (Kenshi)</span></td></tr>
     <tr><td><span class="l-en">Terrain LOD</span><span class="l-uk">LOD ландшафту</span></td>
@@ -469,7 +469,7 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"
       <li><b>Heights:</b> <code>TerrainAtlas</code> keeps every 2nd sample of <code>fullmap.tif</code> (3.6 m) for the whole world; <code>TerrainLodTree</code> reads a 1.8 m window (Kenshi's grid) around the camera on a background thread.</li>
       <li><b>Queries:</b> <code>TerrainQuery</code> is the single source of heights, normals and slopes for gameplay.</li>
       <li><b>Geometry (LOD, default):</b> quadtree with Kenshi's screen-space error rule (viewport height × node error / distance, 5 px near, 35 px far, ramp 750 → 1500 m), geomorph, skirts, per-vertex normals from six neighbours; patch 16 ("Small") or 64 ("Large").</li>
-      <li><b>Shading:</b> 8-byte G-buffer (position fractions + octahedral normal), then a screen-space resolve running Kenshi's ground shader ported from Project Okran: per-pixel biomes from <code>blendMap</code> (four channels plus the cell's fifth slot), per-pixel cliff weight, one mip down for landscape layers (Kenshi's default texture quality); flat layers are skipped where the cliff fully covers them.</li>
+      <li><b>Shading:</b> 8-byte G-buffer (position fractions + octahedral normal), then a screen-space resolve running Kenshi's ground shader: per-pixel biomes from <code>blendMap</code> (four channels plus the cell's fifth slot), per-pixel cliff weight, one mip down for landscape layers (Kenshi's default texture quality); flat layers are skipped where the cliff fully covers them.</li>
       <li><b>Scatter:</b> <code>FeatureScatterSystem</code> places objects from Kenshi's <code>features.dat</code>.</li>
     </ul>
   </div>
@@ -478,7 +478,7 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"
       <li><b>Висоти:</b> <code>TerrainAtlas</code> тримає кожен 2-й відлік <code>fullmap.tif</code> (3,6 м) для всього світу; <code>TerrainLodTree</code> читає вікно 1,8 м (сітка Kenshi) навколо камери у фоновому потоці.</li>
       <li><b>Запити:</b> <code>TerrainQuery</code> — єдине джерело висот, нормалей і схилів для ігрової логіки.</li>
       <li><b>Геометрія (LOD, за замовчуванням):</b> квадродерево за правилом екранної похибки Kenshi (висота вікна × похибка вузла / відстань, 5 px поблизу, 35 px вдалині, перехід 750 → 1500 м), геоморф, спідниці, нормалі у вершинах з шести сусідів; патч 16 («Small») або 64 («Large»).</li>
-      <li><b>Шейдинг:</b> 8-байтовий G-буфер (дробові частини позиції + октаедрична нормаль), далі екранний resolve із шейдером ґрунту Kenshi, перенесеним з Project Okran: біоми для кожного пікселя за <code>blendMap</code> (чотири канали + п'ятий слот клітинки), вага кручі для кожного пікселя, шари ландшафту на один mip нижче (якість текстур Kenshi за замовчуванням); плоскі шари пропускаються там, де їх повністю закриває круча.</li>
+      <li><b>Шейдинг:</b> 8-байтовий G-буфер (дробові частини позиції + октаедрична нормаль), далі екранний resolve із шейдером ґрунту Kenshi: біоми для кожного пікселя за <code>blendMap</code> (чотири канали + п'ятий слот клітинки), вага кручі для кожного пікселя, шари ландшафту на один mip нижче (якість текстур Kenshi за замовчуванням); плоскі шари пропускаються там, де їх повністю закриває круча.</li>
       <li><b>Об'єкти:</b> <code>FeatureScatterSystem</code> розставляє об'єкти з <code>features.dat</code> Kenshi.</li>
     </ul>
   </div>
@@ -562,7 +562,7 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"
     <h3>Kenshi data and third-party code</h3>
     <ul>
       <li>No Kenshi files in public repositories or releases.</li>
-      <li>Kenshi's own code (shaders, executable) is never copied. Behaviour is ported from Project Okran (MIT, attributed) or re-implemented from facts; parity is checked against Kenshi's own code, not only against screenshots.</li>
+      <li>Kenshi's own code (shaders, executable) is never copied. Behaviour is ported from permissively licensed open-source code (attributed in THIRD_PARTY.md) or re-implemented from facts; parity is checked against Kenshi's own code, not only against screenshots.</li>
       <li>Every claim about Kenshi is backed by its code or data (address, file and line, or a number), not by screenshots.</li>
     </ul>
     <h3>Code</h3>
@@ -577,7 +577,7 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"
     <h3>Дані Kenshi і сторонній код</h3>
     <ul>
       <li>Жодних файлів Kenshi в публічних репозиторіях і релізах.</li>
-      <li>Власний код Kenshi (шейдери, виконуваний файл) не копіюється. Поведінка переноситься з Project Okran (MIT, з атрибуцією) або відтворюється за фактами; паритет перевіряється за кодом самої Kenshi, а не лише за скриншотами.</li>
+      <li>Власний код Kenshi (шейдери, виконуваний файл) не копіюється. Поведінка переноситься з відкритого коду з дозвільною ліцензією (атрибуція в THIRD_PARTY.md) або відтворюється за фактами; паритет перевіряється за кодом самої Kenshi, а не лише за скриншотами.</li>
       <li>Кожне твердження про Kenshi підтверджується її кодом або даними (адреса, файл і рядок, число), а не скриншотами.</li>
     </ul>
     <h3>Код</h3>
@@ -614,7 +614,7 @@ pipeline.Create(d);   // checked by gpu_pipeline_safety_check.h first</code></pr
     <tr><td>2026-07 – 09</td><td><span class="l-en">3D terrain from Kenshi elevation data (offline conversion), SDL_GPU deferred renderer, flecs → gaia-ecs</span><span class="l-uk">3D-ландшафт з даних висот Kenshi (офлайн-конвертація), відкладений рендер на SDL_GPU, flecs → gaia-ecs</span></td></tr>
     <tr><td>2026-10-07 – 10</td><td><span class="l-en">Terrain parity with Kenshi's code (normals, slope bands, mip seams, ambient map)</span><span class="l-uk">Паритет ландшафту з кодом Kenshi (нормалі, смуги схилів, шви мипів, ambient map)</span></td></tr>
     <tr><td>2026-10-10</td><td><span class="l-en"><b>Decision: engine for Kenshi owners.</b> Data read from the install at runtime; FCS, heights and maps already done</span><span class="l-uk"><b>Рішення: рушій для власників Kenshi.</b> Дані читаються з інсталяції під час запуску; FCS, висоти й карти вже зроблено</span></td></tr>
-      <tr><td>2026-10-11 – 12</td><td><span class="l-en">Kenshi's ground shader ported from Project Okran line by line (zone seams, cliff stripes and blur fixed); textures read from the install by file name</span><span class="l-uk">Шейдер ґрунту Kenshi перенесено з Project Okran рядок у рядок (шви зон, смуги на кручах і розмиття прибрано); текстури з інсталяції за іменем файлу</span></td></tr>
+      <tr><td>2026-10-11 – 12</td><td><span class="l-en">Kenshi's ground shader ported line by line (zone seams, cliff stripes and blur fixed); textures read from the install by file name</span><span class="l-uk">Шейдер ґрунту Kenshi перенесено рядок у рядок (шви зон, смуги на кручах і розмиття прибрано); текстури з інсталяції за іменем файлу</span></td></tr>
     <tr><td>2026-10-12 – 13</td><td><span class="l-en">Goal set: stable 60 FPS at native 1080p (route p99). 8-byte terrain G-buffer, terrain LOD by Kenshi's rule (default), native resolution by default, Settings tab; ground texture cache tried and shelved</span><span class="l-uk">Мета: стабільні 60 FPS у нативних 1080p (p99 маршруту). 8-байтовий G-буфер землі, LOD ландшафту за правилом Kenshi (за замовчуванням), нативна роздільність за замовчуванням, вкладка Settings; кеш текстури ґрунту спробували й відклали</span></td></tr>
     <tr><td>2026-10-14 – 17</td><td><span class="l-en">Ground shimmer fixed (footprint mip, numeric shimmer metric); HZB occlusion culling, ground cache in motion, dynamic resolution only while moving, View Distance 5000 — route p99 30 → 19 ms. Goal to 31.12 set: world + minimal playable core. Old prototype game layer removed (≈ 61 000 lines)</span><span class="l-uk">Мерехтіння ґрунту прибрано (mip за слідом пікселя, числова метрика мерехтіння); відсікання HZB, кеш ґрунту в русі, динамічна роздільність лише в русі, дальність огляду 5000 — p99 маршруту 30 → 19 мс. Мета до 31.12: світ + найменше граюче ядро. Старий ігровий прототип видалено (≈ 61 000 рядків)</span></td></tr>
 </table>
