@@ -327,6 +327,10 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.16")
         <cstdint> <cstdlib> <cstring> <cstdio> <cmath> <cstddef>
     )
     message(STATUS "[monkey_dust] PCH: ENABLED (stdlib only, ~2MB)")
+    include(cmake/MdGaiaPch.cmake)
+    if(MD_GAIA_PCH_HOT)
+        md_gaia_pch(monkey_dust_engine)
+    endif()
 endif()
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
