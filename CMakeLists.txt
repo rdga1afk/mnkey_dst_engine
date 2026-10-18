@@ -102,11 +102,10 @@ endif()
 # When MD_STATIC_DEPS=ON: LUA_LIBRARIES=lua54_static, LUA_INCLUDE_DIR set in root CMakeLists.
 
 file(GLOB_RECURSE ENGINE_SRC src/*.cpp)
-# stb_image_impl, glad_impl, cgltf_impl must NOT be in the engine static lib —
+# stb_image_impl, cgltf_impl must NOT be in the engine static lib —
 # each binary (game, editor, demo) compiles them directly to avoid duplicate symbols
 # when the same impl appears in both the engine lib and the binary.
 list(FILTER ENGINE_SRC EXCLUDE REGEX "stb_image_impl\\.cpp$")
-list(FILTER ENGINE_SRC EXCLUDE REGEX "glad_impl\\.cpp$")
 list(FILTER ENGINE_SRC EXCLUDE REGEX "cgltf_impl\\.cpp$")
 # transform_soa_simd_avx2.cpp needs its own unconditional -mavx2/-mfma (or
 # /arch:AVX2) regardless of build type/config.

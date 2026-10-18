@@ -20,7 +20,6 @@
 #include <cstdio>
 #include <cstring>
 
-#include "glad.h"
 #include "stb_image.h"
 
 #ifdef MD_SDL_GPU

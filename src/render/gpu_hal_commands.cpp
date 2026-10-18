@@ -7,7 +7,6 @@
 #include <cstdio>
 #include <cstring>
 
-#include "glad.h"
 
 #ifdef MD_SDL_GPU
 #include <monkey_dust/render/gpu_device.h>

@@ -48,7 +48,6 @@ bool MdUploadSquareRGBA8ToGpuColorTexture(md::GpuDeviceHandle dev, const uint8_t
 #endif // MD_SDL_GPU
 
 void MdUnloadTexture(MdTexture& t);
-void MdBindTexture  (MdTexture t, int unit);  // OpenGL only; no-op in SDL_GPU-only builds
 
 // ── Texture cache ─────────────────────────────────────────────────────────────
 // MdLoadTexture / MdLoadTexturePixelArt cache results by FNV-1a path hash.

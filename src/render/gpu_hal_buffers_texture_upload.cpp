@@ -113,12 +113,7 @@ bool GpuTexture::InitFromMemory(const uint8_t* rgba8, int w, int h, const GpuSam
         sdl_sampler_ = CreateSDLSampler(dev, s);
         return true;
     }
-    // dev == null: SDL_GPU not initialised — fall through to OpenGL path below.
+    // dev == null: SDL_GPU not initialised.
 #endif
-    glGenTextures(1, &id_);
-    glBindTexture(GL_TEXTURE_2D, id_);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, rgba8);
-    ApplySampler(s);
-    glBindTexture(GL_TEXTURE_2D, 0);
-    return true;
+    return false;
 }

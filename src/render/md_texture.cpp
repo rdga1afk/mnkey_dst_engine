@@ -4,7 +4,6 @@
 #include <monkey_dust/render/gpu_copy_pass.h>
 #include <monkey_dust/render/gpu_sampler_texture.h>
 #include <monkey_dust/render/gpu_hal_free_functions.h>
-#include "glad.h"
 #ifdef MD_SDL_GPU
 #include <monkey_dust/render/gpu_device.h>
 #include <SDL3/SDL_gpu.h>
@@ -173,7 +172,6 @@ void MdUnloadTexture(MdTexture& t) {
     // GPU resources stay alive until MdTextureCache_Shutdown().
     if (CacheOwns(t)) { t = {}; return; }
 
-    if (t.id) { glDeleteTextures(1, &t.id); }
 #ifdef MD_SDL_GPU
     md::GpuDeviceHandle dev = md::GpuDevice::Get().SDLDevice();
     if (dev) {
@@ -215,11 +213,4 @@ int MdTextureCache_Stats(int* out_pa, int* out_lin) {
     if (out_pa)  *out_pa  = pa;
     if (out_lin) *out_lin = lin;
     return pa + lin;
-}
-
-void MdBindTexture(MdTexture t, int unit) {
-    if (t.id) {
-        glActiveTexture(GL_TEXTURE0 + (unsigned int)unit);
-        glBindTexture(GL_TEXTURE_2D, t.id);
-    }
 }
