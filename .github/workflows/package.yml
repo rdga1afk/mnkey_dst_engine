@@ -15,6 +15,14 @@ on:
       - 'CMakeLists.txt'
       - 'cmake/**'
       - '.github/workflows/package.yml'
+  pull_request:
+    paths:
+      - 'include/**'
+      - 'src/**'
+      - 'third_party/**'
+      - 'CMakeLists.txt'
+      - 'cmake/**'
+      - '.github/workflows/package.yml'
   workflow_dispatch: {}
 
 env:
@@ -109,6 +117,7 @@ jobs:
   release:
     name: Release
     needs: package
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     permissions:
       contents: write
