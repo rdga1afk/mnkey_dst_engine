@@ -26,15 +26,8 @@ public:
     // of this static local's own initialization (guaranteed exactly-once,
     // before any caller can observe `w`), not a separate call site
     // someone could forget.
-    static gaia::ecs::World& Get() {
-        static gaia::ecs::World w;
-        // Function-local statics initialize in declaration order, exactly
-        // once, before Get() can return `w` to any caller -- avoids
-        // constructing World inside a lambda-and-return-by-value (World
-        // isn't necessarily move-constructible; not worth relying on).
-        static bool s_schedInstalled = (MdGaiaSchedAdapter::Install(w), true);
-        (void)s_schedInstalled;
-        return w;
-    }
+    // Defined in src/ecs/registry.cpp: an inline body made every TU that called
+    // Get() instantiate and optimize World's ctor/dtor (#186, -ftime-trace).
+    static gaia::ecs::World& Get();
     Registry() = delete;
 };
