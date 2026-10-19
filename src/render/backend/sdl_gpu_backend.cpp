@@ -31,7 +31,6 @@ BackendCaps SdlGpuBackend::GetCaps() const {
 }
 
 void SdlGpuBackend::SetFrameParams(const RenderFrameParams& params) {
-    MD_LOG(MD_LOG_WARNING, "[SdlGpuBackend] stub: %s", __func__);
     frame_params_ = params;
 }
 
