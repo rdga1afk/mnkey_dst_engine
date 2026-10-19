@@ -90,7 +90,7 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
     rd.frag_path = "shaders/terrain_shading_screenspace_kenshi.frag";
     rd.layout.count  = 0;
     rd.layout.stride = 0;
-    rd.raster.depth_test      = true;
+    rd.raster.depth_test      = false;
     rd.raster.depth_write     = false;
     rd.raster.cull_back       = false;
     rd.raster.depth_compare_op = SDL_GPU_COMPAREOP_LESS_OR_EQUAL;
