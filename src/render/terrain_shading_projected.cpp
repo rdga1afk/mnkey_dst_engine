@@ -113,7 +113,7 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
     // #155 step 1: the same variant without the flat-chain skip on cliff_w >= 1 (A/B, SetSkipFlatOnCliff(false)); non-fatal
     rd.frag_path = "shaders/terrain_shading_screenspace_kenshi_noskip.frag";
     resolve_kenshi_noskip_ready_ = resolve_kenshi_noskip_pipeline_.Create(rd);
-    // #163 5b-2b: the reuse variant: slot 2 (baked ground) = previous G-buffer depth, slot 15 (ground cache ring) = history colour (SDL_GPU binds at most 16 fragment samplers), a 4th UBO (the reprojection); non-fatal
+    // #163 5b-2b: the reuse variant: slot 2 (baked ground) = previous G-buffer depth, slot 15 = history colour (SDL_GPU binds at most 16 fragment samplers), a 4th UBO (the reprojection); non-fatal
     {
         GpuPipeline::Desc ud = rd;
         ud.frag_path = "shaders/terrain_shading_screenspace_kenshi_reuse.frag";
@@ -126,8 +126,6 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
         GpuPipeline::Desc kd = rd;
         kd.frag_path = "shaders/terrain_shading_screenspace_kenshi_klight.frag";
         resolve_klight_ready_ = resolve_kenshi_klight_pipeline_.Create(kd);
-        kd.frag_path = "shaders/terrain_shading_screenspace_kenshi_ring_klight.frag";
-        resolve_ring_klight_ready_ = resolve_kenshi_ring_klight_pipeline_.Create(kd);
         kd.frag_path = "shaders/terrain_shading_screenspace_kenshi_klight.frag";
         kd.frag_uniform_bufs = 4;   // + the reuse UBO at 3
         kd.frag_path = "shaders/terrain_shading_screenspace_kenshi_reuse_klight.frag";
@@ -139,20 +137,6 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
         resolve_klight_f_ready_ = resolve_klight_f_pipeline_.Create(kd);
         if (!resolve_klight_f_ready_ || !resolve_reuse_klight_f_ready_) MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] float-target klight variants failed (L4 unavailable)");
     }
-    // #155 step 2b: the Kenshi resolve with the ground cache read; the default variant above has no ring code
-    rd.frag_path = "shaders/terrain_shading_screenspace_kenshi_ring.frag";
-    resolve_kenshi_ring_ready_ = resolve_kenshi_ring_pipeline_.Create(rd);
-    // #155 step 2: ground cache bake variant: same inputs, one RGBA16UI colour target, no depth
-    {
-        GpuPipeline::Desc bd = rd;
-        bd.frag_path = "shaders/terrain_ground_bake.frag";
-        bd.raster.depth_test = false;
-        bd.has_depth_target = false;
-        bd.color_format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_UINT;
-        bake_ready_ = bake_pipeline_.Create(bd);
-        if (!bake_ready_) MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] ground cache bake pipeline create failed (the cache stays off)");
-    }
-
     ready_ = true;
     MD_LOG(MD_LOG_INFO, "[TerrainShadingProjected] ready %dx%d (RGBA32F gbuffer + isolated D32_FLOAT)", w, h);
     return true;
@@ -189,19 +173,12 @@ void TerrainShadingProjected::Shutdown() {
     resolve_kenshi_ready_ = false;
     resolve_kenshi_noskip_pipeline_.Destroy();
     resolve_kenshi_noskip_ready_ = false;
-    resolve_kenshi_ring_pipeline_.Destroy();
-    resolve_kenshi_ring_ready_ = false;
     resolve_kenshi_reuse_pipeline_.Destroy();
     resolve_kenshi_reuse_ready_ = false;
-    resolve_kenshi_klight_pipeline_.Destroy(); resolve_kenshi_reuse_klight_pipeline_.Destroy(); resolve_kenshi_ring_klight_pipeline_.Destroy();
+    resolve_kenshi_klight_pipeline_.Destroy(); resolve_kenshi_reuse_klight_pipeline_.Destroy();
     resolve_klight_f_pipeline_.Destroy(); resolve_reuse_klight_f_pipeline_.Destroy();
-    resolve_klight_ready_ = resolve_reuse_klight_ready_ = resolve_ring_klight_ready_ = false;
+    resolve_klight_ready_ = resolve_reuse_klight_ready_ = false;
     gd_alt_.Shutdown();
-    bake_pipeline_.Destroy();
-    bake_ready_ = false;
-    ring_color_.Shutdown();
-    ring_ready_ = false;
-    ring_valid_ = false;
     gbuf_depth_.Shutdown();
     gbuf_color_.Shutdown();
     ready_ = false;
@@ -240,8 +217,7 @@ void TerrainShadingProjected::EndGBufferPass() {
     // need to remember between calls).
 }
 
-void TerrainShadingProjected::DrawFullscreen(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, GpuPipeline& pipeline, const ResolveCtx& c, bool bake,
-                                              const FineWindow* fw, const float* bake_cols) {
+void TerrainShadingProjected::DrawFullscreen(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, GpuPipeline& pipeline, const ResolveCtx& c) {
     GpuPassView pv = GpuPassView::FromRaw(rp, cmd);
     pv.BindPipeline(&pipeline);
     const TerrainRenderer::SunParams& sun = *c.sun;
@@ -267,18 +243,8 @@ void TerrainShadingProjected::DrawFullscreen(SDL_GPURenderPass* rp, md::GpuComma
     cubo.cam_pos_ws[0] = cam_x; cubo.cam_pos_ws[1] = cam_y;
     cubo.cam_pos_ws[2] = cam_z; cubo.cam_pos_ws[3] = (g_terrain_ambientmap && ground.AmbientMapReady())
         ? (pix_scale_ < 0.f ? pix_scale_ - 1600.f : pix_scale_ + 1600.f) : pix_scale_; // bit4 = ambientmap (see g_terrain_ambientmap)
-    if (bake) {
-        // bake: inv_vp holds the ring / fine-window columns (see terrain_shading_screenspace.frag, TS_BAKE); recon is unused there
-        std::memset(cubo.inv_vp, 0, sizeof(cubo.inv_vp));
-        std::memcpy(cubo.inv_vp, bake_cols, 12 * sizeof(float));
-        cubo.recon[0] = (float)h_; // the screen's height in pixels: the live shader's analytic mip uses the pixel angle (pix_scale / G-buffer height), the bake must too
-    } else {
-        std::memcpy(cubo.inv_vp, s7_.inv_vp, sizeof(cubo.inv_vp));
-        // recon = the ground cache ring for the resolve: xy = centre, z = texel size (m), w = ring size (0 = not used). The S7 values that lived here
-        // (world extent / resolution / mode) were read by no shader since the 8 B G-buffer.
-        if (ring_use_ && ring_ready_ && ring_valid_ && ring_mask_) { cubo.recon[0] = ring_cx_; cubo.recon[1] = ring_cz_; cubo.recon[2] = ring_texel_m_; cubo.recon[3] = (float)(ring_mask_ * 8192 + ring_n_); }
-        else { cubo.recon[0] = cubo.recon[1] = cubo.recon[2] = cubo.recon[3] = 0.f; }
-    }
+    std::memcpy(cubo.inv_vp, s7_.inv_vp, sizeof(cubo.inv_vp));   // recon (world extent / resolution / mode of the S7 path) is read by no shader since the 8 B G-buffer
+    cubo.recon[0] = cubo.recon[1] = cubo.recon[2] = cubo.recon[3] = 0.f;
     GpuPushFragmentUniforms(cmd, 1, &cubo, sizeof(cubo));
     {   // #167 P0: the biome table for the shader variants that read it as a uniform block (128 biomes x 9 uvec4; the rest zero)
         constexpr size_t kUboWords = 128 * 9 * 4;
@@ -310,8 +276,8 @@ void TerrainShadingProjected::DrawFullscreen(SDL_GPURenderPass* rp, md::GpuComma
     for (int i = 0; i < 7; ++i) {
         if (!ground_bindings[i].texture || !ground_bindings[i].sampler) return;
     }
-    const bool reuse_draw = (&pipeline == &resolve_kenshi_reuse_pipeline_ || &pipeline == &resolve_kenshi_reuse_klight_pipeline_ || &pipeline == &resolve_reuse_klight_f_pipeline_) && reuse_ && !bake;
-    const bool klight_draw = (&pipeline == &resolve_kenshi_klight_pipeline_ || &pipeline == &resolve_kenshi_ring_klight_pipeline_ || &pipeline == &resolve_kenshi_reuse_klight_pipeline_ || &pipeline == &resolve_klight_f_pipeline_ || &pipeline == &resolve_reuse_klight_f_pipeline_) && klight_ && !bake;
+    const bool reuse_draw = (&pipeline == &resolve_kenshi_reuse_pipeline_ || &pipeline == &resolve_kenshi_reuse_klight_pipeline_ || &pipeline == &resolve_reuse_klight_f_pipeline_) && reuse_;
+    const bool klight_draw = (&pipeline == &resolve_kenshi_klight_pipeline_ || &pipeline == &resolve_kenshi_reuse_klight_pipeline_ || &pipeline == &resolve_klight_f_pipeline_ || &pipeline == &resolve_reuse_klight_f_pipeline_) && klight_;
     if (klight_draw) {   // slots 5 / 6: the Kenshi cube maps
         ground_bindings[5] = { ground.KenshiIrradianceCube(), ground.KenshiIrradianceSampler() };
         ground_bindings[6] = { ground.KenshiSpecularityCube(), ground.KenshiSpecularitySampler() };
@@ -331,10 +297,6 @@ void TerrainShadingProjected::DrawFullscreen(SDL_GPURenderPass* rp, md::GpuComma
                  : SDL_GPUTextureSamplerBinding{ gbuf_color_.SDLTexture(), gbuf_color_.SDLSampler() },
         { gd_cur_->SDLTexture(), gd_cur_->SDLSampler() },
     };
-    if (bake) { // the bake variant reads the fine height window at 7 (and has nothing at 8)
-        gbuf_bindings[0] = { fw->tex, fw->samp };
-        gbuf_bindings[1] = (fw->world_tex && fw->world_samp) ? SDL_GPUTextureSamplerBinding{ fw->world_tex, fw->world_samp } : SDL_GPUTextureSamplerBinding{ fw->tex, fw->samp };
-    }
     pv.BindFragmentSamplers(7, gbuf_bindings, 2);
 
     // Zone ground-layer lookup -- binding=9 (КРОК 3, 2026-09-17: was 7,
@@ -384,14 +346,10 @@ void TerrainShadingProjected::DrawFullscreen(SDL_GPURenderPass* rp, md::GpuComma
     };
     pv.BindFragmentSamplers(14, ambient_binding, 1);
 
-    // #155 step 2: binding 15 = the ground cache ring (read by the resolve when recon.w > 0); gbuf_color_ is the same format and stands in while the cache is
-    // off and in the bake draw (the ring is its own render target there).
-    SDL_GPUTextureSamplerBinding ring_binding[1] = {
-        (!bake && ring_use_ && ring_ready_ && ring_valid_) ? SDL_GPUTextureSamplerBinding{ ring_color_.SDLTexture(), ring_color_.SDLSampler() }
-                                                           : SDL_GPUTextureSamplerBinding{ gbuf_color_.SDLTexture(), gbuf_color_.SDLSampler() },
-    };
-    if (reuse_draw) { ring_binding[0] = { reuse_->hist_colour, reuse_->hist_sampler }; pv.PushFragmentUniforms(3, reuse_->p_old, 208); }   // p_old, p_new, t (3 x 64 B) + params (16 B), in the order of ReuseParams
-    pv.BindFragmentSamplers(15, ring_binding, 1);
+    // binding 15: the history colour of the reuse variants; gbuf_color_ is the same format and stands in for the other variants
+    SDL_GPUTextureSamplerBinding slot15[1] = { SDL_GPUTextureSamplerBinding{ gbuf_color_.SDLTexture(), gbuf_color_.SDLSampler() } };
+    if (reuse_draw) { slot15[0] = { reuse_->hist_colour, reuse_->hist_sampler }; pv.PushFragmentUniforms(3, reuse_->p_old, 208); }   // p_old, p_new, t (3 x 64 B) + params (16 B), in the order of ReuseParams
+    pv.BindFragmentSamplers(15, slot15, 1);
 
     // 2026-09-19 (docs/RESOLVE_OPT.md session finding): directional
     // ambient via AmbientProbeSystem, binding=14 (2026-09-26: was 11,
@@ -402,125 +360,6 @@ void TerrainShadingProjected::DrawFullscreen(SDL_GPURenderPass* rp, md::GpuComma
     pv.BindFragmentStorageBuffers(0, storage_bufs, 2);
 
     pv.Draw(3, 1, 0, 0);
-}
-
-void TerrainShadingProjected::ConfigureRing(int n, float texel_m, int rings) {
-    rings = std::max(1, std::min(kMaxRings, rings));
-    if (n == ring_n_ && texel_m == ring_texel_m_ && rings == ring_count_) return;
-    ring_count_ = rings; ring_have_ = false; ring_mask_ = 0;
-    ring_color_.Shutdown();
-    ring_ready_ = false; ring_valid_ = false;
-    ring_n_ = n; ring_texel_m_ = texel_m;
-}
-
-bool TerrainShadingProjected::EnsureGroundRing() {
-    if (ring_ready_) return true;
-    if (!ready_ || !bake_ready_) return false;
-    GpuSamplerDesc gs;
-    gs.min_filter = GpuSamplerDesc::Filter::NEAREST;
-    gs.mag_filter = GpuSamplerDesc::Filter::NEAREST;
-    gs.wrap_s = GpuSamplerDesc::Wrap::CLAMP_TO_EDGE;
-    gs.wrap_t = GpuSamplerDesc::Wrap::CLAMP_TO_EDGE;
-    if (!ring_color_.InitRenderTarget(ring_n_, ring_n_ * ring_count_, gs, SDL_GPU_TEXTUREFORMAT_R16G16B16A16_UINT)) {
-        MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] ground cache ring create failed");
-        return false;
-    }
-    ring_ready_ = true;
-    return true;
-}
-
-int TerrainShadingProjected::UpdateGroundRing(md::GpuCommandBufferHandle cmd, float cam_x, float cam_y, float cam_z, float world_origin_x, float world_origin_z,
-                                               float world_to_uv, const TerrainRenderer& ground, const FineWindow& fw, float target_x, float target_z,
-                                               int budget_texels, bool force_full, float cam_h, float select_factor) {
-    if (!EnsureGroundRing() || !fw.tex || !fw.samp) return 0;
-    const int N = ring_n_, mask = N - 1, R = ring_count_;
-    const int tx = (int)std::floor(target_x / ring_texel_m_ + 0.5f), tz = (int)std::floor(target_z / ring_texel_m_ + 0.5f);
-    struct Rect { int ring, x, y, w, h; };
-    Rect rects[64]; int nr = 0; int texels = 0;
-    auto add = [&](int k, int x, int y, int w, int h) { if (w > 0 && h > 0 && nr < 64) { rects[nr++] = { k, x, y, w, h }; texels += w * h; } };
-    // a strip of `len` physical columns (col) / rows of ring k starting at world texel `start`, split where it wraps
-    auto strip = [&](int k, bool col, int start, int len) {
-        const int s = start & mask, l1 = std::min(len, N - s);
-        if (col) { add(k, s, 0, l1, N); add(k, 0, 0, len - l1, N); } else { add(k, 0, s, N, l1); add(k, 0, 0, N, len - l1); }
-    };
-    auto derive = [](int c0, int k) { return (c0 + ((1 << k) >> 1)) >> k; }; // ring k centre texel; same rule in the resolve shader
-    // ring 0's centre (virtual while ring 0 is inactive) drives all the others
-    bool restart = force_full || !ring_have_;
-    if (!restart && std::max(std::abs(tx - ring_ci_x_), std::abs(tz - ring_ci_z_)) >= N * 3 / 4) restart = true;
-    int new_c0x = ring_ci_x_, new_c0z = ring_ci_z_;
-    if (restart) { new_c0x = tx; new_c0z = tz; }
-    else {
-        const int kHyst = 8; // ring 0 texels: scroll in batches rather than a sliver every frame
-        const int max_step = std::max(1, budget_texels / (4 * N));
-        auto step = [&](int d) { return std::abs(d) >= kHyst ? std::max(-max_step, std::min(max_step, d)) : 0; };
-        new_c0x += step(tx - ring_ci_x_); new_c0z += step(tz - ring_ci_z_);
-    }
-    // which rings are active: the camera's height decides (a ring much finer than a pixel at the nearest ground is never used)
-    // pix_scale_ carries debug flags as +100 * k (|2 * tan(fovy / 2)| < 50 always), stripped the way the resolve shader does
-    float pixScale = std::fabs(pix_scale_);
-    pixScale -= 100.f * std::floor((pixScale + 50.f) / 100.f);
-    const float hp = (cam_h > 0.f) ? cam_h * pixScale / (float)std::max(h_, 1) : 0.f; // pixel size at the nearest ground, metres
-    bool want[kMaxRings] = {};
-    for (int k = 0; k < R; ++k) {
-        const float t = ring_texel_m_ * (float)(1 << k);
-        want[k] = ring_active_[k] ? (t >= 0.67f * select_factor * hp) : (t >= select_factor * hp);
-        if (k == R - 1) want[k] = true; // the coarsest ring is always on
-    }
-    if (restart) { for (int k = 0; k < R; ++k) { ring_active_[k] = false; ring_fill_row_[k] = 0; } ring_have_ = true; }
-    for (int k = 0; k < R; ++k) {
-        if (!want[k]) { ring_active_[k] = false; ring_fill_row_[k] = 0; continue; }
-        const int nx = derive(new_c0x, k), nz = derive(new_c0z, k);
-        if (!ring_active_[k]) { ring_active_[k] = true; ring_fill_row_[k] = 0; ring_ci_k_[k][0] = nx; ring_ci_k_[k][1] = nz; continue; }
-        const int ox = ring_ci_k_[k][0], oz = ring_ci_k_[k][1];
-        const int ddx = nx - ox, ddz = nz - oz;
-        // the physical columns / rows of the texels that left (moving +) or the ones that enter (moving -) are the ones to rebake
-        if (ddx != 0) strip(k, true,  ddx > 0 ? ox - N / 2 : nx - N / 2, std::abs(ddx));
-        if (ddz != 0) strip(k, false, ddz > 0 ? oz - N / 2 : nz - N / 2, std::abs(ddz));
-        ring_ci_k_[k][0] = nx; ring_ci_k_[k][1] = nz;
-    }
-    ring_ci_x_ = new_c0x; ring_ci_z_ = new_c0z;
-    // refill the rings that are not complete, coarsest first, within the budget
-    {
-        int left = force_full ? N * R : std::max(1, budget_texels / N);
-        for (int k = R - 1; k >= 0; --k) {
-            if (!ring_active_[k] || ring_fill_row_[k] >= N) continue;
-            const int rows = std::min(left, N - ring_fill_row_[k]);
-            if (rows <= 0) break;
-            add(k, 0, ring_fill_row_[k], N, rows);
-            ring_fill_row_[k] += rows; left -= rows;
-        }
-    }
-    ring_mask_ = 0;
-    for (int k = 0; k < R; ++k) if (ring_active_[k] && ring_fill_row_[k] >= N) ring_mask_ |= 1 << k;
-    ring_valid_ = ring_mask_ != 0;
-    ring_cx_ = ring_ci_x_ * ring_texel_m_; ring_cz_ = ring_ci_z_ * ring_texel_m_;
-    if (nr == 0) return 0;
-
-    GpuCommandBuffer cb;
-    GpuCommandBuffer::ColorPassDesc cpd;
-    cpd.cmd = cmd;
-    cpd.color_tex[0] = ring_color_.SDLTexture();
-    cpd.load_color = true; // the rest of the ring stays
-    cb.BeginColorPass(cpd);
-    SDL_GPURenderPass* rp = cb.SDLPass();
-    if (!rp) return 0;
-    TerrainRenderer::SunParams sun{};
-    const float fog_col[3] = {0.f, 0.f, 0.f};
-    ResolveCtx c;
-    c.sun = &sun; c.cam_x = cam_x; c.cam_y = cam_y; c.cam_z = cam_z;
-    c.world_origin_x = world_origin_x; c.world_origin_z = world_origin_z; c.world_to_uv = world_to_uv;
-    c.fog_far = 1.f; c.fog_color = fog_col; c.fog_near = 0.f;
-    c.ground = &ground;
-    for (int i = 0; i < nr; ++i) {
-        const int k = rects[i].ring;
-        float cols[12] = { (float)(ring_ci_k_[k][0] - N / 2), (float)(ring_ci_k_[k][1] - N / 2), ring_texel_m_ * (float)(1 << k), (float)N,
-                           fw.origin_x_m, fw.origin_z_m, fw.hmin, fw.hrange,  (float)fw.cells, fw.cell_m, (float)(k * N), fw.world_cell_m };
-        SDL_Rect sc = { rects[i].x, rects[i].y + k * N, rects[i].w, rects[i].h };
-        SDL_SetGPUScissor(rp, &sc);
-        DrawFullscreen(rp, cmd, bake_pipeline_, c, true, &fw, cols);
-    }
-    SDL_EndGPURenderPass(rp);
-    return texels;
 }
 
 void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd,
@@ -548,18 +387,15 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
     // RESOLVE_OPT 4-draw split reverted to a single draw -- see
     // resolve_kenshi_pipeline_'s own doc comment (terrain_shading_projected.h)
     // for the full measured rationale.
-    const bool want_ring_variant = (ring_use_ && ring_ready_ && ring_valid_) || ring_variant_forced_;
     GpuPipeline* kp = &resolve_kenshi_pipeline_;
-    if (!skip_flat_on_cliff_ && resolve_kenshi_noskip_ready_) kp = &resolve_kenshi_noskip_pipeline_; // the A/B variant keeps its ring code (not used with the cache)
-    else if (want_ring_variant && resolve_kenshi_ring_ready_) kp = &resolve_kenshi_ring_pipeline_;
+    if (!skip_flat_on_cliff_ && resolve_kenshi_noskip_ready_) kp = &resolve_kenshi_noskip_pipeline_;
     const bool use_reuse = reuse_ && resolve_kenshi_reuse_ready_ && HistoryReady() && reuse_->hist_colour;
     const bool use_klight = klight_ && ground.KenshiLightCubesReady();
     if (use_reuse) kp = (use_klight && resolve_reuse_klight_ready_) ? &resolve_kenshi_reuse_klight_pipeline_ : &resolve_kenshi_reuse_pipeline_;
-    else if (use_klight && want_ring_variant && resolve_ring_klight_ready_) kp = &resolve_kenshi_ring_klight_pipeline_;
     else if (use_klight && resolve_klight_ready_) kp = &resolve_kenshi_klight_pipeline_;
     if (float_target_ && use_klight) {
         if (use_reuse && resolve_reuse_klight_f_ready_) kp = &resolve_reuse_klight_f_pipeline_;
         else if (!use_reuse && resolve_klight_f_ready_) kp = &resolve_klight_f_pipeline_;
     }
-    DrawFullscreen(rp, cmd, *kp, c, false, nullptr, nullptr);
+    DrawFullscreen(rp, cmd, *kp, c);
 }
