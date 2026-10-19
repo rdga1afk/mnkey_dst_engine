@@ -5,7 +5,7 @@
 // SdlGpuBackend -- єдина РЕАЛЬНА реалізація IRenderBackend цієї фази.
 // Delegates у ІСНУЮЧІ підсистеми (GBuffer, DeferredLightingSystem,
 // ShadowSystem, NpcGpuCuller/CullAndPrepass, TerrainRenderer, PropRenderer,
-// ParticleRenderer, SSAOSystem, EvsmShadow)
+// ParticleRenderer, SSAOSystem)
 // -- ЖОДНА з цих систем не переписується, тільки викликається з нового
 // місця (§2.1, "adapter, не rewrite"). Етап 1: усі методи -- порожні
 // stub'и (MD_LOG_WARNING + return), ще НЕ підключено до

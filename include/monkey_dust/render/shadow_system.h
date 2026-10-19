@@ -47,7 +47,7 @@ static inline Vec4 ShadowVec4Transform(Vec4 v, Mat4 m) {
 // port of shadow_cull.comp was attempted first, then reverted once this
 // came to light, since porting dead code adds no real de-risking value.
 //
-// What's still live and used by EvsmShadow: Update() (recomputes
+// What is still live (read by the scene pass): Update() (recomputes
 // lightViewProj[4] every frame) and the lightViewProj[]/cascade_splits[]
 // fields themselves.
 // ─────────────────────────────────────────────────────────
