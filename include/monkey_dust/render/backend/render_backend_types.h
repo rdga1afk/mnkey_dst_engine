@@ -41,7 +41,7 @@ struct RenderFrameParams {
 
     // Added Etap 2b (2026-09-06): NpcRender::DrawScene's real signature
     // (npc_render_deferred.cpp) needs more than the fields above --
-    // player_entity/selected/cam_az are plain inputs, but cam_x/cam_z are
+    // player_entity/cam_az are plain inputs, but cam_x/cam_z are
     // OUTPUT refs (DrawScene mutates them, e.g. camera-follow smoothing)
     // that the caller reads back AFTER RenderGBufferPass() returns. A
     // BackendStageFn callback only ever sees `const RenderFrameParams&`
@@ -50,7 +50,6 @@ struct RenderFrameParams {
     // locals directly (NpcRender::RenderFrame()'s cam_x/cam_z params),
     // same object, not a copy.
     MdEntity player_entity;
-    MdEntity selected;
     float    cam_az    = 0.f;
     float*   cam_x_io  = nullptr;
     float*   cam_z_io  = nullptr;
