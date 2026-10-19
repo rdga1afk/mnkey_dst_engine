@@ -16,10 +16,6 @@ public:
     static constexpr int MAX_ENTRIES = 64;
     static constexpr int PATH_LEN    = 160;
 
-    // Loads path via GpuTexture::InitFromFile on first call; subsequent calls
-    // for the same path return the same GpuTexture* and bump refcount.
-    // Returns nullptr on load failure.
-    GpuTexture* GetOrLoad(const char* path, const GpuSamplerDesc& s = {});
 
     // Same dedup/refcount behaviour, loading via InitFromDDSArray(&path, 1, s)
     // — the single-file-as-1-layer-array form PropTexShared uses for Kenshi

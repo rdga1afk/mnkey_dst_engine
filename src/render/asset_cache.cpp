@@ -14,22 +14,6 @@ const AssetCache::Entry* AssetCache::Find(const char* path) const {
     return nullptr;
 }
 
-GpuTexture* AssetCache::GetOrLoad(const char* path, const GpuSamplerDesc& s) {
-    if (Entry* e = Find(path)) { e->refcount++; return &e->tex; }
-    for (auto& slot : entries_) {
-        if (slot.used) continue;
-        if (!slot.tex.InitFromFile(path, s)) {
-            fprintf(stderr, "[AssetCache] failed to load %s\n", path);
-            return nullptr;
-        }
-        snprintf(slot.path, PATH_LEN, "%s", path);
-        slot.used     = true;
-        slot.refcount = 1;
-        return &slot.tex;
-    }
-    fprintf(stderr, "[AssetCache] MAX_ENTRIES (%d) exceeded, cannot load %s\n", MAX_ENTRIES, path);
-    return nullptr;
-}
 
 GpuTexture* AssetCache::GetOrLoadDDS(const char* path, const GpuSamplerDesc& s) {
     if (Entry* e = Find(path)) { e->refcount++; return &e->tex; }

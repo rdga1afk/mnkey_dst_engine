@@ -97,20 +97,7 @@ MdTexture MdLoadTexture(const char* path, float mip_lod_bias) {
     return t;
 }
 
-// FILTER RULES (DO NOT SIMPLIFY):
-//   LINEAR_MIPMAP min + gen_mipmap: prevents GL_NEAREST vanishing at small sizes.
-//   NEAREST mag: crisp pixel-art at zoom-in.
-//   CLAMP_TO_EDGE: prevents atlas seam bleeding.
-MdTexture MdLoadTexturePixelArt(const char* path) {
-    const uint32_t h = TexHash(path);
-    if (const MdTexture* cached = CacheFind(s_cache_pa, h)) return *cached;
 
-    GpuTexture gt;
-    if (!gt.InitFromFile(path, GpuSamplerDesc::PixelArt())) return {};
-    MdTexture t = FromGpuTexture(gt);
-    CacheInsert(s_cache_pa, h, t);
-    return t;
-}
 
 MdTexture MdLoadTextureFromMemory(const uint8_t* data, int w, int h) {
     GpuTexture gt;

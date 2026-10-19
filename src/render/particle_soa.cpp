@@ -6,29 +6,6 @@ ParticleSoA::ParticleSoA() {
     active_count = 0;
 }
 
-float ParticleSoA::RandF(float lo, float hi) {
-    rng_ = rng_ * 1664525u + 1013904223u;
-    float t = (float)(rng_ >> 8) / (float)(1 << 24);
-    return lo + t * (hi - lo);
-}
-
-void ParticleSoA::Emit(float ox, float oy, float oz,
-                        float vx_range, float vy_range, float vz_range,
-                        uint8_t cr, uint8_t cg, uint8_t cb, uint8_t ca,
-                        float lifetime, float sz, int count, ParticleType /*type*/)
-{
-    for (int i = 0; i < count && active_count < MAX_PARTICLES; ++i) {
-        int s = active_count++;
-        px[s] = ox; py[s] = oy; pz[s] = oz;
-        vx[s] = RandF(-vx_range, vx_range);
-        vy[s] = RandF(0.5f, vy_range);
-        vz[s] = RandF(-vz_range, vz_range);
-        life[s] = lifetime;
-        size[s] = sz;
-        r[s] = cr; g[s] = cg; b[s] = cb; a[s] = ca;
-    }
-}
-
 void ParticleSoA::Update(float dt) {
 #ifdef __SSE2__
     __m128 dt4 = _mm_set1_ps(dt);
@@ -92,17 +69,3 @@ int ParticleSoA::BuildVertices(ParticleVertex* out, int max_out,
     return count;
 }
 
-bool ParticleSoA::ShouldEmit(float ox, float oy, float oz, float extent,
-                              float cam_x, float cam_y, float cam_z,
-                              float vis_dist_max, float min_dist) {
-    float dx = ox - cam_x, dy = oy - cam_y, dz = oz - cam_z;
-    float dist_sq = dx*dx + dy*dy + dz*dz;
-    // VBfA crowd gate: suppress NPC hit effects when pool >70% full and emitter
-    // is very close — prevents 100× NPCs fighting at 5m each flooding the pool.
-    if (min_dist > 0.f && ParticleSoA::Get().active_count >= PARTICLE_CROWD_THRESHOLD) {
-        if (dist_sq < min_dist * min_dist) return false;
-    }
-    float cull_r   = extent * PARTICLE_BOUNDING_RADIUS_MULT;
-    float eff_dist = vis_dist_max + PARTICLE_VIS_PADDING + cull_r;
-    return dist_sq <= (eff_dist * eff_dist);
-}

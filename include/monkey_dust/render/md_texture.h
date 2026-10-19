@@ -20,10 +20,6 @@ struct MdTexture {
 // mip_lod_bias: L2 GL2TextureDetail — 0=full, +1=half-res mip, +2=quarter-res.
 MdTexture MdLoadTexture(const char* path, float mip_lod_bias = 0.f);
 
-// Load RGBA texture optimized for pixel-art rendering:
-// GL_NEAREST filter + GL_CLAMP_TO_EDGE + mipmap (no seam bleeding / aliasing).
-// Use for: Flare sprite atlases, tile sheets, any pixel-art content.
-MdTexture MdLoadTexturePixelArt(const char* path);
 
 // Upload raw RGBA8 pixel data (for procedural textures such as BRDF LUT).
 MdTexture MdLoadTextureFromMemory(const uint8_t* data, int w, int h);
