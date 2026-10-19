@@ -93,8 +93,14 @@ void WorldRegistry::LoadBiomeMap(const char* path) {
     fprintf(stdout, "[WorldRegistry] Biome map loaded from %s\n", path);
 }
 
+// MD_WORLD_REGISTRY=<file> replaces the default registry path: gates and scenarios run on a fixture and never touch the player's game/data file
+static const char* RegistryPath(const char* path) {
+    const char* e = getenv("MD_WORLD_REGISTRY");
+    return (e && *e) ? e : path;
+}
+
 void WorldRegistry::Load(const char* path) {
-    FILE* fp = fopen(path, "r");
+    FILE* fp = fopen(RegistryPath(path), "r");
     if (!fp) return;
     char line[128];
     while (fgets(line, sizeof(line), fp)) {
@@ -160,7 +166,7 @@ static int s_danger_for_biome(BiomeType b) {
 }
 
 void WorldRegistry::Save(const char* path) const {
-    FILE* fp = fopen(path, "w");
+    FILE* fp = fopen(RegistryPath(path), "w");
     if (!fp) return;
     fprintf(fp, "# monkey_dust world registry — auto-generated\n");
     fprintf(fp, "current_zone=%s\n", current_zone_);
