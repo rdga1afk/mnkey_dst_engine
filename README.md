@@ -32,7 +32,7 @@ summary: "Public engine README (EN + UA): native Linux engine that renders Kensh
 - **Not a Kenshi replacement or a remake.** Kenshi is © Lo-Fi Games. This is an independent, unofficial engine.
 - **There is nothing to download and play.** The game executable lives in a separate private repository; this repository is the engine library.
 
-### Status (2026-10-18)
+### Status (2026-10-19)
 
 | Area | State |
 |---|---|
@@ -46,8 +46,8 @@ summary: "Public engine README (EN + UA): native Linux engine that renders Kensh
 | Towns (Ogre `.mesh`), foliage | Planned, Nov 2026 |
 | Steam library auto-detection | Not yet: set `KENSHI_DIR` |
 | Workshop mods | Code path exists, **not yet tested on real Workshop data** |
-| **Performance, 1920×1080, HD 520** | Fixed flight route **p99 ≈ 19 ms** (17.10.2026; was 30–31 ms on 13.10). Goal: ≤ 16.7 ms. Helped by: GPU occlusion culling (HZB), a ground cache reused while moving, and **dynamic resolution only while the camera moves** (0.75, native when standing still; setting «Resolution while moving»). This is still the main open problem |
-| **Code clean-up** (Oct 2026) | In progress: the old prototype game layer is gone (≈ 61 000 lines across the three repositories); also removed: OpenGL leftovers (incl. the 8 700-line GL loader), the CPU occlusion culler (GPU HZB replaces it), unused experiments, and 131 000 lines of embedded font arrays (fonts are now embedded as raw `.ttf`); next is a full audit of the remaining code (compiler warnings, clang-tidy, cppcheck, sanitizers), with every change checked against pixel-exact reference frames |
+| **Performance, 1920×1080, HD 520** | Fixed flight route **p99 ≈ 15.0 ms** (19.10.2026; 19 ms on 17.10, 30–31 ms on 13.10) — **the 60 FPS goal (≤ 16.7 ms) is met on the route**. Helped by: GPU occlusion culling (HZB), **ground shading reused across frames** (refreshed every 16 frames by default; Settings: 4 / 8 / 16), the terrain resolve no longer writing depth, and dynamic resolution only while the camera moves (0.75, native when still). Known tail: continuous flight at 50 m/s, p99 ≈ 18.9 ms. Long-term target: 99 FPS on the landscape |
+| **Code clean-up** (Oct 2026) | **Done (19.10):** ≈ 85 000 lines of own code removed across the three repositories (old prototype game layer, OpenGL leftovers, effects for stronger GPUs that never ran on the HD 520, an unused 200 MB ground cache), plus 2 × 131 000 lines of font arrays and the 8 700-line GL loader. Audit: clang-tidy, cppcheck, ASan / UBSan, code coverage; every change checked against pixel-exact reference frames. The engine and tools libraries are now built on GitHub (laptop build 19 → 7 min) |
 
 ### Goals
 **By 2026-12-31:** the world below **plus a minimal playable core**: a squad you can select and move, a few NPCs from town data, the simplest melee combat. It will be partial and rough on purpose; a full Kenshi replacement is a multi-year effort.
@@ -166,8 +166,8 @@ index.html             documentation site (GitHub Pages)
 | Міста (Ogre `.mesh`), рослини | План на листопад 2026 |
 | Автопошук бібліотеки Steam | Ще ні: задайте `KENSHI_DIR` |
 | Моди з Workshop | Код є, **на справжніх даних Workshop ще не перевірено** |
-| **Продуктивність, 1920×1080, HD 520** | Фіксований маршрут польоту **p99 ≈ 19 мс** (17.10.2026; 13.10 було 30–31 мс). Мета — ≤ 16,7 мс. Допомогли: відсікання невидимого на GPU (HZB), кеш ґрунту в русі й **динамічна роздільність лише під час руху камери** (0,75, нативна, коли камера стоїть; налаштування «Resolution while moving»). Це досі головна відкрита проблема |
-| **Чистка коду** (жовтень 2026) | Триває: старий ігровий прототип прибрано (≈ 61 000 рядків у трьох репозиторіях); також прибрано: залишки OpenGL (зокрема завантажувач GL на 8 700 рядків), відсікання невидимого на CPU (його замінює HZB на GPU), невикористані експерименти й 131 000 рядків масивів вбудованих шрифтів (шрифти тепер вбудовуються як сирі `.ttf`); далі — повний аудит решти коду (попередження компілятора, clang-tidy, cppcheck, санітайзери), кожна зміна звіряється з еталонними кадрами до пікселя |
+| **Продуктивність, 1920×1080, HD 520** | Фіксований маршрут польоту **p99 ≈ 15,0 мс** (19.10.2026; 17.10 — 19 мс, 13.10 — 30–31 мс) — **мету 60 FPS (≤ 16,7 мс) на маршруті досягнуто**. Допомогли: відсікання невидимого на GPU (HZB), **перевикористання освітленого ґрунту між кадрами** (оновлення раз на 16 кадрів за замовчуванням; Settings: 4 / 8 / 16), resolve ґрунту більше не пише глибину, динамічна роздільність лише в русі (0,75, нативна, коли камера стоїть). Відомий хвіст: безперервний політ 50 м/с, p99 ≈ 18,9 мс. Довгострокова мета — 99 FPS на ландшафті |
+| **Чистка коду** (жовтень 2026) | **Завершено (19.10):** ≈ 85 000 рядків власного коду прибрано в трьох репозиторіях (старий ігровий прототип, залишки OpenGL, ефекти для сильніших GPU, що на HD 520 не вмикались, невикористаний кеш ґрунту на 200 МБ), плюс 2 × 131 000 рядків масивів шрифтів і завантажувач GL на 8 700. Аудит: clang-tidy, cppcheck, ASan / UBSan, покриття коду; кожна зміна звірена з еталонними кадрами до пікселя. Рушій і бібліотеки tools тепер збираються на GitHub (збірка на ноутбуці 19 → 7 хв) |
 
 ### Мета
 **До 31.12.2026:** світ (нижче) **плюс найменше граюче ядро**: загін, який можна виділити й вести, кілька NPC з даних міст, найпростіший ближній бій. Свідомо частково й сиро; повна заміна Kenshi — робота на кілька років.

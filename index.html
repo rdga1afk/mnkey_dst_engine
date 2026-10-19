@@ -214,7 +214,7 @@
 <div id="sidebar">
   <div class="sidebar-logo">
     <div class="title">monkey_dust</div>
-    <div class="subtitle"><span class="l-en">Kenshi's world on Linux · docs · 2026-10-18</span><span class="l-uk">Світ Kenshi на Linux · документація · 18.10.2026</span></div>
+    <div class="subtitle"><span class="l-en">Kenshi's world on Linux · docs · 2026-10-19</span><span class="l-uk">Світ Kenshi на Linux · документація · 19.10.2026</span></div>
     <div class="lang-switch" role="group" aria-label="Language">
       <button type="button" data-lang="en">EN</button><button type="button" data-lang="uk">UA</button>
     </div>
@@ -315,7 +315,7 @@
 
 <!-- ═══ STATUS ═══ -->
 <section class="doc-section" id="status">
-  <h2><span class="l-en">Status (2026-10-18)</span><span class="l-uk">Стан (18.10.2026)</span></h2>
+  <h2><span class="l-en">Status (2026-10-19)</span><span class="l-uk">Стан (19.10.2026)</span></h2>
   <table>
     <tr><th><span class="l-en">Area</span><span class="l-uk">Напрям</span></th><th><span class="l-en">State</span><span class="l-uk">Стан</span></th></tr>
     <tr><td><span class="l-en">FCS reader (v15–v17, <code>mods.cfg</code> order, record merge)</span><span class="l-uk">Читач FCS (v15–v17, порядок <code>mods.cfg</code>, злиття записів)</span></td>
@@ -337,7 +337,7 @@
     <tr><td><span class="l-en">Steam auto-detection · Workshop mods on real data</span><span class="l-uk">Автопошук Steam · моди Workshop на справжніх даних</span></td>
         <td><span class="badge next">not yet</span></td></tr>
     <tr><td><b><span class="l-en">Frame time, 1920×1080, HD 520</span><span class="l-uk">Час кадру, 1920×1080, HD 520</span></b></td>
-        <td><b>p99 ≈ 19 ms</b> <span class="l-en">on the fixed flight route (17.10.2026; 30–31 ms on 13.10). Helped by GPU occlusion culling (HZB), a ground cache reused while moving, and dynamic resolution only while the camera moves (0.75; native when still). Target ≤ 16.7 ms — still the main open problem</span><span class="l-uk">на фіксованому маршруті польоту (17.10.2026; 13.10 — 30–31 мс). Допомогли відсікання невидимого на GPU (HZB), кеш ґрунту в русі й динамічна роздільність лише під час руху камери (0,75; нативна, коли стоїть). Ціль ≤ 16,7 мс — досі головна відкрита проблема</span></td></tr>
+        <td><b>p99 ≈ 15.0 ms</b> <span class="l-en">on the fixed flight route (19.10.2026; 19 ms on 17.10, 30–31 ms on 13.10) — the 60 FPS goal (≤ 16.7 ms) is met on the route. Helped by GPU occlusion culling (HZB), ground shading reused across frames (refreshed every 16 frames; Settings: 4 / 8 / 16), the terrain resolve no longer writing depth, and dynamic resolution only while moving. Known tail: continuous flight at 50 m/s, p99 ≈ 18.9 ms. Long-term target: 99 FPS on the landscape</span><span class="l-uk">на фіксованому маршруті польоту (19.10.2026; 17.10 — 19 мс, 13.10 — 30–31 мс) — мету 60 FPS (≤ 16,7 мс) на маршруті досягнуто. Допомогли відсікання невидимого на GPU (HZB), перевикористання освітленого ґрунту між кадрами (раз на 16 кадрів; Settings: 4 / 8 / 16), resolve ґрунту більше не пише глибину, динамічна роздільність лише в русі. Відомий хвіст: безперервний політ 50 м/с, p99 ≈ 18,9 мс. Довгострокова мета — 99 FPS на ландшафті</span></td></tr>
     <tr><td><span class="l-en">Code clean-up</span><span class="l-uk">Чистка коду</span></td>
         <td><span class="badge next">in progress</span> <span class="l-en">old prototype game layer removed (≈ 61 000 lines across the three repositories); also removed: OpenGL leftovers (incl. the 8 700-line GL loader), the CPU occlusion culler (GPU HZB replaces it), unused experiments, and 131 000 lines of embedded font arrays (fonts are now embedded as raw <code>.ttf</code>); next: full audit of the remaining code (compiler warnings, clang-tidy, cppcheck, sanitizers), every change checked against pixel-exact reference frames — until 31.10</span><span class="l-uk">старий ігровий прототип прибрано (≈ 61 000 рядків у трьох репозиторіях); також прибрано: залишки OpenGL (зокрема завантажувач GL на 8 700 рядків), відсікання невидимого на CPU (його замінює HZB на GPU), невикористані експерименти й 131 000 рядків масивів вбудованих шрифтів (шрифти тепер вбудовуються як сирі <code>.ttf</code>); далі — повний аудит решти коду (попередження компілятора, clang-tidy, cppcheck, санітайзери), кожна зміна звіряється з еталонними кадрами до пікселя — до 31.10</span></td></tr>
   </table>
@@ -505,14 +505,14 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"
     <li>Only on <b>terrain-dominated frames</b>: scenarios place the camera with <code>set_camera_pose_world</code> and check <code>md.terrain_pixel_fraction()</code> ≥ 80 %.</li>
     <li><code>RenderPassGraph</code> switches any registered pass on or off at runtime (<code>md.set_render_pass_enabled</code>); with <code>md.get_gpu_ms()</code> this splits frame cost pass by pass without rebuilding.</li>
     <li>A/B comparisons run in one process, several interleaved blocks (ABBA), to cancel GPU clock drift.</li>
-    <li>Fixed flight route, 1920×1080, HD 520: p99 30–31 ms (13.10.2026) → ≈ 19 ms (17.10.2026). Ground texturing (the resolve) is still the largest part of the frame.</li>
+    <li>Fixed flight route, 1920×1080, HD 520: p99 30–31 ms (13.10.2026) → ≈ 19 ms (17.10.2026) → ≈ 15.0 ms (19.10.2026). Ground texturing (the resolve) is still the largest part of the frame.</li>
     <li>Ground shimmer is measured numerically, not by eye: reprojection residual of the ground between consecutive frames while the camera moves.</li>
   </ul>
   <ul class="l-uk">
     <li>Лише на <b>кадрах, де переважає земля</b>: сценарії ставлять камеру через <code>set_camera_pose_world</code> і перевіряють <code>md.terrain_pixel_fraction()</code> ≥ 80 %.</li>
     <li><code>RenderPassGraph</code> вмикає й вимикає будь-який зареєстрований прохід під час роботи (<code>md.set_render_pass_enabled</code>); разом з <code>md.get_gpu_ms()</code> це розкладає ціну кадру по проходах без перезбірки.</li>
     <li>Порівняння A/B — в одному процесі, кількома чергованими блоками (ABBA), щоб прибрати дрейф частот GPU.</li>
-    <li>Фіксований маршрут польоту, 1920×1080, HD 520: p99 30–31 мс (13.10.2026) → ≈ 19 мс (17.10.2026). Текстурування ґрунту (resolve) — досі найбільша частина кадру.</li>
+    <li>Фіксований маршрут польоту, 1920×1080, HD 520: p99 30–31 мс (13.10.2026) → ≈ 19 мс (17.10.2026) → ≈ 15,0 мс (19.10.2026). Текстурування ґрунту (resolve) — досі найбільша частина кадру.</li>
     <li>Мерехтіння ґрунту міряється числом, а не на око: залишок репроєкції ґрунту між сусідніми кадрами під час руху камери.</li>
   </ul>
 </section>
@@ -617,6 +617,7 @@ pipeline.Create(d);   // checked by gpu_pipeline_safety_check.h first</code></pr
       <tr><td>2026-10-11 – 12</td><td><span class="l-en">Kenshi's ground shader ported line by line (zone seams, cliff stripes and blur fixed); textures read from the install by file name</span><span class="l-uk">Шейдер ґрунту Kenshi перенесено рядок у рядок (шви зон, смуги на кручах і розмиття прибрано); текстури з інсталяції за іменем файлу</span></td></tr>
     <tr><td>2026-10-12 – 13</td><td><span class="l-en">Goal set: stable 60 FPS at native 1080p (route p99). 8-byte terrain G-buffer, terrain LOD by Kenshi's rule (default), native resolution by default, Settings tab; ground texture cache tried and shelved</span><span class="l-uk">Мета: стабільні 60 FPS у нативних 1080p (p99 маршруту). 8-байтовий G-буфер землі, LOD ландшафту за правилом Kenshi (за замовчуванням), нативна роздільність за замовчуванням, вкладка Settings; кеш текстури ґрунту спробували й відклали</span></td></tr>
     <tr><td>2026-10-14 – 17</td><td><span class="l-en">Ground shimmer fixed (footprint mip, numeric shimmer metric); HZB occlusion culling, ground cache in motion, dynamic resolution only while moving, View Distance 5000 — route p99 30 → 19 ms. Goal to 31.12 set: world + minimal playable core. Old prototype game layer removed (≈ 61 000 lines)</span><span class="l-uk">Мерехтіння ґрунту прибрано (mip за слідом пікселя, числова метрика мерехтіння); відсікання HZB, кеш ґрунту в русі, динамічна роздільність лише в русі, дальність огляду 5000 — p99 маршруту 30 → 19 мс. Мета до 31.12: світ + найменше граюче ядро. Старий ігровий прототип видалено (≈ 61 000 рядків)</span></td></tr>
+    <tr><td>2026-10-18 – 19</td><td><span class="l-en">Full code audit done: ≈ 85 000 own lines removed, clang-tidy / cppcheck / ASan / UBSan / coverage; engine and tools built on GitHub. Ground shading reused across frames (every 16 frames, setting 4 / 8 / 16), resolve without depth write, unused ground cache removed (−200 MB) — route p99 19 → 15 ms, the 60 FPS goal met on the route</span><span class="l-uk">Повний аудит коду завершено: ≈ 85 000 власних рядків прибрано, clang-tidy / cppcheck / ASan / UBSan / покриття; рушій і tools збираються на GitHub. Перевикористання освітленого ґрунту між кадрами (раз на 16 кадрів, налаштування 4 / 8 / 16), resolve без запису глибини, невикористаний кеш ґрунту прибрано (−200 МБ) — p99 маршруту 19 → 15 мс, мету 60 FPS на маршруті досягнуто</span></td></tr>
 </table>
 </section>
 
