@@ -73,12 +73,6 @@ struct JobSystem {
 
     static JobSystem& Get();
 
-    // Load worker_threads and batch_size from a simple key=value config file.
-    // Format (VBfA Tasks.txt compatible):
-    //   worker_threads 4
-    //   batch_size 16
-    // Call before Init(). Missing keys keep defaults (CPU-1, 16).
-    void LoadFromCfg(const char* path);
 
     void Init();
     void Shutdown();

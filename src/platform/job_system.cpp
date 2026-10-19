@@ -59,28 +59,7 @@ void JobSystem::worker_loop(int my_idx) {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-// ── Config loader (VBfA Tasks.txt format) ────────────────────────────────────
-void JobSystem::LoadFromCfg(const char* path) {
-    FILE* f = ::fopen(path, "r");
-    if (!f) {
-        MD_LOG(MD_LOG_WARNING, "[JobSystem] tasks.cfg not found at '%s', using defaults", path);
-        return;
-    }
-    char line[128];
-    while (fgets(line, sizeof(line), f)) {
-        if (line[0] == '#' || line[0] == '\n') continue;
-        char key[64]; int val = 0;
-        if (sscanf(line, "%63s %d", key, &val) == 2) {
-            if (strcmp(key, "worker_threads") == 0 && val > 0)
-                cfg_worker_override_ = val;
-            else if (strcmp(key, "batch_size") == 0 && val > 0)
-                batch_size_ = val;
-        }
-    }
-    fclose(f);
-    MD_LOG(MD_LOG_INFO, "[JobSystem] tasks.cfg: worker_threads=%d batch_size=%d",
-           cfg_worker_override_, batch_size_);
-}
+
 
 constexpr int JobSystem::kPriorityTable[JobSystem::RoleCount];
 

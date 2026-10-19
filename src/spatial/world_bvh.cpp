@@ -54,29 +54,6 @@ void WorldBVH::Shutdown() {
     built_     = false;
 }
 
-// ── RayIntersect ──────────────────────────────────────────────────────────────
-WorldRayHit WorldBVH::RayIntersect(const float* orig, const float* dir,
-                                    float max_t) const {
-    WorldRayHit result;
-    if (!built_ || !bvh_) return result;
 
-    tinybvh::Ray ray(
-        tinybvh::bvhvec3(orig[0], orig[1], orig[2]),
-        tinybvh::bvhvec3(dir[0],  dir[1],  dir[2]),
-        max_t
-    );
-
-    static_cast<tinybvh::BVH*>(bvh_)->Intersect(ray);
-
-    if (ray.hit.t < max_t) {
-        result.t      = ray.hit.t;
-        result.tri_idx = (int)ray.hit.prim;
-        // Compute world-space hit position.
-        result.world_x = orig[0] + dir[0] * ray.hit.t;
-        result.world_y = orig[1] + dir[1] * ray.hit.t;
-        result.world_z = orig[2] + dir[2] * ray.hit.t;
-    }
-    return result;
-}
 
 } // namespace md

@@ -153,27 +153,3 @@ int MdIniLoad(MdIniReader& reader, const char* path) noexcept {
     return n;
 }
 
-int MdIniLoadWithFallback(MdIniReader& reader, const char* base_path) noexcept {
-    // Build user override path: "data/foo.ini" → "data/foo.user.ini"
-    char user_path[512] = {};
-    const char* dot = strrchr(base_path, '.');
-    if (dot) {
-        int prefix_len = (int)(dot - base_path);
-        if (prefix_len < 500) {
-            memcpy(user_path, base_path, (size_t)prefix_len);
-            snprintf(user_path + prefix_len,
-                     sizeof(user_path) - (size_t)prefix_len,
-                     ".user%s", dot);
-        }
-    }
-
-    int n = 0;
-    if (user_path[0] && md::fs_exists(user_path)) {
-        n = MdIniLoad(reader, user_path);
-        MD_LOG(MD_LOG_INFO, "[MdIni] user override applied: %s", user_path);
-    }
-    // Always load base file — base values fill in what user file omits
-    int nb = MdIniLoad(reader, base_path);
-    if (nb < 0 && n <= 0) return -1;
-    return n + (nb > 0 ? nb : 0);
-}

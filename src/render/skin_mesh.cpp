@@ -552,51 +552,6 @@ float SkinMesh::LastBoneWorldY(int bone_idx) const {
     return g_bone_world_scratch[bone_idx][13];
 }
 
-void SkinMesh::GetFinalBonesBlend(int base_clip, float base_t,
-                                   int override_clip, float override_t,
-                                   const bool* lower_mask, float* out,
-                                   float* out_world_mats) const {
-    if (!lower_mask || override_clip < 0 || override_clip >= clip_count_) {
-        GetFinalBones(base_clip, base_t, out);
-        return;
-    }
-    // Loop times. Same reference-pose guard as GetFinalBones*.
-    float bt = base_t;
-    if (base_clip >= 0 && base_clip < clip_count_) {
-        float d = clips_[base_clip].duration;
-        if (d > 0.05f) bt = fmodf(bt, d); else bt = 0.f;
-    }
-    float ot = override_t;
-    { float d = clips_[override_clip].duration;
-      if (d > 0.05f) ot = fmodf(ot, d); else ot = 0.f; }
-
-    float (&world)[MAX_SKIN_BONES][16] = g_bone_world_scratch;
-    float local[16];
-    for (int oi = 0; oi < bone_count; ++oi) {
-        int i = process_order_[oi];
-        float lt[3], lq[4];
-        bool use_ovr = lower_mask[i];
-        const SkinClip* sc = use_ovr ? &clips_[override_clip]
-                           : (base_clip >= 0 ? &clips_[base_clip] : nullptr);
-        float st = use_ovr ? ot : bt;
-        if (sc && sc->tracks[i].count > 0) {
-            slerp_t(sc->tracks[i], st, lt, lq);
-        } else {
-            lt[0]=bind_t_[i][0]; lt[1]=bind_t_[i][1]; lt[2]=bind_t_[i][2];
-            lq[0]=bind_q_[i][0]; lq[1]=bind_q_[i][1]; lq[2]=bind_q_[i][2]; lq[3]=bind_q_[i][3];
-        }
-        mat4_from_trs(local, lt, lq, bind_s_[i]);
-        int pi = parent_[i];
-        if (pi < 0) memcpy(world[i], local, 64);
-        else        mat4_mul(world[i], world[pi], local);
-        mat4_mul(out + i*16, world[i], inv_bind_[i]);
-        if (out_world_mats) memcpy(out_world_mats + i*16, world[i], 64);
-    }
-    for (int i = bone_count; i < MAX_SKIN_BONES; ++i) {
-        mat4_identity(out + i*16);
-        if (out_world_mats) mat4_identity(out_world_mats + i*16);
-    }
-}
 
 
 

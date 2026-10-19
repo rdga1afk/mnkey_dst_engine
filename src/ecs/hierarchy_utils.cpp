@@ -24,17 +24,6 @@ void ClearParent(MdEntity child) {
     reg.Remove<ParentRef>(child);
 }
 
-bool SetParent(MdEntity child, MdEntity parent) {
-    auto& reg = MdRegistry::Get();
-    ClearParent(child);  // detach from any previous parent first
-
-    if (!reg.Handle(parent).has<ChildrenRef>()) reg.Handle(parent).emplace<ChildrenRef>();
-    auto& cr = reg.Handle(parent).get_mut<ChildrenRef>();
-    if (cr.count >= HIERARCHY_MAX_CHILDREN) return false;
-    cr.children[cr.count++] = child;
-    reg.Handle(child).set<ParentRef>(ParentRef{parent});
-    return true;
-}
 
 
 

@@ -68,7 +68,3 @@ private:
 // Returns number of entries parsed (-1 on file-not-found).
 int MdIniLoad(MdIniReader& reader, const char* path) noexcept;
 
-// Convenience: try user override first, then base file.
-// MdIniLoadWithFallback(ini, "data/monkey_dust.ini")
-//   → tries "data/monkey_dust.user.ini" first.
-int MdIniLoadWithFallback(MdIniReader& reader, const char* base_path) noexcept;

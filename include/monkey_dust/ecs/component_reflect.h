@@ -1,22 +1,4 @@
 #pragma once
-// ComponentReflect — lightweight field metadata registry for engine components.
-//
-// Does NOT replace SaveSystem v10: serialization code stays untouched.
-// Adds opt-in reflection for: debug UI, editor property panels, generic diffing.
-//
-// Design:
-//   - Explicit registration (no static initializers — avoids init-order issues)
-//   - Static FieldDesc arrays (caller owns; typically file-scope statics)
-//   - MAX_COMPONENTS = 32, MAX_FIELDS_PER_COMPONENT = 24 (no heap)
-//   - FNV-1a name hash for O(1) lookup
-//
-// Usage:
-//   // At startup (after ECS init):
-//   RegisterCoreComponents();
-//
-//   // Query:
-//   const ComponentDesc* d = ComponentReflect::Get().Find("world_transform");
-//   if (d) ComponentReflect::Dump(ptr, *d);
 //
 // Adding a new component (in any .cpp):
 //   static const FieldDesc wt_fields[] = {
@@ -87,9 +69,6 @@ public:
     int                  Count()        const { return count_; }
     const ComponentDesc& GetDesc(int i) const { return descs_[i]; }
 
-    // Debug: print all field values of a component instance to stdout.
-    // comp_ptr: raw pointer to the component struct.
-    static void Dump(const void* comp_ptr, const ComponentDesc& desc);
 
 private:
     static uint32_t Hash(const char* s);
