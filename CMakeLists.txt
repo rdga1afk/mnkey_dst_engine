@@ -119,7 +119,11 @@ if(NOT MD_STATIC_DEPS)
 endif()
 # When MD_STATIC_DEPS=ON: LUA_LIBRARIES=lua54_static, LUA_INCLUDE_DIR set in root CMakeLists.
 
+# #192 spike: MyGUI (original Kenshi windows) on SDL_GPU, a separate library; off by default.
+option(MD_MYGUI "MyGUI 3.2 platform on SDL_GPU (#192 spike): builds monkey_dust_mygui" OFF)
+
 file(GLOB_RECURSE ENGINE_SRC src/*.cpp)
+list(FILTER ENGINE_SRC EXCLUDE REGEX "/src/ui_mygui/")
 # stb_image_impl, cgltf_impl must NOT be in the engine static lib —
 # each binary (game, editor, demo) compiles them directly to avoid duplicate symbols
 # when the same impl appears in both the engine lib and the binary.
@@ -184,6 +188,18 @@ else()
 endif()
 
 add_library(monkey_dust::engine ALIAS monkey_dust_engine)
+
+if(MD_MYGUI)
+    find_package(Freetype REQUIRED)
+    set(_MYGUI_ROOT "${MD_THIRD_PARTY}/MyGUI/MyGUIEngine")
+    file(GLOB _MYGUI_SRC "${_MYGUI_ROOT}/src/*.cpp")
+    list(FILTER _MYGUI_SRC EXCLUDE REGEX "MyGUI_Precompiled\\.cpp$")
+    add_library(monkey_dust_mygui STATIC ${_MYGUI_SRC} src/ui_mygui/mygui_sdlgpu.cpp)
+    target_include_directories(monkey_dust_mygui PUBLIC "${_MYGUI_ROOT}/include")
+    target_compile_definitions(monkey_dust_mygui PUBLIC MYGUI_USE_FREETYPE MYGUI_STATIC MYGUI_BUILD MYGUI_DONT_REPLACE_NULLPTR)
+    target_link_libraries(monkey_dust_mygui PUBLIC Freetype::Freetype monkey_dust_engine)
+    set_target_properties(monkey_dust_mygui PROPERTIES CXX_STANDARD 17 POSITION_INDEPENDENT_CODE ON)
+endif()
 
 target_include_directories(monkey_dust_engine
     PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}/include
