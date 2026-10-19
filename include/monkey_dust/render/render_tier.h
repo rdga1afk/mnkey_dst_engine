@@ -10,13 +10,14 @@
 #include <monkey_dust/render/gpu_device.h>
 
 // ── RenderTier ────────────────────────────────────────────────────────────────
-// Gates M27-M32 deferred pipeline features.
+// Hardware tier; selects the RenderQualityConfig preset (terrain LOD). The scene deferred path, SSAO,
+// bloom, motion blur and EVSM shadows were removed (#185, owner 19.10): every tier renders forward.
 // Values intentionally ordered: higher = more capable.
 enum class RenderTier : uint8_t {
     Forward      = 0,  // Intel HD 520 (24 EU, 25.6 GB/s): forward only
-    Deferred_Low = 1,  // Iris 540, Vega 8: GBuffer + deferred lights, no SSAO
-    Deferred_Med = 2,  // Vega 11: + SSAO half-res compute
-    Deferred_High= 3,  // Iris Plus 640/650: + eDRAM GBuffer fit (~1.4 TB/s)
+    Deferred_Low = 1,  // Iris 540, Vega 8: lower-end preset
+    Deferred_Med = 2,  // Vega 11: mid preset
+    Deferred_High= 3,  // Iris Plus 640/650: eDRAM parts
 };
 
 // PCI-ID based tier lookup (per CLAUDE_SDL_GPU_PREP_AI.md §I).
@@ -41,14 +42,6 @@ public:
     // Hard override (e.g. from CLI arg or game settings menu).
     void       SetTier(RenderTier t) { tier_ = t; }
     RenderTier GetTier()       const { return tier_; }
-
-    bool IsDeferred()  const { return tier_ >= RenderTier::Deferred_Low; }
-    bool HasSSAO()     const { return tier_ >= RenderTier::Deferred_Med; }
-    bool HaseDRAM()    const { return tier_ == RenderTier::Deferred_High; }
-
-    // VBfA frame_buffer_postprocess_basic: simplified post-pass for low tiers.
-    // Forward + Deferred_Low → skip bloom/SSAO/DOF; only CAS sharpening.
-    bool UseBasicPostprocess() const { return tier_ <= RenderTier::Deferred_Low; }
 
     // VBfA 32-tier LOD config with O(1) bitmask presence check.
     // LODConfig[N] = {param_a, param_b}; N ≤ 31; presence_mask bit N = tier active.
