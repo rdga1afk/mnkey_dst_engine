@@ -50,7 +50,7 @@ jobs:
         run: |
           echo "Server = https://archive.archlinux.org/repos/${ARCH_DATE}/\$repo/os/\$arch" > /etc/pacman.d/mirrorlist
           pacman -Syyuu --noconfirm
-          pacman -S --noconfirm --needed base-devel clang cmake ninja git ccache zstd sdl3 lua54 mold
+          pacman -S --noconfirm --needed base-devel clang cmake ninja git ccache zstd sdl3 lua54 mold freetype2
           clang --version | head -1
           echo "$EXPECT" | tr '|' '\n' | while read -r n v; do
             got=$(pacman -Q "$n" | cut -d' ' -f2)
@@ -86,6 +86,7 @@ jobs:
           if [ "${{ matrix.variant }}" = "asan" ]; then EXTRA="-DMD_ENGINE_ASAN=ON"; fi
           if [ "${{ matrix.variant }}" = "gc" ]; then EXTRA="-DMD_ENGINE_GC=ON"; fi
           if [ "${{ matrix.variant }}" = "cov" ]; then EXTRA="-DMD_ENGINE_COV=ON"; fi
+          if [ "${{ matrix.variant }}" = "release" ]; then EXTRA="$EXTRA -DMD_MYGUI=ON"; fi  # MyGUI SDL_GPU platform (#192), release only
           # MONKEY_DUST_EDITOR=ON: the root project's default; it adds the PUBLIC definition DEBUG to the engine target, so the package must be built with it.
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
@@ -96,6 +97,7 @@ jobs:
         run: |
           ccache -z
           ninja -C build monkey_dust_engine
+          if [ "${{ matrix.variant }}" = "release" ]; then ninja -C build monkey_dust_mygui; fi
           ccache -s | head -8
 
       - name: Install the package
