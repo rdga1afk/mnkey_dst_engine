@@ -12,7 +12,7 @@ bool SdlGpuBackend::Init() {
     // RENDER-BACKEND-STAGE-3: no longer a stub -- by the time any caller
     // constructs a SdlGpuBackend, every subsystem it delegates to
     // (GBuffer, ShadowSystem, DeferredLightingSystem, SSAOSystem,
-    // BloomSystem, MotionBlurSystem, TerrainQuadtreeRenderer, etc.) is
+    // BloomSystem, TerrainQuadtreeRenderer, etc.) is
     // already independently initialized by its own owner (NpcRender::Init()/
     // WorldEditor3D_SDLGPU::Init()/CharPreviewSDLGPU::Init()/MapViewPanel::
     // Init(), per each caller's own call site) -- this class only routes
