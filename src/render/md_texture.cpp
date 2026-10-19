@@ -112,11 +112,11 @@ bool MdUploadSquareRGBA8ToGpuColorTexture(md::GpuDeviceHandle dev, const uint8_t
     md::GpuTextureHandle tex = out.SDLTexture();
     SDL_GPUTransferBufferCreateInfo tbi{};
     tbi.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-    tbi.size  = (uint32_t)(size * size * 4);
+    tbi.size  = (uint32_t)((size_t)size * (size_t)size * 4);
     SDL_GPUTransferBuffer* tb = GpuCreateTransferBuffer(dev, &tbi);
     if (!tb) { out.Shutdown(); return false; }
     void* ptr = GpuMapTransfer(tb, false);
-    if (ptr) memcpy(ptr, pixels, (size_t)(size * size * 4));
+    if (ptr) memcpy(ptr, pixels, (size_t)size * (size_t)size * 4);
     GpuUnmapTransfer(tb);
     md::GpuCommandBufferHandle cmd = md::GpuDevice::Get().AcquireCommandBuffer();
     if (!cmd) { GpuReleaseTransferBuffer(dev, tb); out.Shutdown(); return false; }

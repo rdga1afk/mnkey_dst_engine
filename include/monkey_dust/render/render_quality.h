@@ -68,7 +68,9 @@ struct RenderQualityConfig {
                 *eq = '\0';
                 const char* key = line;
                 const char* val = eq + 1;
-                float fval = (float)atof(val);
+                char* vend = nullptr;
+                const float fval = strtof(val, &vend);
+                if (vend == val) { fprintf(stderr, "[RenderQualityConfig] not a number, line skipped: %s=%s\n", key, val); line = end + 1; continue; }
                 if      (!strcmp(key, "terrain_cr_m"))    c.terrain_cr_m    = fval;
                 else if (!strcmp(key, "mesh_lod0_cr_m"))  c.mesh_lod0_cr_m  = fval;
                 else if (!strcmp(key, "mesh_lod1_cr_m"))  c.mesh_lod1_cr_m  = fval;
