@@ -259,31 +259,6 @@ struct TerrainHeightmap {
     float h[TERRAIN_VERTS];   // [row * (TERRAIN_GRID+1) + col]
 };
 
-// ── Per-chunk procedural props ────────────────────────────────────────────────
-// Props are generated during PropGen_Build (game-side) and stored per-chunk.
-// They stream in/out automatically with terrain chunk loading.
-enum ChunkPropType : uint8_t {
-    kPropRock      = 0,  // rock_01       (~2 m)
-    kPropFormation = 1,  // rock_formation (~2 m)
-    kPropHatRock   = 2,  // hat_rock       (~5 m, dramatic, rare)
-    kPropYucca     = 3,  // yucca          (~1.7 m)
-    kPropCanyonRock= 4,  // canyon_rock    (~1.3 m, small stony plant)
-    kPropDeadTree  = 5,  // dead_tree      (~1.8 m)
-    kPropBones     = 6,  // bones          (ribcage, ~1.5 m, wasteland dressing)
-    kPropRuinJunk  = 7,  // ruin_junk      (concrete rubble chunk, ~1 m)
-    kPropSpike     = 8,  // spike_bloom    (hazard plant/spike cluster, ~2 m, rare — heavy mesh)
-    kPropTypeCount = 9
-};
-
-struct ChunkPropInstance {
-    float   x, y, z;    // world-space position (y already accounts for embed)
-    float   nx, ny, nz; // terrain surface normal (sampled by PropGen_Build, G-2)
-    uint8_t type;        // ChunkPropType
-    uint8_t _pad[3];
-};
-static_assert(sizeof(ChunkPropInstance) == 28, "ChunkPropInstance size");
-static constexpr int CHUNK_MAX_PROPS = 64;
-
 // Skirt geometry constants: 4 edges × (TERRAIN_GRID+1) × 2 verts (top+bottom)
 static constexpr int TERRAIN_SKIRT_VERTS = 4 * (TERRAIN_GRID + 1) * 2;  // 520
 static constexpr int TERRAIN_SKIRT_IDX   = 4 *  TERRAIN_GRID * 6;       // 1536
@@ -311,8 +286,6 @@ struct TerrainChunk {
     // it directly as a pure geometry function, independent of
     // chunk.ibo_lod's now-removed GPU upload.
     TerrainHeightmap heightmap;         // CPU copy for height queries
-    ChunkPropInstance props[CHUNK_MAX_PROPS];
-    int              prop_count = 0;    // valid entries in props[]
     bool             loaded = false;
     // Set true at the end of TerrainGen_Build — independent of `loaded` (which
     // means "GPU buffers uploaded", set by TerrainGen_Upload). Lets callers
