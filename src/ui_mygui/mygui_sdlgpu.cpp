@@ -150,7 +150,6 @@ public:
         d.layout.attribs[0] = { 0, 0,  GpuAttribFmt::F3 };
         d.layout.attribs[1] = { 1, 12, GpuAttribFmt::U8x4_NORM };
         d.layout.attribs[2] = { 2, 16, GpuAttribFmt::F2 };
-        d.vert_uniform_bufs = 1;
         d.frag_samplers = 1;
         d.has_depth_target = false;
         d.raster.blend_enable = true;
@@ -198,6 +197,8 @@ public:
         vbuf_.Unmap();
         if (nverts_ > 0) vbuf_.Upload(cmd);
         out_ = nullptr;
+        static int s_log = 0;
+        if (s_log++ % 120 == 0) std::fprintf(stdout, "[MyGUI] frame %d: %d batches, %u vertices\n", s_log, nbatch_, nverts_);
     }
     // phase 2: replay inside the pass
     void Draw(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd) {
@@ -205,8 +206,6 @@ public:
         GpuPassView pv = GpuPassView::FromRaw(rp, cmd);
         pv.BindPipeline(&pipe_);
         pv.BindVertexBuffer(&vbuf_);
-        float inv[4] = { info_.pixScaleX, info_.pixScaleY, 0.f, 0.f };
-        pv.PushVertexUniforms(0, inv, sizeof(inv));
         for (int i = 0; i < nbatch_; ++i) {
             const GpuTexture& t = batch_[i].tex ? batch_[i].tex->Gpu() : white_;
             if (!t.SDLTexture()) continue;
@@ -335,6 +334,9 @@ void MyGuiPrepare(md::GpuCommandBufferHandle cmd) {
     auto t0 = std::chrono::steady_clock::now();
     g.render->Prepare(cmd);
     g.prepare_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+    static int n = 0; static double sum = 0, mx = 0;
+    sum += g.prepare_ms; mx = std::max(mx, g.prepare_ms);
+    if (++n % 300 == 0) { std::fprintf(stdout, "[MyGUI] Prepare CPU ms: mean %.3f max %.3f over %d frames\n", sum / 300, mx, n); sum = 0; mx = 0; }
 }
 
 void MyGuiDraw(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd) {
