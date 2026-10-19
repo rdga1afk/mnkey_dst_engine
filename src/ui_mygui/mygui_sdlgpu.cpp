@@ -6,6 +6,8 @@
 #include <monkey_dust/render/gpu_sampler_texture.h>
 #include <stb_image.h>
 
+#include <SDL3/SDL.h>
+
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
@@ -267,6 +269,55 @@ private:
     std::chrono::steady_clock::time_point last_;
 };
 
+// Kenshi's own resource type "Colour" (kenshi_colours.xml): a named palette, <Property key="Main" value="#afa68b"/>; read by exe code by name, not by layouts
+std::map<std::string, MyGUI::Colour> g_palette;
+
+void LoadColourPalette(MyGUI::xml::ElementPtr node, const std::string&, MyGUI::Version) {
+    MyGUI::xml::ElementEnumerator e = node->getElementEnumerator();
+    while (e.next())
+        if (e->getName() == "Property") g_palette[e->findAttribute("key")] = MyGUI::Colour::parse(e->findAttribute("value"));
+}
+
+// SDL scancode -> MyGUI key code (MyGUI uses the DirectInput numbering); 0 = not mapped
+int KeyFromScancode(SDL_Scancode sc) {
+    static const unsigned char row1[] = { 0x1E, 0x30, 0x2E, 0x20, 0x12, 0x21, 0x22, 0x23, 0x17, 0x24, 0x25, 0x26, 0x32, 0x31, 0x18, 0x19, 0x10, 0x13, 0x1F, 0x14, 0x16, 0x2F, 0x11, 0x2D, 0x15, 0x2C };   // A..Z
+    if (sc >= SDL_SCANCODE_A && sc <= SDL_SCANCODE_Z) return row1[sc - SDL_SCANCODE_A];
+    if (sc >= SDL_SCANCODE_1 && sc <= SDL_SCANCODE_9) return 0x02 + (sc - SDL_SCANCODE_1);
+    switch (sc) {
+        case SDL_SCANCODE_0: return 0x0B;
+        case SDL_SCANCODE_ESCAPE: return 0x01;
+        case SDL_SCANCODE_BACKSPACE: return 0x0E;
+        case SDL_SCANCODE_TAB: return 0x0F;
+        case SDL_SCANCODE_RETURN: return 0x1C;
+        case SDL_SCANCODE_SPACE: return 0x39;
+        case SDL_SCANCODE_LCTRL: return 0x1D;
+        case SDL_SCANCODE_RCTRL: return 0x9D;
+        case SDL_SCANCODE_LSHIFT: return 0x2A;
+        case SDL_SCANCODE_RSHIFT: return 0x36;
+        case SDL_SCANCODE_HOME: return 0xC7;
+        case SDL_SCANCODE_UP: return 0xC8;
+        case SDL_SCANCODE_PAGEUP: return 0xC9;
+        case SDL_SCANCODE_LEFT: return 0xCB;
+        case SDL_SCANCODE_RIGHT: return 0xCD;
+        case SDL_SCANCODE_END: return 0xCF;
+        case SDL_SCANCODE_DOWN: return 0xD0;
+        case SDL_SCANCODE_PAGEDOWN: return 0xD1;
+        case SDL_SCANCODE_INSERT: return 0xD2;
+        case SDL_SCANCODE_DELETE: return 0xD3;
+        default: return 0;
+    }
+}
+
+// first code point of a UTF-8 string
+MyGUI::Char Utf8First(const char* s) {
+    unsigned char c = (unsigned char)s[0];
+    if (c < 0x80) return c;
+    int n = c >= 0xF0 ? 3 : c >= 0xE0 ? 2 : 1;
+    MyGUI::Char r = c & (0x3F >> n);
+    for (int i = 1; i <= n && s[i]; ++i) r = (r << 6) | ((unsigned char)s[i] & 0x3F);
+    return r;
+}
+
 struct State {
     std::unique_ptr<MyGUI::LogManager> log;
     std::unique_ptr<RenderMgr> render;
@@ -301,6 +352,11 @@ bool MyGuiInit(int w, int h, const char* layout) {
     g.render->SetViewSize(w, h);
     g.gui = std::make_unique<MyGUI::Gui>();
     g.gui->initialise("kenshi_theme.xml");
+    // the theme names the file but the type is unknown to MyGUI (logged once as an error): register the loader and read it again
+    MyGUI::ResourceManager::getInstance().registerLoadXmlDelegate("Colour") = MyGUI::newDelegate(LoadColourPalette);
+    MyGUI::ResourceManager::getInstance().load("kenshi_colours.xml");
+    std::fprintf(stdout, "[MyGUI] colour palette: %zu entries, Main = #%02x%02x%02x\n", g_palette.size(),
+                 (int)(g_palette["Main"].red * 255.f + .5f), (int)(g_palette["Main"].green * 255.f + .5f), (int)(g_palette["Main"].blue * 255.f + .5f));
     if (layout && *layout) g.roots = MyGUI::LayoutManager::getInstance().loadLayout(layout);
     std::fprintf(stdout, "[MyGUI] init: view %dx%d layout '%s' roots %zu\n", w, h, layout ? layout : "", g.roots.size());
     return true;
@@ -329,6 +385,24 @@ void MyGuiMouse(float x, float y, bool left) {
     g.left_prev = left;
 }
 
+bool MyGuiEvent(const SDL_Event& e) {
+    if (!g.gui) return false;
+    auto& im = MyGUI::InputManager::getInstance();
+    switch (e.type) {
+        case SDL_EVENT_KEY_DOWN: if (int k = KeyFromScancode(e.key.scancode)) im.injectKeyPress((MyGUI::KeyCode::Enum)k); break;
+        case SDL_EVENT_KEY_UP:   if (int k = KeyFromScancode(e.key.scancode)) im.injectKeyRelease((MyGUI::KeyCode::Enum)k); break;
+        case SDL_EVENT_TEXT_INPUT: {   // printable characters (any language) arrive here, not as key codes
+            for (const char* p = e.text.text; *p;) {
+                im.injectKeyPress(MyGUI::KeyCode::None, Utf8First(p));
+                unsigned char c = (unsigned char)*p; p += c < 0x80 ? 1 : c >= 0xF0 ? 4 : c >= 0xE0 ? 3 : 2;
+            }
+            break;
+        }
+        default: break;
+    }
+    return im.isFocusKey();   // true while an edit box has keyboard focus: the caller keeps the key away from the game
+}
+
 void MyGuiPrepare(md::GpuCommandBufferHandle cmd) {
     if (!g.gui) return;
     auto t0 = std::chrono::steady_clock::now();
@@ -341,6 +415,31 @@ void MyGuiPrepare(md::GpuCommandBufferHandle cmd) {
 
 void MyGuiDraw(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd) {
     if (g.gui) g.render->Draw(rp, cmd);
+}
+
+bool MyGuiColour(const char* name, float rgb[3]) {
+    auto it = g_palette.find(name);
+    if (it == g_palette.end()) return false;
+    rgb[0] = it->second.red; rgb[1] = it->second.green; rgb[2] = it->second.blue;
+    return true;
+}
+
+std::string MyGuiTypeInto(const char* name, const char* utf8, int backspaces) {
+    if (!g.gui) return "";
+    MyGUI::Widget* w = nullptr;
+    for (auto* r : g.roots) if ((w = r->findWidget(name))) break;
+    if (!w) return "<widget not found>";
+    MyGUI::InputManager::getInstance().setKeyFocusWidget(w);
+    SDL_Event ev = {};
+    ev.type = SDL_EVENT_TEXT_INPUT;
+    ev.text.text = utf8;
+    MyGuiEvent(ev);
+    for (int i = 0; i < backspaces; ++i) {
+        SDL_Event k = {};
+        k.type = SDL_EVENT_KEY_DOWN; k.key.scancode = SDL_SCANCODE_BACKSPACE; MyGuiEvent(k);
+        k.type = SDL_EVENT_KEY_UP; MyGuiEvent(k);
+    }
+    return w->castType<MyGUI::TextBox>()->getCaption().asUTF8();
 }
 
 double MyGuiLastPrepareMs() { return g.prepare_ms; }
