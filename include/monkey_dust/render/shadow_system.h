@@ -4,7 +4,6 @@
 #include <monkey_dust/render/gpu_compute.h>
 #include <monkey_dust/render/md_camera.h>
 #include <monkey_dust/render/md_shader.h>
-#include <monkey_dust/render/md_mesh.h>
 #include <cmath>
 #include <cstdio>
 #include <cstdint>
@@ -72,9 +71,6 @@ public:
     // path -- see this class's own doc comment.
     void InitSDLGPU() {
         sdl_init_ = true;
-    }
-
-    void Init(MdMesh npc_mesh) {
     }
 
     // Recompute light-space VP matrices from camera frustum corners.
@@ -177,7 +173,6 @@ private:
 
     bool               sdl_init_     = false;
     MdShader           shadow_shader_;
-    MdMesh        mesh_;
     Vec3          cam_pos_ = {};
     int  screen_w_ = 1280, screen_h_ = 720;
 };

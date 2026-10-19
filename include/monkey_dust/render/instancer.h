@@ -1,6 +1,5 @@
 #pragma once
 #include <monkey_dust/platform/math_types.h>
-#include <monkey_dust/render/md_mesh.h>
 
 
 static constexpr int MAX_INSTANCES = 1024;
