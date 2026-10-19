@@ -5,7 +5,7 @@
 // SdlGpuBackend -- єдина РЕАЛЬНА реалізація IRenderBackend цієї фази.
 // Delegates у ІСНУЮЧІ підсистеми (GBuffer, DeferredLightingSystem,
 // ShadowSystem, NpcGpuCuller/CullAndPrepass, TerrainRenderer, PropRenderer,
-// ParticleRenderer, SSAOSystem, BloomSystem, EvsmShadow)
+// ParticleRenderer, SSAOSystem, EvsmShadow)
 // -- ЖОДНА з цих систем не переписується, тільки викликається з нового
 // місця (§2.1, "adapter, не rewrite"). Етап 1: усі методи -- порожні
 // stub'и (MD_LOG_WARNING + return), ще НЕ підключено до
@@ -41,11 +41,11 @@ public:
         gbuffer_pass_user_ = user;
     }
 
-    // Etap 2c/2d: NpcRender::DrawDeferredPasses -- ambient + motion-prep +
-    // SSAO (5 passes) + bloom + motion-blur-apply are ONE function with
-    // shared internal state (bloom_active/mb_active flags, and
+    // Etap 2c/2d: NpcRender::DrawDeferredPasses -- ambient +
+    // SSAO (5 passes) are ONE function with
+    // shared internal state (and
     // AcquireSwapchainCached's own "only once per command buffer" rule --
-    // DeferredLightingSystem/SSAOSystem/BloomSystem all
+    // DeferredLightingSystem/SSAOSystem all
     // read the SAME cached swapchain handle inside that one function).
     // Splitting this into 3 independent IRenderBackend calls the way
     // RenderDeferredLighting()/RunSsaoPass()/RunPostProcessChain() are

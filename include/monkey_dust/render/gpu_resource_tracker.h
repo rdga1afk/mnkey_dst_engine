@@ -8,7 +8,7 @@
 //
 // Deliberately scoped to these 5 HAL classes' Init/Create + Shutdown/Destroy
 // call sites, NOT every raw SDL_CreateGPU*/SDL_ReleaseGPU* call across the
-// ~17 internal renderer subsystem files (bloom/ssao/gbuffer/
+// ~17 internal renderer subsystem files (ssao/gbuffer/
 // etc.) that call SDL_GPU directly for their own resource management —
 // retrofitting those ~100 call sites would be a much larger, riskier change.
 // This catches leaks in NEW code using the public HAL surface, which is

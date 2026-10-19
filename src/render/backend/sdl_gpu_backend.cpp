@@ -12,7 +12,7 @@ bool SdlGpuBackend::Init() {
     // RENDER-BACKEND-STAGE-3: no longer a stub -- by the time any caller
     // constructs a SdlGpuBackend, every subsystem it delegates to
     // (GBuffer, ShadowSystem, DeferredLightingSystem, SSAOSystem,
-    // BloomSystem, TerrainQuadtreeRenderer, etc.) is
+    // TerrainQuadtreeRenderer, etc.) is
     // already independently initialized by its own owner (NpcRender::Init()/
     // WorldEditor3D_SDLGPU::Init()/CharPreviewSDLGPU::Init()/MapViewPanel::
     // Init(), per each caller's own call site) -- this class only routes
@@ -86,12 +86,11 @@ void SdlGpuBackend::RenderGBufferPass() {
 }
 
 void SdlGpuBackend::RenderDeferredLighting() {
-    // RENDER-BACKEND-STAGE-2c/2d: covers ambient + motion-prep + SSAO +
-    // bloom + motion-blur-apply ALL AT ONCE -- see SetDeferredPassCallback's
+    // RENDER-BACKEND-STAGE-2c/2d: covers ambient + SSAO ALL AT ONCE -- see SetDeferredPassCallback's
     // doc comment (sdl_gpu_backend.h) for why this doesn't split across
     // RenderDeferredLighting()/RunSsaoPass()/RunPostProcessChain() the way
     // their names suggest: DrawDeferredPasses is one function with shared
-    // state (bloom_active/mb_active, AcquireSwapchainCached's "once per
+    // state (AcquireSwapchainCached's "once per
     // command buffer" rule) that a 3-way split would either duplicate or
     // multiply-execute.
     if (deferred_pass_fn_) {

@@ -49,8 +49,8 @@ struct GpuSamplerDesc {
 // (GpuTexture, GpuDepthTexture) bundles exactly one sampler with exactly one
 // texture -- correct for the asset-loading/depth-attachment shapes they were
 // built for, but real post-process call sites don't share that shape.
-// bloom_system.cpp creates 4 render targets against 2 samplers (shared by
-// filter-mode purpose, not paired to any one texture); deferred_lighting.cpp has the same N-textures-vs-M-samplers pattern.
+// deferred_lighting.cpp creates several render targets against fewer samplers (shared by
+// filter-mode purpose, not paired to any one texture).
 // Forcing these through GpuTexture would silently create extra sampler
 // objects the original code never had -- a real resource-count divergence
 // invisible to pixel-diff A/B (the same class of gap named in this file's
