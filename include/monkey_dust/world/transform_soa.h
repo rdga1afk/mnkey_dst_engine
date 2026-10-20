@@ -64,24 +64,12 @@ public:
     SDL_GPUBuffer* SDLSkinBuffer()      const;
     MD_HOT void BulkComputeDistSq(float cam_x, float cam_z);
     MD_HOT void BulkComputeLOD(float near_sq, float far_sq, uint8_t* out_lod) const;
-    int      BuildMatrices(const uint8_t* lod, float far_sq,
-                           Mat4* out_matrices, int max_out) const;
     Mat4     BuildSingleMatrix(uint32_t slot) const;
 
     // Save v5 accessors (БОРГ-6)
     int      SlotCount() const { return active_count; }
     uint32_t GetSlotForEntity(MdEntity e) const;
     void     AssignSlot(MdEntity e, uint32_t slot, float x, float z, uint8_t faction_id);
-
-    // Sets a slot's skin tint (rgb, linear) + blend strength [0,1] — called once
-    // at spawn from CharDef::skin_rgb/color_strength (world_init.cpp / game_init.cpp),
-    // same cadence as faction (infrequent, not per-frame).
-    void SetSkin(uint32_t slot, float r, float g, float b, float str) {
-        if (slot >= MAX_SLOTS) return;
-        skin_rgba[slot][0] = r; skin_rgba[slot][1] = g;
-        skin_rgba[slot][2] = b; skin_rgba[slot][3] = str;
-        MarkSkinDirty(slot);
-    }
 
     // Dirty-range tracking for faction SSBO.
     void MarkFactionDirty(uint32_t slot) noexcept {

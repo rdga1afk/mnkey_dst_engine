@@ -138,20 +138,9 @@ public:
     // walkability source. Removed together in the same commit, not left
     // as orphaned dead code behind this one.
 
-    // G-3: water level constant and query.
-    // Returns true if terrain height at (wx,wz) is below the water plane.
+    // G-3: water level constant (terrain below it = underwater).
     // NavMesh excludes water cells; water.frag renders the flat plane.
     static constexpr float WATER_LEVEL = -2.0f;  // metres — terrain below this = underwater
-    bool IsWater(float wx, float wz) const {
-        return GetHeight(wx, wz) < WATER_LEVEL;
-    }
-
-    // Slope angle in radians (0 = flat, π/2 = vertical cliff).
-    float GetSlope(float wx, float wz) const {
-        float nx, ny, nz;
-        GetNormal(wx, wz, nx, ny, nz);
-        return acosf(ny < 1.f ? ny : 1.f);
-    }
 
 private:
     TerrainQuery() = default;

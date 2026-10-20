@@ -233,17 +233,6 @@ MD_HOT void TransformSoA::BulkComputeLOD(float near_sq, float far_sq, uint8_t* o
 #endif
 }
 
-int TransformSoA::BuildMatrices(const uint8_t* lod, float far_sq,
-                                 Mat4* out_matrices, int max_out) const {
-    int count = 0;
-    for (int i = 0; i < active_count && count < max_out; ++i) {
-        if (lod && lod[i] >= 2) continue;
-        if (px[i] >= DUMMY_POS) continue;
-        out_matrices[count++] = BuildSingleMatrix((uint32_t)i);
-    }
-    return count;
-}
-
 Mat4 TransformSoA::BuildSingleMatrix(uint32_t slot) const {
     return mat4_mul(mat4_rotate_y(rot_y[slot]),
                     mat4_translate(px[slot], py[slot] + 0.9f, pz[slot]));

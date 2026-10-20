@@ -65,34 +65,4 @@ struct FactionVoronoi {
             cz[i] = row * ch + lcg() * ch;
         }
     }
-
-    // Returns faction index [0, count) nearest to (wx, wz).
-    int NearestFaction(float wx, float wz) const {
-        int best = 0;
-        float best_d2 = 1e30f;
-        for (int i = 0; i < count; ++i) {
-            float dx = wx - cx[i], dz = wz - cz[i];
-            float d2 = dx*dx + dz*dz;
-            if (d2 < best_d2) { best_d2 = d2; best = i; }
-        }
-        return best;
-    }
-
-    // Returns true when (wx, wz) is within border_dist metres of a faction boundary.
-    bool NearBorder(float wx, float wz, float border_dist) const {
-        float d2_arr[VORONOI_MAX_FACTIONS];
-        int   n = count < VORONOI_MAX_FACTIONS ? count : VORONOI_MAX_FACTIONS;
-        for (int i = 0; i < n; ++i) {
-            float dx = wx - cx[i], dz = wz - cz[i];
-            d2_arr[i] = dx*dx + dz*dz;
-        }
-        // Find two smallest distances
-        float d1 = 1e30f, d2 = 1e30f;
-        for (int i = 0; i < n; ++i) {
-            if (d2_arr[i] < d1)       { d2 = d1; d1 = d2_arr[i]; }
-            else if (d2_arr[i] < d2)  { d2 = d2_arr[i]; }
-        }
-        float bd = border_dist * border_dist;
-        return (d2 - d1) < bd;
-    }
 };

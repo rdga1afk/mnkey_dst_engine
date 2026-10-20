@@ -39,8 +39,6 @@ public:
     bool TerrainInGbuffer() const { return terrain_in_gbuf_; }
     void DrawGbuf(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, const float* vp16, float cam_x, float cam_z, float radius);
 
-    int PlacementCount() const { return placement_count_; }
-
     // Draws every placement within `radius` metres of (cam_x, cam_z),
     // batched per mesh type (one PropRenderer::DrawRaw call per mesh that
     // has >=1 visible instance this frame).
