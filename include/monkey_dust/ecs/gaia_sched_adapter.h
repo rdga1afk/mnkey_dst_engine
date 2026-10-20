@@ -100,11 +100,6 @@ inline void RunTaskThunk(void* p) {
     job->taskInvoke(job->ctx);
     job->remaining.fetch_sub(1, std::memory_order_release);
 }
-inline void RunParChunkThunk(void* p) {
-    auto* job = static_cast<JobRec*>(p);
-    job->parInvoke(job->ctx, job->idxStart, job->idxEnd);
-    job->remaining.fetch_sub(1, std::memory_order_release);
-}
 
 inline void SubmitTask(JobRec* job) {
     // JobSystem::NumWorkers()==0 (test binaries without Init(), or a
