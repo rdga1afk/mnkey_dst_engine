@@ -1,4 +1,5 @@
 #include <monkey_dust/ui/mygui_sdlgpu.h>
+#include <monkey_dust/ui/kenshi_widgets.h>
 
 #include <MyGUI.h>
 #include <MyGUI_DataFileStream.h>
@@ -351,10 +352,10 @@ bool MyGuiInit(int w, int h, const char* layout) {
     g.render->Init();
     g.render->SetViewSize(w, h);
     g.gui = std::make_unique<MyGUI::Gui>();
-    g.gui->initialise("kenshi_theme.xml");
-    // the theme names the file but the type is unknown to MyGUI (logged once as an error): register the loader and read it again
-    MyGUI::ResourceManager::getInstance().registerLoadXmlDelegate("Colour") = MyGUI::newDelegate(LoadColourPalette);
-    MyGUI::ResourceManager::getInstance().load("kenshi_colours.xml");
+    g.gui->initialise("");   // no core file: the managers exist now, the Kenshi types are registered, then the theme (it lists the templates that use them) is read
+    mdui::RegisterKenshiWidgets();
+    MyGUI::ResourceManager::getInstance().registerLoadXmlDelegate("Colour") = MyGUI::newDelegate(LoadColourPalette);   // Kenshi's named colours (kenshi_colours.xml)
+    MyGUI::ResourceManager::getInstance().load("kenshi_theme.xml");
     std::fprintf(stdout, "[MyGUI] colour palette: %zu entries, Main = #%02x%02x%02x\n", g_palette.size(),
                  (int)(g_palette["Main"].red * 255.f + .5f), (int)(g_palette["Main"].green * 255.f + .5f), (int)(g_palette["Main"].blue * 255.f + .5f));
     if (layout && *layout) g.roots = MyGUI::LayoutManager::getInstance().loadLayout(layout);
