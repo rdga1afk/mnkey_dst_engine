@@ -117,39 +117,6 @@ namespace md_registry_detail {
         return e.id() <= gaia::ecs::GAIA_ID_LastCoreComponent.id();
     }
 
-    // Pre-destroy hooks — BT-leak investigation (CLAUDE_STATE.md БОРГ entry).
-    //
-    // gaia::ecs::ObserverEvent::OnDel only fires when a component leaves a
-    // STILL-LIVING entity's archetype (a component-removal transition) --
-    // confirmed via standalone repro that it structurally never fires for
-    // whole-entity destruction (w.del(entity)), unlike flecs's equivalent.
-    // A real non-trivial C++ destructor on the component type was also
-    // tried and rejected: gaia's chunk shift/move helpers (gaia.h,
-    // shift_elements_left/right_aos, move_elements_aos) move-ASSIGN
-    // non-trivial types during chunk compaction/growth rather than
-    // construct+destroy, which a standalone stress repro (50 owning
-    // entities under storage churn) showed drops roughly half of the
-    // real frees and can double-free a copied component — worse than the
-    // leak it would fix.
-    //
-    // The only two call sites that ever destroy an MdRegistry-managed
-    // entity are MdRegistry::Destroy() and MdRegistry::Clear() below --
-    // both invoke every registered hook immediately before the entity is
-    // actually removed, so this is the one place guaranteed to fire for
-    // every destruction path (single-entity and bulk). Fixed-size table,
-    // no malloc (CLAUDE.md hot-path rule) -- registration happens a
-    // handful of times at startup (BTSystem::ConnectRegistry() etc.), not
-    // per-entity.
-    using PreDestroyHook = void(*)(gaia::ecs::World&, gaia::ecs::Entity);
-    inline constexpr size_t MAX_PRE_DESTROY_HOOKS = 8;
-    inline PreDestroyHook g_pre_destroy_hooks[MAX_PRE_DESTROY_HOOKS] = {};
-    inline size_t g_pre_destroy_hook_count = 0;
-
-    inline void RunPreDestroyHooks(gaia::ecs::World& w, gaia::ecs::Entity e) {
-        for (size_t i = 0; i < g_pre_destroy_hook_count; ++i)
-            g_pre_destroy_hooks[i](w, e);
-    }
-
     template<typename T> struct function_traits : function_traits<decltype(&T::operator())> {};
     template<typename C, typename R, typename... Args>
     struct function_traits<R(C::*)(Args...) const> { using args_tuple = std::tuple<Args...>; };

@@ -100,28 +100,7 @@ public:
         w.add<MdManagedTag>(e);
         return MdEntity(e);
     }
-    // See md_registry_detail's pre-destroy-hook doc comment above --
-    // registers a callback invoked before an entity is actually removed
-    // by Destroy() or Clear(), the only two entity-destruction call
-    // sites in this facade. Idempotent by design: callers like
-    // BTSystem::ConnectRegistry() run from per-TEST_F SetUp() across a
-    // dozen+ fixtures in the same test binary, so the same function
-    // pointer would otherwise be registered dozens of times and blow
-    // through the fixed-size table.
-    static void RegisterPreDestroyHook(md_registry_detail::PreDestroyHook fn) {
-        for (size_t i = 0; i < md_registry_detail::g_pre_destroy_hook_count; ++i) {
-            if (md_registry_detail::g_pre_destroy_hooks[i] == fn) return;
-        }
-        if (md_registry_detail::g_pre_destroy_hook_count < md_registry_detail::MAX_PRE_DESTROY_HOOKS) {
-            md_registry_detail::g_pre_destroy_hooks[md_registry_detail::g_pre_destroy_hook_count++] = fn;
-        } else {
-            MD_LOG(MD_LOG_ERROR, "[MdRegistry] pre-destroy hook table full (MAX=%zu)",
-                   md_registry_detail::MAX_PRE_DESTROY_HOOKS);
-        }
-    }
-
     void Destroy(MdEntity e) {
-        md_registry_detail::RunPreDestroyHooks(Raw(), e.Raw());
         Handle(e).destruct();
     }
     bool Valid(MdEntity e) const {
@@ -189,7 +168,6 @@ public:
         auto& cmdBuf = w.cmd_buffer_st();
         auto q = w.query().all<MdManagedTag>();
         MdEach(q, [&](MdEntity e) {
-            md_registry_detail::RunPreDestroyHooks(w, e.Raw());
             cmdBuf.del(e.Raw());
         });
         cmdBuf.commit();
