@@ -51,3 +51,14 @@ set_target_properties(monkey_dust::engine PROPERTIES
     INTERFACE_LINK_LIBRARIES "${_md_sdl};monkey_dust::Jolt;monkey_dust::ozz_animation_offline;monkey_dust::ozz_animation;monkey_dust::ozz_base;@MD_ENGINE_LUA@;dl")
 unset(_md_inc)
 unset(_md_sdl)
+
+# #192: the MyGUI platform (monkey_dust_mygui), only when the package was built with MD_MYGUI=ON
+if(EXISTS "${_md_prefix}/lib/libmonkey_dust_mygui.a")
+    find_dependency(Freetype)
+    add_library(monkey_dust::mygui STATIC IMPORTED)
+    set_target_properties(monkey_dust::mygui PROPERTIES
+        IMPORTED_LOCATION "${_md_prefix}/lib/libmonkey_dust_mygui.a"
+        INTERFACE_INCLUDE_DIRECTORIES "${_md_prefix}/include/third_party/mygui"
+        INTERFACE_COMPILE_DEFINITIONS "MYGUI_USE_FREETYPE;MYGUI_STATIC;MYGUI_BUILD;MYGUI_DONT_REPLACE_NULLPTR"
+        INTERFACE_LINK_LIBRARIES "Freetype::Freetype;monkey_dust::engine")
+endif()

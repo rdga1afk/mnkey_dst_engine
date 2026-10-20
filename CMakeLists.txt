@@ -409,6 +409,10 @@ block()
     install(DIRECTORY src/vendor/ DESTINATION include/vendor COMPONENT md_engine FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp" PATTERN "*.inl")
     install(DIRECTORY src/audio/ DESTINATION include/audio COMPONENT md_engine FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp")
     install(FILES NOTICE THIRD_PARTY.md LICENSE DESTINATION share/doc/monkey_dust_engine COMPONENT md_engine OPTIONAL)
+    if(TARGET monkey_dust_mygui)   # #192: the MyGUI platform comes prebuilt too (the config adds monkey_dust::mygui when the archive is there)
+        install(TARGETS monkey_dust_mygui ARCHIVE DESTINATION lib COMPONENT md_engine)
+        install(DIRECTORY ${MD_THIRD_PARTY}/MyGUI/MyGUIEngine/include/ DESTINATION include/third_party/mygui COMPONENT md_engine FILES_MATCHING PATTERN "*.h")
+    endif()
 
     # the file names of the static archives are a generator-time fact (<LIB>_<CONFIG> names of ozz): generate the config from the template
     foreach(_t Jolt ozz_animation ozz_animation_offline ozz_base)
