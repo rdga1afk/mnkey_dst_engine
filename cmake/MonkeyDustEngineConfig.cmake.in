@@ -54,7 +54,9 @@ unset(_md_sdl)
 
 # #192: the MyGUI platform (monkey_dust_mygui), only when the package was built with MD_MYGUI=ON
 if(EXISTS "${_md_prefix}/lib/libmonkey_dust_mygui.a")
-    find_dependency(Freetype)
+    find_package(Freetype QUIET)   # optional: a consumer without FreeType development files builds without MyGUI (stubs)
+endif()
+if(EXISTS "${_md_prefix}/lib/libmonkey_dust_mygui.a" AND TARGET Freetype::Freetype)
     add_library(monkey_dust::mygui STATIC IMPORTED)
     set_target_properties(monkey_dust::mygui PROPERTIES
         IMPORTED_LOCATION "${_md_prefix}/lib/libmonkey_dust_mygui.a"
