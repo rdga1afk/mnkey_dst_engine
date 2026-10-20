@@ -270,9 +270,6 @@ void OzzAnimator::ModelsToOutBones(
         if (bone_scales) {
             // Scale columns of inv_bind: diag(sx,sy,sz,1) * inv_bind
             // Column-major: scaling row i by bone_scales[b][i]
-            const SimdFloat4 sx = simd_float4::Load1(bone_scales[b][0]);
-            const SimdFloat4 sy = simd_float4::Load1(bone_scales[b][1]);
-            const SimdFloat4 sz = simd_float4::Load1(bone_scales[b][2]);
             // Each column of inv: col_j = (inv[0,j]*sx, inv[1,j]*sy, inv[2,j]*sz, inv[3,j])
             // We scale individual float rows — extract row components then reassemble.
             // Simpler: scale each column's xyz components in place.

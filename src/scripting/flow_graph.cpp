@@ -322,7 +322,6 @@ void FlowGraph::propagate(uint32_t from_node_id, uint8_t from_port,
 
 void FlowGraph::Tick(double now_s, MdEntity ctx, MdWorldRef& reg) {
     // C20: decay durable triggers; release expired slots
-    float dt = (now_s > 0.0) ? static_cast<float>(now_s) : 0.f;
     // use a small sentinel: on first call now_s may be near 0; rely on caller
     // passing a proper delta — here we use now_s as absolute time and just
     // subtract frame delta via the fixed LOGIC_TICK_S constant (0.1 s).

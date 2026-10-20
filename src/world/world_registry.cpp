@@ -141,30 +141,6 @@ void WorldRegistry::Load(const char* path) {
 }
 
 
-static const char* s_biome_name(BiomeType b) {
-    switch (b) {
-        case BiomeType::Grassland: return "grassland";
-        case BiomeType::Badlands:  return "badlands";
-        case BiomeType::Swamp:     return "swamp";
-        case BiomeType::Rocky:     return "rocky";
-        case BiomeType::Desert:    return "desert";
-        case BiomeType::Tundra:    return "tundra";
-        default:                   return "desert";
-    }
-}
-
-static int s_danger_for_biome(BiomeType b) {
-    switch (b) {
-        case BiomeType::Grassland: return 1;
-        case BiomeType::Swamp:     return 2;
-        case BiomeType::Badlands:  return 3;
-        case BiomeType::Tundra:    return 3;
-        case BiomeType::Desert:    return 4;
-        case BiomeType::Rocky:     return 5;
-        default:                   return 2;
-    }
-}
-
 void WorldRegistry::Save(const char* path) const {
     FILE* fp = fopen(RegistryPath(path), "w");
     if (!fp) return;

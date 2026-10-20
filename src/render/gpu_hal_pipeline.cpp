@@ -14,21 +14,6 @@
 
 // ── Common helpers ─────────────────────────────────────────────────────────────
 
-static char* ReadTextFile(const char* path) {
-    FILE* f = fopen(path, "rb");
-    if (!f) return nullptr;
-    fseek(f, 0, SEEK_END);
-    long len = ftell(f);
-    rewind(f);
-    char* buf = (char*)malloc((size_t)len + 1);
-    if (!buf) { fclose(f); return nullptr; }
-    fread(buf, 1, (size_t)len, f);
-    buf[len] = '\0';
-    fclose(f);
-    return buf;
-}
-
-
 // ── SDL_GPUGraphicsPipeline object cache ─────────────────────────────────────
 // Vulkan pattern: VkPipelineCache reuses driver-compiled binaries.
 // SDL_GPU adaptation: cache compiled SDL_GPUGraphicsPipeline objects by
