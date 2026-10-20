@@ -79,11 +79,12 @@ void ListScrollBar::Select(int i, bool raise) {
     if (raise && i >= 0) eventValueChanged(this, values_[size_t(i)], i);
 }
 
-void ListScrollBar::notifyStep(MyGUI::Widget* sender) {
+void ListScrollBar::notifyStep(MyGUI::Widget* sender) { step(sender == end_ ? 1 : -1); }
+
+void ListScrollBar::step(int direction) {
     if (values_.empty()) return;
     const int n = int(values_.size());
-    const int step = sender == end_ ? 1 : -1;
-    Select(((index_ < 0 ? (step > 0 ? -1 : 0) : index_) + step + n) % n, true);   // wraps around
+    Select(((index_ < 0 ? (direction > 0 ? -1 : 0) : index_) + direction + n) % n, true);   // wraps around
 }
 
 // ── MultiSlider ──────────────────────────────────────────────────────────────────────────────────────────────

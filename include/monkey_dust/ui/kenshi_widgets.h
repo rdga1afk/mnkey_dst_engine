@@ -37,6 +37,7 @@ public:
     void setValues(const std::vector<std::string>& values);
     void setValueSelected(const std::string& value);     // no event; unknown value: nothing selected
     int getSelectedIndex() const { return index_; }
+    void step(int direction);                            // +1 / -1 as the End / Start button does (wraps around)
     MyGUI::delegates::CMultiDelegate3<ListScrollBar*, const std::string&, int> eventValueChanged;   // (widget, value, index)
 protected:
     void initialiseOverride() override;
