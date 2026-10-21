@@ -61,10 +61,37 @@
        SDL_Quit();
    }
 
-   // Software frame cap of the main loops (game main.cpp, editor main.cpp): fps > 0 = at most that many frames per second, 0 = unlimited. Default 60 (#191).
-   inline int& _window_fps_cap() { static int v = 60; return v; }
-   inline void window_set_fps_cap(int fps) { _window_fps_cap() = fps < 0 ? 0 : fps; }
-   inline int  window_fps_cap() { return _window_fps_cap(); }
+   // Software frame cap of the main loops (game main.cpp, editor main.cpp), #191. Setting: -1 = auto (default), 0 = unlimited, > 0 = that many fps.
+   // Auto: 60 while there was input or camera movement in the last 0.5 s (window_note_activity), 30 when idle; the 60 applies from the next frame.
+   inline int& _window_fps_setting() { static int v = -1; return v; }
+   inline Uint64& _window_last_activity_ns() { static Uint64 v = 0; return v; }
+   inline void window_set_fps_cap(int fps) { _window_fps_setting() = fps < -1 ? -1 : fps; }
+   inline int  window_fps_setting() { return _window_fps_setting(); }
+   inline void window_note_activity() { _window_last_activity_ns() = SDL_GetTicksNS(); }
+   inline int  window_fps_cap() {   // the cap in force now (0 = unlimited)
+       const int s = _window_fps_setting();
+       if (s != -1) return s;
+       return (SDL_GetTicksNS() - _window_last_activity_ns() < 500000000ULL) ? 60 : 30;
+   }
+
+   // The wait at the top of a frame: sleeps until 1/cap s after the previous frame start. In auto mode it sleeps in 2 ms slices and, when a key / mouse
+   // event arrives meanwhile, switches to the 60 fps interval at once (no 33 ms wait before the first frame of an input).
+   inline void window_frame_cap_wait(Uint64& prev_ns) {
+       while (prev_ns) {
+           if (_window_fps_setting() == -1) {
+               SDL_PumpEvents();
+               if (SDL_HasEvents(SDL_EVENT_KEY_DOWN, SDL_EVENT_MOUSE_WHEEL)) window_note_activity();
+           }
+           const int cap = window_fps_cap();
+           if (cap <= 0) break;
+           const Uint64 target = 1000000000ULL / (Uint64)cap;
+           const Uint64 now = SDL_GetTicksNS();
+           if (now - prev_ns >= target) break;
+           const Uint64 left = target - (now - prev_ns);
+           SDL_DelayNS(left < 2000000ULL ? left : 2000000ULL);
+       }
+       prev_ns = SDL_GetTicksNS();
+   }
 
    inline void window_set_vsync(int fps) {
        auto& dev = md::GpuDevice::Get();
