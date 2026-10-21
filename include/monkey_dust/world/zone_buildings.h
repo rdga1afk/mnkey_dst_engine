@@ -18,6 +18,7 @@ constexpr float WORLD_ORIGIN_UNITS = 147456.0f;
 struct PlacedPart {
     std::string mesh;       // as stored, '\\' -> '/'
     float x, y, z;          // metres in our world; y = `world Y pos` / 10
+    float y_off;            // instance position y / 10: the offset above the terrain, metres
     float scale;
     float quat[4];          // w x y z
 };

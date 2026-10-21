@@ -74,7 +74,7 @@ bool LoadBuildingsInCircle(const std::string& kenshi_dir, const md::fcs::GameDat
             const BuildingDef& d = def_of(in.target);
             for (const std::string& m : d.meshes)
                 out.push_back({m, (in.position[0] + WORLD_ORIGIN_UNITS) / 10.0f, wy / 10.0f, (in.position[2] + WORLD_ORIGIN_UNITS) / 10.0f,
-                               d.scale, {in.rotation[0], in.rotation[1], in.rotation[2], in.rotation[3]}});
+                               in.position[1] / 10.0f, d.scale, {in.rotation[0], in.rotation[1], in.rotation[2], in.rotation[3]}});
         }
     }
     return true;
