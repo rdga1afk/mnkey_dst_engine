@@ -73,7 +73,7 @@ bool LoadBuildingsInCircle(const std::string& kenshi_dir, const md::fcs::GameDat
             if (!have) continue;
             const BuildingDef& d = def_of(in.target);
             for (const std::string& m : d.meshes)
-                out.push_back({m, (in.position[0] + WORLD_ORIGIN_UNITS) / 10.0f, wy / 10.0f, (in.position[2] + WORLD_ORIGIN_UNITS) / 10.0f,
+                out.push_back({m, (float)(((double)in.position[0] + WORLD_ORIGIN_UNITS) / 10.0), (float)((double)wy / 10.0), (float)(((double)in.position[2] + WORLD_ORIGIN_UNITS) / 10.0),
                                in.position[1] / 10.0f, d.scale, {in.rotation[0], in.rotation[1], in.rotation[2], in.rotation[3]}});
         }
     }
@@ -85,6 +85,7 @@ bool LoadBuildingsAt(const std::string& kenshi_dir, float cx_m, float cz_m, floa
     md::fcs::LoadOrder order; md::fcs::Error e;
     if (!inst.LoadOrderFor(order, e)) { err = e.Message(); return false; }
     md::fcs::GameDataContainer data;
+    data.replace_reference_lists = true;
     if (!data.Load(order, e)) { err = e.Message(); return false; }
     return LoadBuildingsInCircle(kenshi_dir, data, cx_m, cz_m, radius_m, out, err);
 }

@@ -158,7 +158,7 @@ void SetRef(GameData& g, const std::string& category, const std::string& target,
     else if (!remove) list.emplace_back(target, values);
 }
 
-void Apply(GameData& g, const Record& r) {
+void Apply(GameData& g, const Record& r, bool replace_reference_lists) {
     for (const auto& kv : r.bools) g.bools[kv.first] = kv.second;
     for (const auto& kv : r.floats) g.floats[kv.first] = kv.second;
     for (const auto& kv : r.ints) g.ints[kv.first] = kv.second;
@@ -166,8 +166,11 @@ void Apply(GameData& g, const Record& r) {
     for (const auto& kv : r.vec4s) g.vec4s[kv.first] = kv.second;
     for (const auto& kv : r.strings) g.strings[kv.first] = kv.second;
     for (const auto& kv : r.files) g.files[kv.first] = kv.second;
-    for (const auto& cat : r.references)
+    for (const auto& cat : r.references) {
+        if (replace_reference_lists && !cat.second.empty())
+            for (auto& have : g.references) if (have.first == cat.first) have.second.clear();
         for (const auto& rf : cat.second) SetRef(g, cat.first, rf.target, {rf.values[0], rf.values[1], rf.values[2]});
+    }
     for (const Instance& inst : r.instances) {
         size_t at = g.instances.size();
         for (size_t i = 0; i < g.instances.size(); ++i) if (g.instances[i].id == inst.id) { at = i; break; }
@@ -197,7 +200,7 @@ void GameDataContainer::ApplyFile(const std::string& name, const File& file) {
             GameData g; g.kind = r.kind; g.name = r.name; g.string_id = r.string_id; g.source = source;
             rec = &records.emplace(r.string_id, std::move(g)).first->second;
         }
-        Apply(*rec, r);
+        Apply(*rec, r, replace_reference_lists);
         auto removed = rec->bools.find("REMOVED");
         if (removed != rec->bools.end() && removed->second) {
             records.erase(r.string_id);

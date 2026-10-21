@@ -82,6 +82,9 @@ public:
     std::unordered_map<std::string, GameData> records;
     std::vector<std::string> order; // record ids in the order first loaded
     int32_t id_counter = 0;
+    // false: Okran's rule (a reference sets / removes one target). true: a record that lists a category replaces the whole list of that category
+    // (shipped Newwworld.mod / rebirth.mod hold 0 removal markers and re-list unchanged lists 213 times; #119). Set before Load().
+    bool replace_reference_lists = false;
     std::vector<std::string> files; // file names in the order applied
     std::vector<std::string> warnings;
 
