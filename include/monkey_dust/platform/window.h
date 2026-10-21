@@ -61,6 +61,11 @@
        SDL_Quit();
    }
 
+   // Software frame cap of the main loops (game main.cpp, editor main.cpp): fps > 0 = at most that many frames per second, 0 = unlimited. Default 60 (#191).
+   inline int& _window_fps_cap() { static int v = 60; return v; }
+   inline void window_set_fps_cap(int fps) { _window_fps_cap() = fps < 0 ? 0 : fps; }
+   inline int  window_fps_cap() { return _window_fps_cap(); }
+
    inline void window_set_vsync(int fps) {
        auto& dev = md::GpuDevice::Get();
        if (dev.IsReady()) {
