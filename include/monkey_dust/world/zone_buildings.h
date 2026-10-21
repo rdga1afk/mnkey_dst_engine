@@ -30,6 +30,10 @@ std::vector<std::string> ZoneFilesInCircle(const std::string& kenshi_dir, float 
 bool LoadBuildingsInCircle(const std::string& kenshi_dir, const md::fcs::GameDataContainer& data,
                            float cx_m, float cz_m, float radius_m, std::vector<PlacedPart>& out, std::string& err);
 
+// Every part of every building of one zone (zone indices 0..63; no file = no buildings). The instance belongs to the zone whose file holds it.
+bool LoadZoneBuildings(const std::string& kenshi_dir, const md::fcs::GameDataContainer& data, int zx, int zz,
+                       std::vector<PlacedPart>& out, std::string& err);
+
 // Same, loading the merged game data of the install itself (load order of the install's mods.cfg).
 bool LoadBuildingsAt(const std::string& kenshi_dir, float cx_m, float cz_m, float radius_m, std::vector<PlacedPart>& out, std::string& err);
 
