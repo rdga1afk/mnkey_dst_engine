@@ -73,4 +73,6 @@ private:
     // always (even a dummy 1x1 white texture when unused) — HD520 sampler
     // binding-order rule: no gaps in fragment sampler slots.
     GpuTexture  tex_custom_;
+    bool        custom_owned_ = false;   // false: the shared 1x1 white texture is bound instead of tex_custom_
+    const GpuTexture& CustomTex() const;
 };

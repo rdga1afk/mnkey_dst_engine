@@ -25,12 +25,23 @@ bool PropRenderer::Init(const char* glb_path, float layer) {
     return FinishInit();
 }
 
+// One 1x1 white texture for every PropRenderer without a texture of its own (a texture upload per renderer cost a GPU submit each, #119).
+static GpuTexture& SharedWhite() {
+    static GpuTexture t;
+    static bool ready = false;
+    if (!ready) { static const uint8_t white1x1[4] = {255, 255, 255, 255}; t.InitFromMemory(white1x1, 1, 1, GpuSamplerDesc{}); ready = true; }
+    return t;
+}
+
+const GpuTexture& PropRenderer::CustomTex() const { return custom_owned_ ? tex_custom_ : SharedWhite(); }
+
 bool PropRenderer::SetCustomTexture(const char* path) {
     GpuSamplerDesc sd; sd.gen_mipmap = true;
     GpuTexture t;
     if (!t.InitFromFile(path, sd)) return false;
-    tex_custom_.Shutdown();
+    if (custom_owned_) tex_custom_.Shutdown();
     tex_custom_ = t;
+    custom_owned_ = true;
     return true;
 }
 
@@ -53,11 +64,11 @@ bool PropRenderer::FinishInit() {
         sd.gen_mipmap = true;
         tex_custom_.InitFromMemory(mesh_.custom_tex_rgba, mesh_.custom_tex_w,
                                     mesh_.custom_tex_h, sd);
+        custom_owned_ = true;
         stbi_image_free(mesh_.custom_tex_rgba);
         mesh_.custom_tex_rgba = nullptr;  // ownership transferred to the GPU; avoid double free in PropMesh::Shutdown
     } else {
-        static const uint8_t white1x1[4] = {255, 255, 255, 255};
-        tex_custom_.InitFromMemory(white1x1, 1, 1, GpuSamplerDesc{});
+        SharedWhite();   // not owned: CustomTex() returns the shared 1x1 white
     }
 
     GpuPipeline::Desc pd;
@@ -94,7 +105,8 @@ bool PropRenderer::FinishInit() {
 void PropRenderer::Shutdown() {
     pipeline_.Destroy();
     mesh_.Shutdown();
-    tex_custom_.Shutdown();
+    if (custom_owned_) tex_custom_.Shutdown();
+    custom_owned_ = false;
 }
 
 // Vertex UBO layout (std140, 128 bytes):
@@ -154,7 +166,7 @@ void PropRenderer::DrawRaw(
         SDL_GPUTextureSamplerBinding sb[3] = {
             { pt.tex_rock->SDLTexture(),   pt.tex_rock->SDLSampler()   },
             { pt.tex_veg->SDLTexture(),    pt.tex_veg->SDLSampler()    },
-            { tex_custom_.SDLTexture(),    tex_custom_.SDLSampler()    },
+            { CustomTex().SDLTexture(),    CustomTex().SDLSampler()    },
         };
         pv.BindFragmentSamplers(0, sb, 3);
     }
@@ -235,7 +247,7 @@ void PropRenderer::BeginInstanced(SDL_GPURenderPass* rp, md::GpuCommandBufferHan
         SDL_GPUTextureSamplerBinding sb[3] = {
             { pt.tex_rock->SDLTexture(), pt.tex_rock->SDLSampler() },
             { pt.tex_veg->SDLTexture(),  pt.tex_veg->SDLSampler()  },
-            { tex_custom_.SDLTexture(),  tex_custom_.SDLSampler()  },
+            { CustomTex().SDLTexture(),  CustomTex().SDLSampler()  },
         };
         pv.BindFragmentSamplers(0, sb, 3);
     }

@@ -36,6 +36,10 @@ public:
     void Init(unsigned int gl_target, const void* data, uint32_t size_bytes);
     void Shutdown();
 
+    // Upload batch: Init calls between Begin and End share one command buffer and one submit (load-time streaming, #119). Not for use while a render pass is open.
+    static void BeginUploadBatch();
+    static void EndUploadBatch();
+
     // OpenGL bind helpers (no-op in SDL_GPU-only builds).
     void Bind(unsigned int gl_target) const;
 
