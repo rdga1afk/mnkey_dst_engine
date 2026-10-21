@@ -3,23 +3,25 @@
 
 // ── GpuStaticBuffer ───────────────────────────────────────────────────────────
 
-// Upload batch (#119): between BeginUploadBatch and EndUploadBatch every Init records its copy into one command buffer / copy pass, submitted once.
-// A submit per buffer cost 1.4-15 ms each while the GPU was busy with the frame. The buffers are valid for drawing after EndUploadBatch.
+// Upload batch (#119): between BeginUploadBatch and EndUploadBatch every Init records its copy into one command buffer / copy pass, submitted once,
+// and stages its bytes in one persistent 4 MB transfer buffer (mapped with cycle once per batch; a 16 MB one made every cycle cost ~9 ms). A submit and a transfer buffer per Init cost 1.4-15 ms each
+// while the GPU was busy with the frame. The buffers are valid for drawing after EndUploadBatch.
 namespace {
-SDL_GPUCommandBuffer* s_batch_cmd = nullptr;
-SDL_GPUCopyPass*      s_batch_pass = nullptr;
-constexpr int         MAX_BATCH_TRANSFERS = 256;
-SDL_GPUTransferBuffer* s_batch_transfers[MAX_BATCH_TRANSFERS];
-int                   s_batch_n = 0;
+SDL_GPUCommandBuffer*  s_batch_cmd = nullptr;
+SDL_GPUCopyPass*       s_batch_pass = nullptr;
+constexpr uint32_t     STAGE_CAP = 4u << 20;
+SDL_GPUTransferBuffer* s_stage = nullptr;
+uint8_t*               s_stage_map = nullptr;
+uint32_t               s_stage_off = 0;
 void FlushBatch(bool keep_open) {
     SDL_GPUDevice* dev = md::GpuDevice::Get().SDLDevice();
+    if (s_stage_map) { GpuUnmapTransfer(s_stage); s_stage_map = nullptr; }
+    s_stage_off = 0;
     if (s_batch_pass) { SDL_EndGPUCopyPass(s_batch_pass); s_batch_pass = nullptr; }
     if (s_batch_cmd) {
         if (!SDL_SubmitGPUCommandBuffer(s_batch_cmd)) MD_LOG(MD_LOG_WARNING, "[GpuStaticBuffer] batch submit failed: %s", SDL_GetError());
         s_batch_cmd = nullptr;
     }
-    for (int i = 0; i < s_batch_n; ++i) SDL_ReleaseGPUTransferBuffer(dev, s_batch_transfers[i]);
-    s_batch_n = 0;
     if (keep_open) {
         s_batch_cmd = SDL_AcquireGPUCommandBuffer(dev);
         if (s_batch_cmd) s_batch_pass = SDL_BeginGPUCopyPass(s_batch_cmd);
@@ -30,6 +32,11 @@ void FlushBatch(bool keep_open) {
 void GpuStaticBuffer::BeginUploadBatch() {
     if (s_batch_cmd) return;
     SDL_GPUDevice* dev = md::GpuDevice::Get().SDLDevice();
+    if (!s_stage) {
+        SDL_GPUTransferBufferCreateInfo ti = {}; ti.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD; ti.size = STAGE_CAP;
+        s_stage = SDL_CreateGPUTransferBuffer(dev, &ti);
+        if (!s_stage) { MD_LOG(MD_LOG_WARNING, "[GpuStaticBuffer] staging buffer failed: %s", SDL_GetError()); return; }
+    }
     s_batch_cmd = SDL_AcquireGPUCommandBuffer(dev);
     if (s_batch_cmd) s_batch_pass = SDL_BeginGPUCopyPass(s_batch_cmd);
 }
@@ -58,6 +65,22 @@ void GpuStaticBuffer::Init(unsigned int target, const void* data, uint32_t size)
     }
     md::GpuResourceTracker::Get().OnBufferCreate();
 
+    if (s_batch_pass && s_stage && size <= STAGE_CAP) {   // batched: stage into the shared transfer buffer, copy in EndUploadBatch
+        uint32_t off = (s_stage_off + 15u) & ~15u;
+        if (off + size > STAGE_CAP) { FlushBatch(true); off = 0; }
+        if (s_batch_pass) {
+            if (!s_stage_map) s_stage_map = (uint8_t*)GpuMapTransfer(s_stage, true);
+            if (s_stage_map) {
+                memcpy(s_stage_map + off, data, size);
+                SDL_GPUTransferBufferLocation bsrc = {}; bsrc.transfer_buffer = s_stage; bsrc.offset = off;
+                SDL_GPUBufferRegion bdst = {}; bdst.buffer = sdl_buf_; bdst.size = size;
+                SDL_UploadToGPUBuffer(s_batch_pass, &bsrc, &bdst, false);
+                s_stage_off = off + size;
+                return;
+            }
+        }
+    }
+
     // One-shot upload: staging transfer buffer → device buffer.
     SDL_GPUTransferBufferCreateInfo tbuf_info = {};
     tbuf_info.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
@@ -70,15 +93,6 @@ void GpuStaticBuffer::Init(unsigned int target, const void* data, uint32_t size)
 
     void* map = GpuMapTransfer(transfer, false);
     if (map) { memcpy(map, data, size); GpuUnmapTransfer(transfer); }
-
-    if (s_batch_pass) {   // batched: record the copy, submit in EndUploadBatch
-        SDL_GPUTransferBufferLocation bsrc = {}; bsrc.transfer_buffer = transfer;
-        SDL_GPUBufferRegion bdst = {}; bdst.buffer = sdl_buf_; bdst.size = size;
-        SDL_UploadToGPUBuffer(s_batch_pass, &bsrc, &bdst, false);
-        s_batch_transfers[s_batch_n++] = transfer;
-        if (s_batch_n >= MAX_BATCH_TRANSFERS) FlushBatch(true);
-        return;
-    }
 
     SDL_GPUCommandBuffer* cmd  = SDL_AcquireGPUCommandBuffer(dev);
     if (!cmd) { MD_LOG(MD_LOG_WARNING, "[GpuStaticBuffer] AcquireCmd failed: %s", SDL_GetError()); return; }
