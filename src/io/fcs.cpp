@@ -196,6 +196,30 @@ bool ReadHeader(const std::string& path, Header& out, Error& err) {
     return ReadHeader(r, out);
 }
 
+bool ParseHeaderTail(const std::vector<uint8_t>& tail, HeaderExtra& out) {
+    out = HeaderExtra{};
+    if (tail.empty()) return true;
+    Error err;
+    Reader r{tail.data(), tail.size(), 0, &err};
+    auto u8 = [&](size_t& n) { const uint8_t* p; if (!r.Take(1, "count", p)) return false; n = p[0]; return true; };
+    if (!r.U32("save counter", out.save_counter) || !r.U32("last merge resolve", out.last_merge_resolve)) return false;
+    size_t n;
+    if (!u8(n)) return false;
+    for (size_t i = 0; i < n; ++i) {
+        HeaderExtra::Merge m;
+        if (!r.Str("merge mod", m.mod) || !r.U32("merge a", m.a) || !r.U32("merge b", m.b)) return false;
+        out.merges.push_back(std::move(m));
+    }
+    if (r.pos >= tail.size()) return true;
+    if (!u8(n)) return false;
+    for (size_t i = 0; i < n; ++i) {
+        HeaderExtra::Removal m;
+        if (!r.Str("removal mod", m.mod) || !r.U32("removal version", m.version) || !r.Str("removal ids", m.ids)) return false;
+        out.removals.push_back(std::move(m));
+    }
+    return true;
+}
+
 std::vector<std::string> FileList(const std::string& s) {
     std::vector<std::string> out;
     size_t i = 0;

@@ -37,6 +37,18 @@ struct Header {
     int32_t record_count = 0;
 };
 
+// The v17 header tail (FCS_SCHEMA section 3), decoded: SaveCounter, LastMergeResolve, merge info (mod, u32, u32) and removal requests (mod, version, "id:id:...").
+// The removal block is absent when the tail ends after the merge list (seen in shipped mods).
+struct HeaderExtra {
+    uint32_t save_counter = 0, last_merge_resolve = 0;
+    struct Merge { std::string mod; uint32_t a = 0, b = 0; };
+    struct Removal { std::string mod; uint32_t version = 0; std::string ids; };
+    std::vector<Merge> merges;
+    std::vector<Removal> removals;
+};
+// Fills `out` from Header::tail; an empty tail gives zeros. False on a truncated tail.
+bool ParseHeaderTail(const std::vector<uint8_t>& tail, HeaderExtra& out);
+
 struct Reference {
     std::string target;       // string_id of the referenced record
     int32_t values[3] = {0, 0, 0};
