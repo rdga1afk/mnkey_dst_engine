@@ -36,6 +36,7 @@ struct FoliageMesh {   // a FOLIAGE_MESH (F041792)
     float child_cluster_radius = 0, road_avoidance = 0, grass_spot = 0;
     bool avoid_towns = false, building_type = false;
     float min_height = 0, max_height = 0, vertical_offset_min = 0, vertical_offset_max = 0;
+    int material_type = 0;   // MapFeatureMode: 2 = TERRAIN (textured with the biome's terrain layers; its own texture fields are ignored), 4 = FOLIAGE
     std::vector<int> children;
 };
 
@@ -54,16 +55,19 @@ struct Grass {   // a GRASS record as the overlay painting takes it (F041791)
     bool blackout = false;
 };
 
+struct BiomeCliff { std::string texture; float tiling_x = 1.f, tiling_y = 1.f; };   // the biome's cliff layer ("texture vertical", "tiling X/Y 2"): one repeat per 5000 units / tiling
+
 struct Foliage {
     std::vector<FoliageMesh> meshes;
     std::vector<FoliageLayer> layers;
     std::unordered_map<std::string, std::vector<int>> biome_layers;   // BIOMES string id -> its layers with meshes, in reference order
     std::vector<Grass> grass;
     std::unordered_map<std::string, std::vector<int>> biome_grass;    // BIOMES string id -> the grass of all its layers, in reference order
+    std::unordered_map<int, BiomeCliff> biome_cliff;                  // by BIOMES "index"
     std::unordered_map<int, std::string> biome_by_index;              // BIOMES "index" (the biomemap colour, r << 16 | g << 8 | b) -> string id
 };
 
-struct Placed { int mesh, layer; float x, y, z, yaw, scale; };   // yaw in degrees about y
+struct Placed { int mesh, layer; float x, y, z, yaw, scale; int biome = -1; };   // yaw in degrees about y; biome = the BIOMES index of the zone biome whose layer placed it (ScatterZone), -1 otherwise
 
 struct Town { float x, z, no_foliage; int kind; };
 

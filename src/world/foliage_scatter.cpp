@@ -91,6 +91,7 @@ Foliage LoadFoliage(const md::fcs::GameDataContainer& data) {
         m.child_cluster_radius = FlOrInt(r, "child cluster radius"); m.road_avoidance = FlOrInt(r, "road avoidance"); m.grass_spot = FlOrInt(r, "grass spot");
         m.avoid_towns = Bl(r, "avoid towns");
         { const auto* bt = r.Refs("building type"); m.building_type = bt && !bt->empty(); }
+        m.material_type = (int)FlOrInt(r, "material type");
         m.min_height = FlOrInt(r, "min height"); m.max_height = FlOrInt(r, "max height");
         m.vertical_offset_min = FlOrInt(r, "vertical offset min"); m.vertical_offset_max = FlOrInt(r, "vertical offset max");
         f.meshes.push_back(std::move(m));
@@ -108,7 +109,13 @@ Foliage LoadFoliage(const md::fcs::GameDataContainer& data) {
     std::unordered_map<std::string, int> grass_index;
     for (const md::fcs::GameData* biome : data.OfType(kBiomes)) {
         std::vector<int> list, grass_list;
-        { auto ix = biome->ints.find("index"); if (ix != biome->ints.end()) f.biome_by_index[ix->second] = biome->string_id; }
+        { auto ix = biome->ints.find("index");
+          if (ix != biome->ints.end()) {
+              f.biome_by_index[ix->second] = biome->string_id;
+              BiomeCliff bc; auto tx = biome->files.find("texture vertical"); if (tx != biome->files.end()) bc.texture = tx->second;
+              bc.tiling_x = FlOrInt(*biome, "tiling X 2"); bc.tiling_y = FlOrInt(*biome, "tiling Y 2");
+              f.biome_cliff[ix->second] = std::move(bc);
+          } }
         if (const auto* flist = biome->Refs("foliage"))
             for (const auto& ref : *flist) {
                 const md::fcs::GameData* l = data.Get(ref.first);
@@ -487,7 +494,9 @@ bool ScatterZone(const std::string& kenshi_dir, const Foliage& f, int zx, int zz
         const std::string& bid = f.biome_by_index.at(c);
         for (int li : f.biome_layers.at(bid)) {
             if (f.layers[li].visibility_range != visibility) continue;
+            const size_t first = out.size();
             ScatterLayer(f, li, rect, present.size() == 1 ? kNoBiome : c, towns, z, out);
+            for (size_t k = first; k < out.size(); ++k) out[k].biome = c;
         }
     }
     return true;
