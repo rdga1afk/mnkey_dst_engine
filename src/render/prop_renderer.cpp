@@ -33,7 +33,7 @@ static GpuTexture& SharedWhite() {
     return t;
 }
 
-const GpuTexture& PropRenderer::CustomTex() const { return custom_owned_ ? tex_custom_ : SharedWhite(); }
+const GpuTexture& PropRenderer::CustomTex() const { return shared_tex_ ? *shared_tex_ : (custom_owned_ ? tex_custom_ : SharedWhite()); }
 
 bool PropRenderer::SetCustomTexture(const char* path) {
     GpuSamplerDesc sd; sd.gen_mipmap = true;
