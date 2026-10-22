@@ -80,7 +80,8 @@ Foliage LoadFoliage(const md::fcs::GameDataContainer& data) {
         mesh_index[r.string_id] = i;
         FoliageMesh m;
         m.record = r.string_id;
-        { auto fl = r.files.find("mesh"); if (fl != r.files.end()) m.mesh = fl->second; }
+        auto file_of = [&](const char* k) { auto fl = r.files.find(k); return fl == r.files.end() ? std::string() : fl->second; };
+        m.mesh = file_of("mesh"); m.texture = file_of("texture map"); m.leaves_mesh = file_of("leaves mesh"); m.leaves_texture = file_of("leaves texture");
         m.max_slope = FlOrInt(r, "max slope"); m.min_slope = FlOrInt(r, "min slope");
         m.min_altitude = FlOrInt(r, "min altitude"); m.max_altitude = FlOrInt(r, "max altitude");
         m.floating = Bl(r, "floating"); m.clustered = Bl(r, "clustered");
@@ -158,6 +159,29 @@ Foliage LoadFoliage(const md::fcs::GameDataContainer& data) {
         f.biome_grass[biome->string_id] = std::move(grass_list);
     }
     return f;
+}
+
+bool LoadTowns(const std::string& kenshi_dir, const md::fcs::GameDataContainer& data, std::vector<Town>& out, std::string& err) {
+    std::unordered_map<std::string, size_t> at;
+    for (const char* folder : { "Newwworld", "rebirth" }) {
+        md::fcs::File file; md::fcs::Error e;
+        const std::string path = kenshi_dir + "/data/newland/leveldata/" + folder + "/leveldata.level";
+        if (!md::fcs::ReadFile(path, file, e)) { err = e.Message(); return false; }
+        for (const auto& rec : file.records) {
+            if (rec.kind != 38) continue;
+            for (const auto& in : rec.instances) {
+                const md::fcs::GameData* t = data.Get(in.target);
+                if (!t || t->kind != 13) continue;
+                Town tw;
+                tw.x = in.position[0]; tw.z = in.position[2];
+                auto ty = t->ints.find("type"); tw.kind = ty == t->ints.end() ? 0 : ty->second;
+                tw.no_foliage = tw.kind == 8 ? 0.f : FlOrInt(*t, "no-foliage range");
+                auto it = at.find(in.target);
+                if (it == at.end()) { at[in.target] = out.size(); out.push_back(tw); } else out[it->second] = tw;
+            }
+        }
+    }
+    return true;
 }
 
 namespace {

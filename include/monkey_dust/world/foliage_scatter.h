@@ -28,7 +28,7 @@ private:
 };
 
 struct FoliageMesh {   // a FOLIAGE_MESH (F041792)
-    std::string record, mesh;
+    std::string record, mesh, texture, leaves_mesh, leaves_texture;   // files of the record: "mesh", "texture map", "leaves mesh", "leaves texture"
     float max_slope = 0, min_slope = 0, min_altitude = 0, max_altitude = 0;
     bool floating = false, clustered = false;
     float cluster_num_min = 0, cluster_num_max = 0, cluster_radius_min = 0, cluster_radius_max = 0;
@@ -66,6 +66,9 @@ struct Foliage {
 struct Placed { int mesh, layer; float x, y, z, yaw, scale; };   // yaw in degrees about y
 
 struct Town { float x, z, no_foliage; int kind; };
+
+// The towns the avoid-towns rule reads: the TOWN records placed by the instances of kind 38 in `0-townlist`... of each leveldata.level (Newwworld, then rebirth; a later folder wins a town), Okran town.rs.
+bool LoadTowns(const std::string& kenshi_dir, const md::fcs::GameDataContainer& data, std::vector<Town>& out, std::string& err);
 
 // What the scatter reads of the world (world units).
 class FoliageGround {
