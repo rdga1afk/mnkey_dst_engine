@@ -6,6 +6,7 @@
 #include <monkey_dust/io/tiff.h>
 #include <stb_image.h>
 #include <map>
+#include <random>
 #include <memory>
 
 namespace md::world {
@@ -108,7 +109,7 @@ Foliage LoadFoliage(const md::fcs::GameDataContainer& data) {
     };
     std::unordered_map<std::string, int> grass_index;
     for (const md::fcs::GameData* biome : data.OfType(kBiomes)) {
-        std::vector<int> list, grass_list;
+        std::vector<int> list, grass_list, blade_list;
         { auto ix = biome->ints.find("index"); if (ix != biome->ints.end()) f.biome_by_index[ix->second] = biome->string_id; }
         if (const auto* flist = biome->Refs("foliage"))
             for (const auto& ref : *flist) {
@@ -129,10 +130,13 @@ Foliage LoadFoliage(const md::fcs::GameDataContainer& data) {
                             x.blackout_noise_scale = fl("blackout noise scale", 1); x.blackout_zero_cutoff = fl("blackout zero cutoff", 0);
                             x.cap = fl("cap", 1); x.brightness_boost = fl("brightness boost", 1);
                             x.blackout = Bl(*g, "blackout");
+                            x.min_height = fl("min height", 1); x.max_height = fl("max height", 1);
+                            { auto sp = g->files.find("grass sprite"); if (sp != g->files.end()) x.sprite = sp->second; }
                             gi = grass_index.emplace(gr.first, (int)f.grass.size()).first;
                             f.grass.push_back(x);
                         }
                         grass_list.push_back(gi->second);
+                        if (gr.second[0] == 0) blade_list.push_back(gi->second);
                     }
                 const auto* mrefs = l->Refs("meshes");
                 if (!mrefs || mrefs->empty()) continue;
@@ -158,6 +162,7 @@ Foliage LoadFoliage(const md::fcs::GameDataContainer& data) {
             }
         f.biome_layers[biome->string_id] = std::move(list);
         f.biome_grass[biome->string_id] = std::move(grass_list);
+        f.biome_blades[biome->string_id] = std::move(blade_list);
     }
     return f;
 }
@@ -453,17 +458,24 @@ private:
     bool ok_ = false;
 };
 
+OverlayTiles& SharedTiles() { static OverlayTiles t; return t; }
+const std::vector<uint8_t>& SharedBiomemap(const std::string& kenshi_dir, std::string& err) {
+    static std::vector<uint8_t> bm;
+    if (bm.empty()) {
+        int w = 0, h = 0, n = 0;
+        unsigned char* d = stbi_load((kenshi_dir + "/data/newland/land/biomemap.png").c_str(), &w, &h, &n, 3);
+        if (!d || w != 1024 || h != 1024) { err = "biomemap.png"; if (d) stbi_image_free(d); return bm; }
+        bm.assign(d, d + (size_t)1024 * 1024 * 3); stbi_image_free(d);
+    }
+    return bm;
+}
+
 } // namespace
 
 bool ScatterZone(const std::string& kenshi_dir, const Foliage& f, int zx, int zz, int visibility, const std::vector<Town>& towns, std::vector<Placed>& out, std::string& err, const std::vector<int>* only_biomes) {
-    static OverlayTiles tiles;
-    static std::vector<uint8_t> biomemap;
-    if (biomemap.empty()) {
-        int w = 0, h = 0, n = 0;
-        unsigned char* d = stbi_load((kenshi_dir + "/data/newland/land/biomemap.png").c_str(), &w, &h, &n, 3);
-        if (!d || w != 1024 || h != 1024) { err = "biomemap.png"; if (d) stbi_image_free(d); return false; }
-        biomemap.assign(d, d + (size_t)1024 * 1024 * 3); stbi_image_free(d);
-    }
+    OverlayTiles& tiles = SharedTiles();
+    const std::vector<uint8_t>& biomemap = SharedBiomemap(kenshi_dir, err);
+    if (biomemap.empty()) return false;
     auto zg = std::make_unique<ZoneGround>(kenshi_dir, zx, zz, tiles, biomemap, err);
     if (!zg->ok()) return false;
     ZoneGround& z = *zg;
@@ -493,6 +505,51 @@ bool ScatterZone(const std::string& kenshi_dir, const Foliage& f, int zx, int zz
             for (size_t k = first; k < out.size(); ++k) out[k].biome = c;
         }
     }
+    return true;
+}
+
+bool ScatterGrass(const std::string& kenshi_dir, const Foliage& f, float cx, float cz, float radius, float density_mult, uint32_t seed, size_t max_blades, std::vector<Blade>& out, std::string& err) {
+    OverlayTiles& tiles = SharedTiles();
+    const std::vector<uint8_t>& biomemap = SharedBiomemap(kenshi_dir, err);
+    if (biomemap.empty()) return false;
+    constexpr double kZone = 4608.0;
+    const int zx0 = std::max(0, (int)std::floor(((double)cx - radius) / kZone) + 32), zx1 = std::min(63, (int)std::floor(((double)cx + radius) / kZone) + 32);
+    const int zz0 = std::max(0, (int)std::floor(((double)cz - radius) / kZone) + 32), zz1 = std::min(63, (int)std::floor(((double)cz + radius) / kZone) + 32);
+    for (int zz = zz0; zz <= zz1; ++zz)
+        for (int zx = zx0; zx <= zx1; ++zx) {
+            ZoneGround z(kenshi_dir, zx, zz, tiles, biomemap, err);
+            if (!z.ok()) return false;
+            const float x0 = z.X0(), z0 = z.Z0();
+            std::vector<int> present;
+            for (int i = 0; i < 16; ++i)
+                for (int j = 0; j < 16; ++j) {
+                    const int key = z.BiomeKey(x0 + ((float)i + 0.5f) * 288.f, z0 + ((float)j + 0.5f) * 288.f);
+                    if (f.biome_by_index.count(key) && std::find(present.begin(), present.end(), key) == present.end()) present.push_back(key);
+                }
+            for (int c : present) for (int gi : f.biome_grass.at(f.biome_by_index.at(c))) z.PaintGrass(f.grass[gi], present.size() != 1, c);
+            for (int c : present)
+                for (int gi : f.biome_blades.at(f.biome_by_index.at(c))) {
+                    const Grass& g = f.grass[gi];
+                    const double cand = (double)g.density * density_mult * 3.14159265358979 * (double)radius * radius;
+                    const int n = (int)cand;   // every zone rolls the same candidates over the whole circle; the points outside the zone are skipped below
+                    std::mt19937 zr(seed ^ (uint32_t)(zx * 73856093) ^ (uint32_t)(zz * 19349663) ^ (uint32_t)(gi * 83492791));
+                    auto zu = [&](double a, double b) { return a + (b - a) * ((double)zr() / 4294967296.0); };
+                    for (int k = 0; k < n && out.size() < max_blades; ++k) {
+                        const double an = zu(0, 6.283185307179586), r = (double)radius * std::sqrt(zu(0, 1));
+                        const float x = (float)((double)cx + r * std::cos(an)), zc = (float)((double)cz + r * std::sin(an));
+                        if (x < x0 || x >= x0 + (float)kZone || zc < z0 || zc >= z0 + (float)kZone) continue;
+                        if (present.size() != 1 && z.BiomeKey(x, zc) != c) continue;
+                        uint8_t px[4]; if (!z.Overlay(x, zc, px)) continue;
+                        const double dens = std::max((double)px[2], (double)px[1]) / 255.0;   // memory order B, G, R, A: R = grass coverage, G = spots
+                        if (dens <= zu(0, 1)) continue;
+                        if (z.Slope(x, zc) > g.max_slope) continue;
+                        const float h = z.Height(x, zc);
+                        if ((g.min_altitude != 0.f && h < g.min_altitude) || (g.max_altitude != 0.f && h > g.max_altitude)) continue;
+                        const float size = (float)zu((double)g.min_height * 9.0, (double)g.max_height * 17.0) / 10.f;
+                        out.push_back({ x, h, zc, size, (float)zu(0, 360), gi });
+                    }
+                }
+        }
     return true;
 }
 

@@ -52,6 +52,8 @@ struct Grass {   // a GRASS record as the overlay painting takes it (F041791)
     std::string record;
     float density = 0, min_altitude = 0, max_altitude = 0, max_slope = 0;
     float noise_scale = 1, zero_cutoff = 0, blackout_noise_scale = 1, blackout_zero_cutoff = 0, cap = 1, brightness_boost = 1;
+    float min_height = 1, max_height = 1;   // blade size U(min x 9, max x 17) / 10 m
+    std::string sprite;                      // "grass sprite" file
     bool blackout = false;
 };
 
@@ -60,6 +62,7 @@ struct Foliage {
     std::vector<FoliageLayer> layers;
     std::unordered_map<std::string, std::vector<int>> biome_layers;   // BIOMES string id -> its layers with meshes, in reference order
     std::vector<Grass> grass;
+    std::unordered_map<std::string, std::vector<int>> biome_blades;   // the same without the green-channel (grass spot) layers: the grass that has blades
     std::unordered_map<std::string, std::vector<int>> biome_grass;    // BIOMES string id -> the grass of all its layers, in reference order
     std::unordered_map<int, std::string> biome_by_index;              // BIOMES "index" (the biomemap colour, r << 16 | g << 8 | b) -> string id
 };
@@ -90,6 +93,12 @@ constexpr int kNoBiome = -1;   // scatter without the per-place biome check
 
 int32_t ParseIntOgre(const std::string& s);   // Ogre StringConverter::parseInt: the leading integer, 0 when none
 Foliage LoadFoliage(const md::fcs::GameDataContainer& data);
+
+struct Blade { float x, y, z, size, yaw; int grass; };   // x, z in Kenshi units (origin shifted by -147456), y in units, size in metres, yaw in degrees
+
+// CLOSE grass blades of the circle (cx, cz, radius; Kenshi units): density x 0.005 x area x `density_mult` candidates per GRASS record, each kept when the zone's grass map (overlay R / G
+// after the grass painting) is above a random number, slope <= max slope, altitude inside the limits (foliage.md "Grass blades", FUN_140a40f40). The exe's page layout depends on the camera: no exact layout to reproduce.
+bool ScatterGrass(const std::string& kenshi_dir, const Foliage& f, float cx, float cz, float radius, float density_mult, uint32_t seed, size_t max_blades, std::vector<Blade>& out, std::string& err);
 
 // One layer's meshes scattered over the zone rect {x0, z0, x1, z1}; biome = the biome index the places must be in (kNoBiome: the zone has one biome).
 void ScatterLayer(const Foliage& f, int layer, const float rect[4], int biome, const std::vector<Town>& towns, FoliageGround& ground, std::vector<Placed>& out);
