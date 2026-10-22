@@ -1,3 +1,4 @@
+#include <functional>
 #include <monkey_dust/world/zone_buildings.h>
 #include <algorithm>
 #include <cmath>
@@ -37,18 +38,24 @@ bool AppendZoneFile(const std::string& path, const md::fcs::GameDataContainer& d
         BuildingDef d;
         if (const md::fcs::GameData* b = data.Get(id); b && b->kind == 0) {
             if (const float* s = FindFloat(*b, "scale")) d.scale = *s;
-            if (const auto* parts = b->Refs("parts"))
+            // a part may carry parts of its own (Storm_Shack_Exterior -> Storm_Shack_ExteriorROOF): walked to depth 8 like Okran render/zone.rs part_meshes_of
+            std::function<void(const md::fcs::GameData&, int)> walk = [&](const md::fcs::GameData& node, int depth) {
+                const auto* parts = node.Refs("parts");
+                if (!parts || depth > 8) return;
                 for (const auto& p : *parts) {
                     const md::fcs::GameData* part = data.Get(p.first);
                     if (!part || part->kind != 29) continue;
                     auto f = part->files.find("phs or mesh");
-                    if (f == part->files.end() || f->second.empty()) continue;
-                    std::string m = f->second;
-                    std::replace(m.begin(), m.end(), '\\', '/');
-                    std::string low = m; std::transform(low.begin(), low.end(), low.begin(), [](unsigned char c) { return (char)std::tolower(c); });
-                    if (low.find("black") != std::string::npos) continue;
-                    d.meshes.push_back(std::move(m));
+                    if (f != part->files.end() && !f->second.empty()) {
+                        std::string m = f->second;
+                        std::replace(m.begin(), m.end(), '\\', '/');
+                        std::string low = m; std::transform(low.begin(), low.end(), low.begin(), [](unsigned char c) { return (char)std::tolower(c); });
+                        if (low.find("black") == std::string::npos) d.meshes.push_back(std::move(m));
+                    }
+                    walk(*part, depth + 1);
                 }
+            };
+            walk(*b, 0);
         }
         return defs.emplace(id, std::move(d)).first->second;
     };
