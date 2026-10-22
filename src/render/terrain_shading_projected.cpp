@@ -152,13 +152,21 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
 // AcquireCommandBuffer (that relocation alone only fixed the FIRST-frame case).
 void TerrainShadingProjected::EnsureSize(md::GpuDeviceHandle dev, int w, int h) {
     (void)dev;
+    xs_tex_ = nullptr; xs_samp_ = nullptr;
     if (!ready_ || (w == w_ && h == h_) || w <= 0 || h <= 0) return;
-    gbuf_depth_.Shutdown();
-    gd_alt_.Shutdown();
-    gbuf_color_.Shutdown();
+    if (hist_on_ && gd_prev_->SDLTexture()) { xs_tex_ = gd_prev_->SDLTexture(); xs_samp_ = gd_prev_->SDLSampler(); }
+    if (!Cached(w, h)) {   // a size not seen before: the oldest set goes (the caller drained the GPU), the current one becomes the alt set
+        alt_hist_.Shutdown(); alt_depth_.Shutdown(); alt_color_.Shutdown();
+        std::swap(gbuf_color_, alt_color_); std::swap(gbuf_depth_, alt_depth_); std::swap(gd_alt_, alt_hist_);
+        alt_w_ = w_; alt_h_ = h_;
+        CreateTextures(w, h);
+    } else {
+        std::swap(gbuf_color_, alt_color_); std::swap(gbuf_depth_, alt_depth_); std::swap(gd_alt_, alt_hist_);
+        std::swap(w_, alt_w_); std::swap(h_, alt_h_);
+    }
     gd_cur_ = &gbuf_depth_; gd_prev_ = &gd_alt_;
-    CreateTextures(w, h);
-    if (hist_on_) gd_alt_.Init(w, h, /*shadow_border=*/false);
+    if (hist_on_ && !gd_alt_.SDLTexture()) gd_alt_.Init(w, h, /*shadow_border=*/false);
+    if (!hist_on_ && gd_alt_.SDLTexture()) gd_alt_.Shutdown();
 }
 
 void TerrainShadingProjected::EnsureHistory(bool on, int w, int h) {
@@ -181,6 +189,7 @@ void TerrainShadingProjected::Shutdown() {
     gd_alt_.Shutdown();
     gbuf_depth_.Shutdown();
     gbuf_color_.Shutdown();
+    alt_hist_.Shutdown(); alt_depth_.Shutdown(); alt_color_.Shutdown(); alt_w_ = alt_h_ = 0;
     ready_ = false;
 }
 
@@ -283,7 +292,7 @@ void TerrainShadingProjected::DrawFullscreen(SDL_GPURenderPass* rp, md::GpuComma
         ground_bindings[6] = { ground.KenshiSpecularityCube(), ground.KenshiSpecularitySampler() };
         pv.PushFragmentUniforms(2, klight_->sun_dir, sizeof(KLightParams));
     }
-    if (reuse_draw) ground_bindings[2] = { gd_prev_->SDLTexture(), gd_prev_->SDLSampler() };   // slot 2 of the reuse variant: the previous G-buffer depth
+    if (reuse_draw) ground_bindings[2] = xs_tex_ ? SDL_GPUTextureSamplerBinding{ xs_tex_, xs_samp_ } : SDL_GPUTextureSamplerBinding{ gd_prev_->SDLTexture(), gd_prev_->SDLSampler() };   // slot 2 of the reuse variant: the previous G-buffer depth
     pv.BindFragmentSamplers(0, ground_bindings, 7);
     // No SSBO left in this set (БОРГ-TERRAIN-2, 2026-09-13: vtPageMeta
     // removed with the rest of TerrainVtPageCache) -- zoneGroundLayers is

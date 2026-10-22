@@ -63,6 +63,10 @@ public:
     // terrain content it produces only covered part of the actual window
     // (background showing through the rest) -- diagnosed live 2026-08-02.
     void EnsureSize(md::GpuDeviceHandle dev, int w, int h);
+    // #194: the textures of the previous size are kept (alt set); a return to that size swaps the sets without creating or destroying anything. Cached(w, h): EnsureSize(w, h) needs no GPU drain.
+    // #194: the frame the size changed: the previous frame's depth is still the one of the old size (the reuse resolve reads it at its own size); null otherwise
+    bool CrossSize() const { return xs_tex_ != nullptr; }
+    bool Cached(int w, int h) const { return w == w_ && h == h_ ? true : (alt_color_.SDLTexture() && alt_depth_.SDLTexture() && alt_w_ == w && alt_h_ == h); }
 
     GpuTexture&      GBufferColor() { return gbuf_color_; }
     GpuDepthTexture&  GBufferDepth() { return *gd_cur_; }
@@ -144,6 +148,10 @@ private:
     GpuTexture       gbuf_color_;
     GpuDepthTexture   gbuf_depth_;
     GpuDepthTexture   gd_alt_;                    // the other depth texture of the history ping-pong (made by EnsureHistory)
+    GpuTexture        alt_color_;
+    GpuDepthTexture   alt_depth_, alt_hist_;
+    int alt_w_ = 0, alt_h_ = 0;
+    SDL_GPUTexture* xs_tex_ = nullptr; SDL_GPUSampler* xs_samp_ = nullptr;
     GpuDepthTexture*  gd_cur_ = &gbuf_depth_;
     GpuDepthTexture*  gd_prev_ = &gd_alt_;
     bool hist_on_ = false;
