@@ -187,6 +187,77 @@ bool ReadFile(const std::string& path, File& out, Error& err) {
     return Parse(bytes.data(), bytes.size(), out, err);
 }
 
+namespace {
+struct Out {
+    std::vector<uint8_t>& b;
+    void I32(int32_t v) { for (int k = 0; k < 4; ++k) b.push_back((uint8_t)((uint32_t)v >> (8 * k))); }
+    void U32(uint32_t v) { I32((int32_t)v); }
+    void F32(float v) { uint8_t t[4]; memcpy(t, &v, 4); b.insert(b.end(), t, t + 4); }
+    void Str(const std::string& s) { I32((int32_t)s.size()); b.insert(b.end(), s.begin(), s.end()); }
+};
+
+template <class T, class F>
+void WriteList(Out& o, const std::vector<std::pair<std::string, T>>& v, F item) {
+    o.I32((int32_t)v.size());
+    for (const auto& kv : v) { o.Str(kv.first); item(o, kv.second); }
+}
+
+void WriteRecord(Out& o, int32_t filetype, const Record& r) {
+    const size_t start = o.b.size();
+    o.I32(0);   // lead, patched below
+    o.I32(r.kind); o.I32(r.id); o.Str(r.name); o.Str(r.string_id); o.U32(r.datatype);
+    WriteList<bool>(o, r.bools, [](Out& o, bool v) { o.b.push_back(v ? 1 : 0); });
+    WriteList<float>(o, r.floats, [](Out& o, float v) { o.F32(v); });
+    WriteList<int32_t>(o, r.ints, [](Out& o, int32_t v) { o.I32(v); });
+    WriteList<std::array<float, 3>>(o, r.vec3s, [](Out& o, const std::array<float, 3>& v) { for (float x : v) o.F32(x); });
+    WriteList<std::array<float, 4>>(o, r.vec4s, [](Out& o, const std::array<float, 4>& v) { for (float x : v) o.F32(x); });
+    WriteList<std::string>(o, r.strings, [](Out& o, const std::string& v) { o.Str(v); });
+    WriteList<std::string>(o, r.files, [](Out& o, const std::string& v) { o.Str(v); });
+    o.I32((int32_t)r.references.size());
+    for (const auto& c : r.references) {
+        o.Str(c.first); o.I32((int32_t)c.second.size());
+        for (const Reference& ref : c.second) { o.Str(ref.target); o.I32(ref.values[0]); o.I32(ref.values[1]); o.I32(ref.values[2]); }
+    }
+    o.I32((int32_t)r.instances.size());
+    for (const Instance& in : r.instances) {
+        o.Str(in.id); o.Str(in.target);
+        for (float x : in.position) o.F32(x);
+        for (float x : in.rotation) o.F32(x);
+        o.I32((int32_t)in.states.size());
+        for (const std::string& st : in.states) o.Str(st);
+    }
+    const int32_t lead = (filetype == FILETYPE_V17 && r.lead != 0) ? (int32_t)(o.b.size() - start) : (filetype == FILETYPE_V17 ? 0 : r.lead);
+    for (int k = 0; k < 4; ++k) o.b[start + k] = (uint8_t)((uint32_t)lead >> (8 * k));
+}
+}  // namespace
+
+bool Serialize(const File& f, std::vector<uint8_t>& out, Error& err) {
+    err = Error{};
+    out.clear();
+    const Header& h = f.header;
+    if (h.filetype != FILETYPE_V16 && h.filetype != FILETYPE_V17) { err.kind = ErrorKind::UnsupportedFiletype; err.what = "only v16 / v17 files are written"; return false; }
+    Out o{out};
+    o.I32(h.filetype);
+    std::vector<uint8_t> body;
+    { Out b{body}; b.I32(h.version); b.Str(h.author); b.Str(h.description); b.Str(h.dependencies); b.Str(h.references); body.insert(body.end(), h.tail.begin(), h.tail.end()); }
+    if (h.filetype == FILETYPE_V17) o.I32((int32_t)body.size());
+    out.insert(out.end(), body.begin(), body.end());
+    o.I32(h.id_counter); o.I32((int32_t)f.records.size());
+    for (const Record& r : f.records) WriteRecord(o, h.filetype, r);
+    return true;
+}
+
+bool WriteFile(const std::string& path, const File& file, Error& err) {
+    std::vector<uint8_t> bytes;
+    if (!Serialize(file, bytes, err)) return false;
+    FILE* fp = fopen(path.c_str(), "wb");
+    if (!fp) { err.kind = ErrorKind::Io; err.what = path + ": cannot create"; return false; }
+    const size_t n = fwrite(bytes.data(), 1, bytes.size(), fp);
+    fclose(fp);
+    if (n != bytes.size()) { err.kind = ErrorKind::Io; err.what = path + ": short write"; return false; }
+    return true;
+}
+
 bool ReadHeader(const std::string& path, Header& out, Error& err) {
     err = Error{};
     out = Header{};
