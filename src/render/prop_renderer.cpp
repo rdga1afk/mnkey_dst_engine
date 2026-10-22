@@ -218,7 +218,7 @@ void PropRenderer::DrawRaw(
     }
 }
 
-void PropRenderer::DrawGbuf(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, GpuPipeline& pipe, const float* positions_xyz, const float* quats_xyzw, int count, const float* vp16) {
+void PropRenderer::DrawGbuf(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, GpuPipeline& pipe, const float* positions_xyz, const float* quats_xyzw, int count, const float* vp16, const float* scales) {
     if (!mesh_.loaded || count <= 0 || !pipe.SDLPipeline()) return;
     if (!mesh_.vbo.SDLBuffer() || !mesh_.ibo.SDLBuffer()) return;
     GpuPassView pv = GpuPassView::FromRaw(rp, cmd);
@@ -228,7 +228,7 @@ void PropRenderer::DrawGbuf(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cm
     struct alignas(16) FeatureVertUBO { float vp[16]; float pos_scale[4]; float quat[4]; } u;
     memcpy(u.vp, vp16, 64);
     for (int i = 0; i < count; ++i) {
-        u.pos_scale[0] = positions_xyz[i * 3]; u.pos_scale[1] = positions_xyz[i * 3 + 1]; u.pos_scale[2] = positions_xyz[i * 3 + 2]; u.pos_scale[3] = 1.f;
+        u.pos_scale[0] = positions_xyz[i * 3]; u.pos_scale[1] = positions_xyz[i * 3 + 1]; u.pos_scale[2] = positions_xyz[i * 3 + 2]; u.pos_scale[3] = scales ? scales[i] : 1.f;
         memcpy(u.quat, quats_xyzw + i * 4, 16);
         pv.PushVertexUniforms(0, &u, sizeof(u));
         pv.DrawIndexed(mesh_.index_count, 1, 0, 0, 0);

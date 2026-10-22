@@ -59,7 +59,7 @@ public:
 
     // #176: draw count instances of this mesh with `pipe` (feature_gbuf.vert + terrain_gbuffer_mini.frag, the terrain G-buffer pass): vp16, then per instance
     // position (xyz), quaternion (xyzw), uniform scale 1. No textures, no fragment uniforms.
-    void DrawGbuf(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, GpuPipeline& pipe, const float* positions_xyz, const float* quats_xyzw, int count, const float* vp16);
+    void DrawGbuf(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, GpuPipeline& pipe, const float* positions_xyz, const float* quats_xyzw, int count, const float* vp16, const float* scales = nullptr);   // scales: one uniform scale per instance (nullptr = 1)
     // #119 spike: instanced draws. BeginInstanced binds `pipe` (hub_inst.vert + prop.frag: vertex slot 0 = this mesh, slot 1 = `inst`, 8 floats per instance:
     // position xyz + scale, quaternion xyzw), the mesh index buffer, the rock / vegetation / own textures and the sun UBO; DrawInstancedRange then draws instances
     // [first, first + count) of `inst` (one call per run of visible tiles).

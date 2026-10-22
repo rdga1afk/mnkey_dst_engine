@@ -109,13 +109,7 @@ Foliage LoadFoliage(const md::fcs::GameDataContainer& data) {
     std::unordered_map<std::string, int> grass_index;
     for (const md::fcs::GameData* biome : data.OfType(kBiomes)) {
         std::vector<int> list, grass_list;
-        { auto ix = biome->ints.find("index");
-          if (ix != biome->ints.end()) {
-              f.biome_by_index[ix->second] = biome->string_id;
-              BiomeCliff bc; auto tx = biome->files.find("texture vertical"); if (tx != biome->files.end()) bc.texture = tx->second;
-              bc.tiling_x = FlOrInt(*biome, "tiling X 2"); bc.tiling_y = FlOrInt(*biome, "tiling Y 2");
-              f.biome_cliff[ix->second] = std::move(bc);
-          } }
+        { auto ix = biome->ints.find("index"); if (ix != biome->ints.end()) f.biome_by_index[ix->second] = biome->string_id; }
         if (const auto* flist = biome->Refs("foliage"))
             for (const auto& ref : *flist) {
                 const md::fcs::GameData* l = data.Get(ref.first);

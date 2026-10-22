@@ -55,15 +55,12 @@ struct Grass {   // a GRASS record as the overlay painting takes it (F041791)
     bool blackout = false;
 };
 
-struct BiomeCliff { std::string texture; float tiling_x = 1.f, tiling_y = 1.f; };   // the biome's cliff layer ("texture vertical", "tiling X/Y 2"): one repeat per 5000 units / tiling
-
 struct Foliage {
     std::vector<FoliageMesh> meshes;
     std::vector<FoliageLayer> layers;
     std::unordered_map<std::string, std::vector<int>> biome_layers;   // BIOMES string id -> its layers with meshes, in reference order
     std::vector<Grass> grass;
     std::unordered_map<std::string, std::vector<int>> biome_grass;    // BIOMES string id -> the grass of all its layers, in reference order
-    std::unordered_map<int, BiomeCliff> biome_cliff;                  // by BIOMES "index"
     std::unordered_map<int, std::string> biome_by_index;              // BIOMES "index" (the biomemap colour, r << 16 | g << 8 | b) -> string id
 };
 
