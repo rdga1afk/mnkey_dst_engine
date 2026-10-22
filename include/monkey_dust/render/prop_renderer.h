@@ -24,6 +24,7 @@ public:
     // Same pipeline and textures as Init, geometry supplied by the caller (#119 spike: Ogre meshes).
     // Replace the per-mesh texture (white 1x1 by default) with a file (DDS or image); layer 2 / 3 vertices sample it.
     bool SetCustomTexture(const char* path);
+    void SetCullBack(bool on) { cull_back_ = on; }   // before InitFromArrays: single-sided mesh (default off: both sides)
     bool InitFromArrays(const PropVertex* verts, uint32_t vert_count, const uint32_t* idx, uint32_t idx_count);
     void Shutdown();
 
@@ -67,6 +68,7 @@ private:
     bool FinishInit();
     PropMesh    mesh_;
     GpuPipeline pipeline_;
+    bool cull_back_ = false;
     // Real per-mesh texture (PropMesh::has_custom_tex) — separate GPU
     // resource per PropRenderer instance, unlike the two PropTexShared
     // textures shared across all instances. Bound at set=2 binding=2,

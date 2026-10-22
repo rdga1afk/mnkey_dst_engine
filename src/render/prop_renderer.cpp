@@ -86,7 +86,7 @@ bool PropRenderer::FinishInit() {
 
     pd.raster.depth_test  = true;
     pd.raster.depth_write = true;
-    pd.raster.cull_back   = false;  // SDL_GPU Vulkan Y-flip inverts winding vs OpenGL
+    pd.raster.cull_back   = cull_back_;   // front_face CCW (HAL): checked on the Hub buildings
     pd.has_depth_target   = true;
 
     pd.vert_uniform_bufs = 1;  // slot 0: PropVert UBO (80 bytes: mat4 vp + vec4 model_pos_scale)
