@@ -158,7 +158,7 @@ public:
 
     int          Width()     const { return w_; }
     int          Height()    const { return h_; }
-    unsigned int GLTexture() const { return id_; }
+    unsigned int RawId() const { return id_; }
     bool Valid() const {
         return sdl_tex_ != nullptr || id_ != 0;
     }

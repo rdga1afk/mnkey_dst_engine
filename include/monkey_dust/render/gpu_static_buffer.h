@@ -6,7 +6,7 @@
 
 #include <SDL3/SDL_gpu.h>
 
-// Sentinel gl_target value for GpuStaticBuffer::Init — requests
+// Sentinel target value for GpuStaticBuffer::Init — requests
 // SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ instead of VERTEX/INDEX, so the
 // resulting buffer can be bound via SDL_BindGPUFragmentStorageBuffers (a
 // StructuredBuffer<T> in shader code). Doesn't collide with any real GL
@@ -25,7 +25,7 @@ static constexpr unsigned int GPU_TARGET_COMPUTE_STORAGE_RW = 0xFFFFFFFCu;
 
 class GpuStaticBuffer {
 public:
-    // gl_target: GL_ARRAY_BUFFER or GL_ELEMENT_ARRAY_BUFFER (used for usage hint),
+    // target: GL_ARRAY_BUFFER or GL_ELEMENT_ARRAY_BUFFER (used for usage hint),
     // GPU_TARGET_STORAGE for a fragment-storage-buffer-bindable resource, or
     // GPU_TARGET_COMPUTE_STORAGE_RO/_RW for a compute-storage-buffer-bindable
     // resource (read-only or read-write). SDL_GPU path maps
@@ -33,7 +33,7 @@ public:
     // GRAPHICS_STORAGE_READ, GPU_TARGET_COMPUTE_STORAGE_RO →
     // COMPUTE_STORAGE_READ, GPU_TARGET_COMPUTE_STORAGE_RW →
     // COMPUTE_STORAGE_READ|COMPUTE_STORAGE_WRITE, rest → VERTEX.
-    void Init(unsigned int gl_target, const void* data, uint32_t size_bytes);
+    void Init(unsigned int target, const void* data, uint32_t size_bytes);
     void Shutdown();
 
     // Upload batch: Init calls between Begin and End share one command buffer and one submit (load-time streaming, #119). Not for use while a render pass is open.
@@ -41,15 +41,15 @@ public:
     static void EndUploadBatch();
 
     // OpenGL bind helpers (no-op in SDL_GPU-only builds).
-    void Bind(unsigned int gl_target) const;
+    void Bind(unsigned int target) const;
 
-    unsigned int GLBuffer() const { return gl_buf_; }
+    unsigned int RawId() const { return raw_id_; }
     SDL_GPUBuffer* SDLBuffer() const { return sdl_buf_; }
 
     // Transfer GL buffer ownership (for MdMesh legacy interop).
-    unsigned int Release() { unsigned int id = gl_buf_; gl_buf_ = 0; return id; }
+    unsigned int Release() { unsigned int id = raw_id_; raw_id_ = 0; return id; }
 
 private:
-    unsigned int gl_buf_ = 0;
+    unsigned int raw_id_ = 0;
     SDL_GPUBuffer* sdl_buf_ = nullptr;
 };
