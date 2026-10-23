@@ -1,4 +1,6 @@
 #include <monkey_dust/world/overlay_mask_build.h>
+#include <monkey_dust/world/steepness_bake.h>
+#include <monkey_dust/world/terrain_gen.h>
 #include <monkey_dust/io/kenshi_dir.h>
 #include <string>
 #include <iterator>
@@ -256,6 +258,18 @@ bool TerrainRenderer::InitSteepnessSmoothed(const char* path)
     sd.gen_mipmap = true;
     sd.flip_v     = false;
 
+    // Built from the install's heights + biomes (cached under ~/.cache/monkey_dust, #201 R3e); the committed png is only a fallback.
+    std::vector<uint8_t> gray;
+    if (TerrainAtlas_Loaded() && BiomeRegistry::Get().Loaded() && md::LoadSteepnessSmoothed(gray)) {
+        std::vector<uint8_t> rgba(gray.size() * 4);
+        for (size_t i = 0; i < gray.size(); ++i) { rgba[i * 4] = rgba[i * 4 + 1] = rgba[i * 4 + 2] = gray[i]; rgba[i * 4 + 3] = 255; }
+        tex_steepness_smoothed_.Shutdown();
+        if (tex_steepness_smoothed_.InitFromMemory(rgba.data(), md::STEEPNESS_SIZE, md::STEEPNESS_SIZE, sd)) {
+            steepness_smoothed_ready_ = true;
+            fprintf(stdout, "[TerrainRenderer] steepness-smoothed texture built from the install: %dx%d\n", md::STEEPNESS_SIZE, md::STEEPNESS_SIZE);
+            return true;
+        }
+    }
     return LoadTerrainTexture(tex_steepness_smoothed_, path, sd, steepness_smoothed_ready_,
                                "steepness-smoothed texture");
 }
