@@ -120,11 +120,10 @@ bool WorldRegistry::BuildBiomeMapFromInstall() {
 }
 
 void WorldRegistry::LoadBiomeMap(const char* path) {
+    // the install's biomemap.png first (fresh, tools/md_biome_import.py at run time); the committed table is only the fallback without an install
+    if (BuildBiomeMapFromInstall()) { fprintf(stdout, "[WorldRegistry] Biome map built from the Kenshi install (biomemap.png)\n"); return; }
     FILE* fp = fopen(path, "r");
-    if (!fp) {   // the release has no committed table: build it from the install
-        if (BuildBiomeMapFromInstall()) fprintf(stdout, "[WorldRegistry] Biome map built from the Kenshi install (biomemap.png)\n");
-        return;
-    }
+    if (!fp) return;
     char line[64];
     while (fgets(line, sizeof(line), fp)) {
         if (line[0] == '#' || line[0] == '\n') continue;
