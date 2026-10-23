@@ -72,7 +72,31 @@ std::string SavedKenshiDir(const std::string& home) {
     return !saved.empty() && IsKenshi(saved) ? saved : std::string();
 }
 
+bool IsKenshiFolder(const std::string& dir) { return IsKenshi(dir); }
+
+static std::string& Override() { static std::string o; return o; }
+void SetKenshiDir(const std::string& dir) { Override() = dir; }
+
+bool KenshiFolderNeedsPrompt() {
+    if (std::getenv("KENSHI_DIR")) return false;   // the environment decides (an empty value switches the install off on purpose)
+#ifndef MD_NO_DEV_PATHS
+    if (Exists("tmp_/kenshi/data/gamedata.base")) return false;
+#endif
+    const std::string home = Home();
+    return home.empty() ? false : SavedKenshiDir(home).empty();
+}
+
+std::string DetectedKenshiDir() {
+    const std::string home = Home();
+    if (home.empty()) return {};
+    const std::string saved = SavedKenshiDir(home);
+    if (!saved.empty()) return saved;
+    const std::vector<std::string> steam = FindSteamKenshi(home);
+    return steam.empty() ? std::string() : steam.front();
+}
+
 std::string KenshiDir() {
+    if (!Override().empty()) return Override();
     if (const char* e = std::getenv("KENSHI_DIR")) if (*e) return e;
 #ifndef MD_NO_DEV_PATHS
     if (Exists("tmp_/kenshi/data/gamedata.base")) return "tmp_/kenshi";

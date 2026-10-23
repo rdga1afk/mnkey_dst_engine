@@ -20,6 +20,14 @@ bool SaveKenshiDir(const std::string& dir, const std::string& home);
 // The folder saved by the first-run picker under `home` ("" when none, or when it is no longer a Kenshi folder). A folder saved under the old name ~/.config/monkey_dust is copied to ~/.config/monkeydust once.
 std::string SavedKenshiDir(const std::string& home);
 
+// First-run picker support. KenshiFolderNeedsPrompt: no KENSHI_DIR, no dev copy and no folder saved yet (the window must be shown). DetectedKenshiDir: the saved
+// folder, else the first Steam one, else "" (what the window pre-fills). SetKenshiDir: the confirmed folder for this process (call after SaveKenshiDir; beats everything).
+// IsKenshiFolder: the folder holds data/gamedata.base.
+bool KenshiFolderNeedsPrompt();
+std::string DetectedKenshiDir();
+void SetKenshiDir(const std::string& dir);
+bool IsKenshiFolder(const std::string& dir);
+
 // "<KenshiDir()>/data/newland/land/<name>" if that file exists, else `fallback`. Logs the choice once per name.
 std::string KenshiLandFile(const char* name, const char* fallback);
 
