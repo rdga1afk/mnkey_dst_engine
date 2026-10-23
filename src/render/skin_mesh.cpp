@@ -1,6 +1,7 @@
 // SkinMesh — GLB loader with skinning data + CPU animation playback.
 #include <monkey_dust/render/skin_mesh.h>
 #include <monkey_dust/render/char_customization.h>
+#include <monkey_dust/render/human_body_build.h>
 #include "cgltf.h"
 #include <cstdio>
 #include <cstdlib>
@@ -374,6 +375,65 @@ bool SkinMesh::LoadGLB(const char* path) {
             path,(unsigned)nv,(unsigned)ni,bone_count,clip_count_);
     for (int i=0;i<bone_count;++i)
         fprintf(stdout,"  bone[%2d] parent=%2d  '%s'\n", i, parent_[i], bone_names[i]);
+    return true;
+}
+
+bool SkinMesh::LoadFromBody(const HumanBodyData& b) {
+    loaded = false;
+    const size_t nv = b.nv;
+    if (nv == 0 || nv > 131072 || b.idx.empty() || b.idx.size() > (1u << 20)) return false;
+    static SkinVertex s_verts[131072];
+    for (size_t i = 0; i < nv; ++i) {
+        SkinVertex& v = s_verts[i];
+        v.x = b.pos[i * 3]; v.y = b.pos[i * 3 + 1]; v.z = b.pos[i * 3 + 2];
+        v.nx = b.nrm[i * 3]; v.ny = b.nrm[i * 3 + 1]; v.nz = b.nrm[i * 3 + 2];
+        v.u = b.uv[i * 2]; v.v = b.uv[i * 2 + 1];
+        for (int k = 0; k < 4; ++k) { v.j[k] = b.joint[i * 4 + k]; v.w[k] = b.weight[i * 4 + k]; }
+    }
+    vbo.Init(0x8892u, s_verts, (uint32_t)(nv * sizeof(SkinVertex)));
+    cpu_verts_ = s_verts; vert_count_ = (uint32_t)nv;
+    free(morph_deltas_); morph_deltas_ = nullptr; morph_count_ = 0;
+    memset(morph_weights, 0, sizeof(morph_weights)); memset(morph_names_, 0, sizeof(morph_names_));
+    int nt = (int)b.morph_names.size(); if (nt > MAX_MORPH_TARGETS) nt = MAX_MORPH_TARGETS;   // as LoadGLB: the first 32
+    if (nt > 0) {
+        const size_t bytes = (size_t)nt * nv * 3 * sizeof(float);
+        morph_deltas_ = (float*)aligned_alloc(16, (bytes + 15) & ~(size_t)15);
+        if (morph_deltas_) {
+            for (int m = 0; m < nt; ++m) { memcpy(morph_deltas_ + (size_t)m * nv * 3, b.morph_delta[m].data(), nv * 3 * sizeof(float)); strncpy(morph_names_[m], b.morph_names[m].c_str(), 47); }
+            morph_count_ = nt;
+        }
+    }
+    index_count = (uint32_t)b.idx.size();
+    indices_u16 = nv <= 65535;
+    if (indices_u16) { static uint16_t s_i16[1 << 20]; for (size_t i = 0; i < b.idx.size(); ++i) s_i16[i] = (uint16_t)b.idx[i]; ibo.Init(0x8893u, s_i16, (uint32_t)(b.idx.size() * 2)); }
+    else { static uint32_t s_i32[1 << 20]; for (size_t i = 0; i < b.idx.size(); ++i) s_i32[i] = b.idx[i]; ibo.Init(0x8893u, s_i32, (uint32_t)(b.idx.size() * 4)); }
+    for (int i = 0; i < MAX_SKIN_BONES; ++i) { mat4_identity(inv_bind_[i]); parent_[i] = -1; }
+    bone_count = (int)b.bone_names.size(); if (bone_count > MAX_SKIN_BONES) bone_count = MAX_SKIN_BONES;
+    for (int i = 0; i < bone_count; ++i) {
+        strncpy(bone_names[i], b.bone_names[i].c_str(), 31); bone_hash_[i] = BoneHash(bone_names[i]);
+        parent_[i] = b.parent[i];
+        memcpy(inv_bind_[i], &b.inv_bind[(size_t)i * 16], 64);
+        for (int k = 0; k < 3; ++k) { bind_t_[i][k] = b.bind_t[(size_t)i * 3 + k]; bind_s_[i][k] = 1.f; }
+        for (int k = 0; k < 4; ++k) bind_q_[i][k] = b.bind_q[(size_t)i * 4 + k];
+    }
+    bool added[MAX_SKIN_BONES] = {}; int n_order = 0;
+    for (int i = 0; i < bone_count; ++i) if (parent_[i] < 0) { process_order_[n_order++] = i; added[i] = true; }
+    for (int pass = 0; pass < bone_count && n_order < bone_count; ++pass)
+        for (int i = 0; i < bone_count; ++i) if (!added[i] && parent_[i] >= 0 && added[parent_[i]]) { process_order_[n_order++] = i; added[i] = true; }
+    clip_count_ = 0;
+    for (size_t c = 0; c < b.clips.size() && clip_count_ < MAX_SKIN_CLIPS; ++c) {
+        SkinClip& cl = clips_[clip_count_]; memset(&cl, 0, sizeof(cl));
+        strncpy(cl.name, b.clips[c].name.c_str(), sizeof(cl.name) - 1); cl.bone_count = bone_count; cl.duration = b.clips[c].duration;
+        for (int bi = 0; bi < bone_count; ++bi) {
+            const auto& keys = b.clips[c].tracks[bi];
+            const int n = (int)keys.size() < MAX_SKIN_KF ? (int)keys.size() : MAX_SKIN_KF;
+            for (int k = 0; k < n; ++k) cl.tracks[bi].kf[k] = { keys[k].t, keys[k].tx, keys[k].ty, keys[k].tz, keys[k].qx, keys[k].qy, keys[k].qz, keys[k].qw };
+            cl.tracks[bi].count = n;
+        }
+        ++clip_count_;
+    }
+    loaded = true;
+    fprintf(stdout, "[SkinMesh] body built from the Kenshi install: verts=%u idx=%u bones=%d clips=%d morphs=%d\n", (unsigned)nv, index_count, bone_count, clip_count_, morph_count_);
     return true;
 }
 

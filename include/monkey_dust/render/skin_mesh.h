@@ -84,9 +84,13 @@ struct SkinClip {
 // creating a circular include with char_customization.h.
 struct CharScales;
 
+struct HumanBodyData;
+
 class SkinMesh {
 public:
     bool LoadGLB(const char* path);
+    // The NPC body built from the Kenshi install (human_body_build.h): same arrays LoadGLB("md_human.glb") fills.
+    bool LoadFromBody(const HumanBodyData& b);
     void Shutdown();
 
     // Compute mat4[MAX_SKIN_BONES] for given clip + time.
