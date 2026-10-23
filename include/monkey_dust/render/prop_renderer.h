@@ -8,6 +8,7 @@
 #include <monkey_dust/render/gpu_pipeline.h>
 #include <monkey_dust/render/gpu_sampler_texture.h>
 #include <cstdint>
+#include <string>
 
 #include <SDL3/SDL_gpu.h>
 
@@ -26,6 +27,8 @@ public:
     bool SetCustomTexture(const char* path);
     void SetSharedTexture(const GpuTexture* t) { shared_tex_ = t; }   // bind a texture the caller keeps alive (texture cache)
     void SetCullBack(bool on) { cull_back_ = on; }   // before InitFromArrays: single-sided mesh (default off: both sides)
+    // A Kenshi static .mesh from the install (see LoadOgreStaticMesh): the same geometry the converted .glb held.
+    bool InitFromOgreMesh(const std::string& stored_path, float scale, float layer = 0.0f);
     bool InitFromArrays(const PropVertex* verts, uint32_t vert_count, const uint32_t* idx, uint32_t idx_count);
     void Shutdown();
 

@@ -139,7 +139,8 @@ bool FeatureScatterSystem::Init(const char* scatter_path, const char* mesh_dir) 
             char glb_path[320];
             snprintf(glb_path, sizeof(glb_path), "%s/%s.glb", mesh_dir, name);
             mesh_idx = mesh_count_;
-            if (!renderers_[mesh_idx].Init(glb_path)) {
+            // the converted .glb when it is there, else the install's own .mesh (units 0.1 m -> scale 0.1, as tools/md_convert_features.py)
+            if (!renderers_[mesh_idx].Init(glb_path) && !renderers_[mesh_idx].InitFromOgreMesh(mesh_path, 0.1f)) {
                 MD_LOG(MD_LOG_WARNING, "[FeatureScatter] failed to load %s (from %s) — skipping its placements", glb_path, mesh_path);
                 continue; // don't reserve a mesh slot for a mesh that failed to load
             }

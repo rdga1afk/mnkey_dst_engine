@@ -5,6 +5,8 @@
 // Usage: Init once; Draw* calls reference vbo/ibo; Shutdown on exit.
 #include <monkey_dust/render/gpu_static_buffer.h>
 #include <cstdint>
+#include <string>
+#include <vector>
 
 struct PropVertex {
     float x, y, z;    // position
@@ -13,6 +15,10 @@ struct PropVertex {
     float layer;      // PropTexShared layer: 0=rock diffuse, 1=vegetation atlas, 2=custom (PropMesh::has_custom_tex)
 };
 static_assert(sizeof(PropVertex) == 36, "PropVertex stride mismatch");
+
+// A Kenshi static .mesh (tools/md_convert_static.py without the .glb step): every submesh merged in file order, positions x scale, normals and UV 0 as stored.
+// `path` is a game-data path (`.\data\x\y.mesh`) or a file name; it is looked up in the Kenshi install. False when the mesh is missing or has no vertices.
+bool LoadOgreStaticMesh(const std::string& path, float scale, float layer, std::vector<PropVertex>& verts, std::vector<uint32_t>& indices);
 
 class PropMesh {
 public:

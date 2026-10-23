@@ -9,10 +9,55 @@
 // same pattern as gpu_hal_buffers.cpp / rd_texture.cpp's existing includes).
 #include "stb_image.h"
 
+#include <monkey_dust/io/kenshi_dir.h>
+#include <monkey_dust/io/kenshi_resources.h>
+#include <monkey_dust/io/ogre_mesh.h>
+#include <filesystem>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+
+bool LoadOgreStaticMesh(const std::string& stored, float scale, float layer, std::vector<PropVertex>& verts, std::vector<uint32_t>& indices) {
+    const std::string root = md::KenshiDir();
+    if (root.empty()) return false;
+    std::string file = root + "/" + md::NormalizeKenshiPath(stored);
+    if (!std::filesystem::exists(file)) {   // Ogre finds a mesh by file name anywhere under data/
+        static md::KenshiResources res; static bool indexed = false;
+        if (!indexed) { res.Index(root); indexed = true; }
+        file = res.Path(stored);
+        if (file.empty()) return false;
+    }
+    md::ogre::Mesh m; md::ogre::Error err;
+    if (!md::ogre::ReadMesh(file, m, err)) return false;
+    verts.clear(); indices.clear();
+    auto append = [&](const md::ogre::Geometry& g) {
+        std::vector<float> p, n, uv;
+        g.Positions(p);
+        const bool hn = g.Normals(n), hu = g.Uvs(0, uv);
+        for (uint32_t i = 0; i < g.vertex_count; ++i) {
+            PropVertex v{};
+            v.x = (float)((double)p[i * 3] * scale); v.y = (float)((double)p[i * 3 + 1] * scale); v.z = (float)((double)p[i * 3 + 2] * scale);
+            v.nx = hn ? n[i * 3] : 0.f; v.ny = hn ? n[i * 3 + 1] : 1.f; v.nz = hn ? n[i * 3 + 2] : 0.f;
+            v.u = hu ? uv[i * 2] : 0.f; v.v = hu ? uv[i * 2 + 1] : 0.f; v.layer = layer;
+            verts.push_back(v);
+        }
+    };
+    uint32_t shared_base = 0; bool shared_added = false;
+    for (const md::ogre::SubMesh& s : m.submeshes) {
+        uint32_t base;
+        if (s.use_shared) {
+            if (!m.has_shared) continue;
+            if (!shared_added) { shared_base = (uint32_t)verts.size(); append(m.shared); shared_added = true; }
+            base = shared_base;
+        } else {
+            if (!s.has_geometry) continue;
+            base = (uint32_t)verts.size(); append(s.geometry);
+        }
+        for (uint32_t i : s.indices) indices.push_back(base + i);
+    }
+    return !verts.empty() && !indices.empty();
+}
 
 bool PropMesh::LoadGLB(const char* path, float layer) {
     loaded = false;

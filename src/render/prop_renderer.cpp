@@ -45,6 +45,13 @@ bool PropRenderer::SetCustomTexture(const char* path) {
     return true;
 }
 
+bool PropRenderer::InitFromOgreMesh(const std::string& stored_path, float scale, float layer) {
+    std::vector<PropVertex> v; std::vector<uint32_t> i;
+    if (!LoadOgreStaticMesh(stored_path, scale, layer, v, i)) return false;
+    fprintf(stdout, "[PropRenderer] Ogre mesh %zu verts / %zu idx: %s\n", v.size(), i.size(), stored_path.c_str());
+    return InitFromArrays(v.data(), (uint32_t)v.size(), i.data(), (uint32_t)i.size());
+}
+
 bool PropRenderer::InitFromArrays(const PropVertex* verts, uint32_t vert_count, const uint32_t* idx, uint32_t idx_count) {
     if (!mesh_.LoadFromArrays(verts, vert_count, idx, idx_count)) return false;
     return FinishInit();
