@@ -65,7 +65,9 @@ bool SaveKenshiDir(const std::string& dir, const std::string& home) {
 
 std::string KenshiDir() {
     if (const char* e = std::getenv("KENSHI_DIR")) if (*e) return e;
+#ifndef MD_NO_DEV_PATHS
     if (Exists("tmp_/kenshi/data/gamedata.base")) return "tmp_/kenshi";
+#endif
     static const std::string found = [] {
         const std::string home = Home();
         if (home.empty()) return std::string();

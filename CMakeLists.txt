@@ -14,6 +14,7 @@ set(MD_THIRD_PARTY "${CMAKE_CURRENT_SOURCE_DIR}/third_party")
 # #189: standalone ASan/UBSan package variant (same flags as MONKEY_DUST_ASAN in the root CMakeLists.txt; must come before the third-party targets so they are instrumented too)
 option(MD_ENGINE_ASAN "Standalone engine build with AddressSanitizer + UndefinedBehaviorSanitizer" OFF)
 # #185 step 2 (evidence of unused code): a package variant whose every function / data object has its own section, so that a link with --gc-sections --print-gc-sections lists what nothing references
+option(MD_RELEASE_PATHS "Release build: no dev lookups of relative folders (tmp_/kenshi) for the Kenshi install (#201 R5)" OFF)
 option(MD_ENGINE_GC "Standalone engine build with -ffunction-sections -fdata-sections (package variant gc)" OFF)
 if(MD_ENGINE_GC AND CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     add_compile_options(-ffunction-sections -fdata-sections)
@@ -277,6 +278,9 @@ set(MD_RENDER_BACKEND "SDLGPU" CACHE STRING
 set_property(CACHE MD_RENDER_BACKEND PROPERTY STRINGS
     SDLGPU GRANITE)
 target_compile_definitions(monkey_dust_engine PUBLIC MD_RENDER_BACKEND_${MD_RENDER_BACKEND})
+if(MD_RELEASE_PATHS)
+    target_compile_definitions(monkey_dust_engine PRIVATE MD_NO_DEV_PATHS)
+endif()
 
 # SDL3 + SDL_GPU is the default rendering backend (GRANITE is the other
 # real implementation, see MD_RENDER_BACKEND above).
