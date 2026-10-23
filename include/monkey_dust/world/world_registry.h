@@ -78,6 +78,7 @@ public:
 
     // Load game/data/biome_map.txt (64×64 grid of zx,zz=biome lines)
     void LoadBiomeMap(const char* path = "game/data/biome_map.txt");
+    bool BuildBiomeMapFromInstall();   // true when the install has biomemap.png; LoadBiomeMap calls it when biome_map.txt is absent (the release)
 
 
     // Get biome string for any zone by grid coords (returns "desert" if unknown)

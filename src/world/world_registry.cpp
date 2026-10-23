@@ -1,5 +1,10 @@
 #include <monkey_dust/world/world_registry.h>
 #include <monkey_dust/world/biome_system.h>
+#include <monkey_dust/io/kenshi_dir.h>
+#include <stb_image.h>
+#include <string>
+#include <vector>
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
@@ -74,9 +79,52 @@ void WorldRegistry::LoadFromTerrainConfig(const char* path) {
 
 constexpr const char* WorldRegistry::kBiomeNames[];
 
+// The biome of every zone cell from the install's biomemap.png (tools/md_biome_import.py, now at run time): the zones of terrain_config.txt are the colour anchors, every other cell takes the nearest anchor colour
+bool WorldRegistry::BuildBiomeMapFromInstall() {
+    const std::string dir = md::KenshiDir();
+    if (dir.empty()) return false;
+    int w = 0, h = 0, ch = 0;
+    unsigned char* px = stbi_load((dir + "/data/newland/land/biomemap.png").c_str(), &w, &h, &ch, 4);
+    if (!px) return false;
+    auto sample = [&](int zx, int zz) {
+        const int x = std::min(zx * 16 + 8, w - 1), y = std::min(zz * 16 + 8, h - 1);
+        const unsigned char* q = px + 4 * ((size_t)y * w + x);
+        return (uint32_t)q[0] << 16 | (uint32_t)q[1] << 8 | q[2];
+    };
+    struct Anchor { uint32_t rgb; uint8_t biome; };
+    std::vector<Anchor> anchors;   // insertion order of the first use of a colour; a later zone with the same colour replaces its biome
+    bool known[64][64] = {};
+    auto biome_index = [&](const char* name) { for (uint8_t i = 0; i < 11; ++i) if (!strcmp(name, kBiomeNames[i])) return i; return (uint8_t)0; };
+    for (int i = 0; i < zone_count_; ++i) {
+        const ZoneRecord& z = zones_[i];
+        if (!z.biome[0] || z.grid_x < 0 || z.grid_x > 63 || z.grid_z < 0 || z.grid_z > 63) continue;
+        const uint32_t c = sample(z.grid_x, z.grid_z); const uint8_t b = biome_index(z.biome);
+        bool found = false;
+        for (Anchor& a : anchors) if (a.rgb == c) { a.biome = b; found = true; break; }
+        if (!found) anchors.push_back({ c, b });
+        known[z.grid_z][z.grid_x] = true; biome_grid_[z.grid_z][z.grid_x] = b;
+    }
+    for (int zz = 0; zz < 64; ++zz) for (int zx = 0; zx < 64; ++zx) {
+        if (known[zz][zx]) continue;
+        const uint32_t c = sample(zx, zz); uint8_t best = biome_index("desert"); long best_d = -1;
+        for (const Anchor& a : anchors) {
+            if (a.rgb == c) { best = a.biome; break; }
+            const long dr = (long)(c >> 16 & 255) - (long)(a.rgb >> 16 & 255), dg = (long)(c >> 8 & 255) - (long)(a.rgb >> 8 & 255), db = (long)(c & 255) - (long)(a.rgb & 255);
+            const long d = dr * dr + dg * dg + db * db;
+            if (best_d < 0 || d < best_d) { best_d = d; best = a.biome; }
+        }
+        biome_grid_[zz][zx] = best;
+    }
+    stbi_image_free(px);
+    return true;
+}
+
 void WorldRegistry::LoadBiomeMap(const char* path) {
     FILE* fp = fopen(path, "r");
-    if (!fp) return;
+    if (!fp) {   // the release has no committed table: build it from the install
+        if (BuildBiomeMapFromInstall()) fprintf(stdout, "[WorldRegistry] Biome map built from the Kenshi install (biomemap.png)\n");
+        return;
+    }
     char line[64];
     while (fgets(line, sizeof(line), fp)) {
         if (line[0] == '#' || line[0] == '\n') continue;
