@@ -1,3 +1,4 @@
+#include <monkey_dust/world/overlay_mask_build.h>
 #include <monkey_dust/io/kenshi_dir.h>
 #include <string>
 #include <iterator>
@@ -459,28 +460,13 @@ bool TerrainRenderer::InitOverlayMask(const char* path)
 
     tex_overlay_mask_.Shutdown();
 
-    // Fast path: the same pre-baked .raw sidecar clutter_gen.cpp's
-    // s_load_grass_density() already uses (tools/md_stitch_overlay_mask.py)
-    // -- a plain fread instead of stb_image's ~760ms+ single-threaded PNG
-    // DEFLATE decode of this 4096x4096 image (measured here: InitFromFile's
-    // PNG path alone added ~1.9s to game startup). Header = 2x little-endian
-    // uint32 (width,height) then raw RGBA8 bytes; falls back to the .png if
-    // the sidecar is missing/stale (it's gitignored, regenerate-only).
-    uint32_t raw_len = 0;
-    char* raw = md::fs_read_alloc("game/data/textures/md_overlay_mask.raw", &raw_len);
-    if (raw && raw_len > 8) {
-        uint32_t w, h;
-        memcpy(&w, raw,     4);
-        memcpy(&h, raw + 4, 4);
-        bool ok = (uint64_t)raw_len - 8 == (uint64_t)w * h * 4
-                  && tex_overlay_mask_.InitFromMemory(reinterpret_cast<const uint8_t*>(raw + 8),
-                                                       (int)w, (int)h, sd);
-        md::fs_free(raw);
-        if (ok) {
-            overlay_mask_ready_ = true;
-            fprintf(stdout, "[TerrainRenderer] overlay mask loaded (raw sidecar): %ux%u\n", w, h);
-            return true;
-        }
+    // Built from the install's new_overlay tiles (cached under ~/.cache/monkey_dust, #201 R3e); the committed copy is only a fallback.
+    std::vector<uint8_t> mask;
+    if (!md::KenshiDir().empty() && md::LoadOverlayMask(md::KenshiDir(), mask)
+        && tex_overlay_mask_.InitFromMemory(mask.data(), md::OVERLAY_MASK_SIZE, md::OVERLAY_MASK_SIZE, sd)) {
+        overlay_mask_ready_ = true;
+        fprintf(stdout, "[TerrainRenderer] overlay mask built from the install: %dx%d\n", md::OVERLAY_MASK_SIZE, md::OVERLAY_MASK_SIZE);
+        return true;
     }
 
     if (!tex_overlay_mask_.InitFromFile(path, sd)) {
