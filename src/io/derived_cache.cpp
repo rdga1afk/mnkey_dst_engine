@@ -35,6 +35,7 @@ std::string CachePath(uint64_t key, const char* name) {
 bool CacheRead(uint64_t key, const char* name, std::vector<uint8_t>& out) {
     const fs::path p = CacheFolder(key) / name;
     FILE* f = p.empty() ? nullptr : fopen(p.string().c_str(), "rb");
+    fprintf(stderr, "[Cache] %s %016llx/%s\n", f ? "hit " : "miss", (unsigned long long)key, name);
     if (!f) return false;
     fseek(f, 0, SEEK_END); const long n = ftell(f); fseek(f, 0, SEEK_SET);
     out.resize(n > 0 ? (size_t)n : 0);
@@ -52,6 +53,7 @@ bool CacheWrite(uint64_t key, const char* name, const uint8_t* data, size_t n) {
     if (!f) return false;
     const bool ok = fwrite(data, 1, n, f) == n;
     fclose(f);
+    fprintf(stderr, "[Cache] write %016llx/%s %zu bytes\n", (unsigned long long)key, name, n);
     if (!ok) { fs::remove(tmp, ec); return false; }
     fs::rename(tmp, dst, ec);
     return !ec;

@@ -141,7 +141,7 @@ std::string EnsureTerrainColourDds(const std::string& root) {
     const uint64_t key = HashFiles(files) ^ 0x5eed0002ull;   // salt = encoder revision (2: the palette colour is no longer computed in uint8)
     const std::string path = CachePath(key, "terrain_colour.dds");
     if (path.empty()) return {};
-    if (FILE* f = fopen(path.c_str(), "rb")) { fseek(f, 0, SEEK_END); const long n = ftell(f); fclose(f); if ((size_t)n == 128 + [] { size_t t = 0; for (int l = 0; l < LEVELS; ++l) t += LevelBytes(SIDE >> l); return t; }()) return path; }
+    if (FILE* f = fopen(path.c_str(), "rb")) { fseek(f, 0, SEEK_END); const long n = ftell(f); fclose(f); if ((size_t)n == 128 + [] { size_t t = 0; for (int l = 0; l < LEVELS; ++l) t += LevelBytes(SIDE >> l); return t; }()) { fprintf(stderr, "[Cache] hit  %016llx/terrain_colour.dds\n", (unsigned long long)key); return path; } }
     std::vector<uint8_t> dds;
     if (!BuildTerrainColourDds(root, dds) || !CacheWrite(key, "terrain_colour.dds", dds.data(), dds.size())) return {};
     return path;

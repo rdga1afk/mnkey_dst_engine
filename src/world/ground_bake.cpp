@@ -215,7 +215,7 @@ std::string EnsureGroundBakedDds(const std::string& root) {
     const uint64_t key = HashFiles(files) ^ 0x6a0d0001ull;   // salt = bake revision
     const std::string path = CachePath(key, "ground_baked.dds");
     if (path.empty()) return {};
-    if (FILE* f = fopen(path.c_str(), "rb")) { fclose(f); return path; }
+    if (FILE* f = fopen(path.c_str(), "rb")) { fclose(f); fprintf(stderr, "[Cache] hit  %016llx/ground_baked.dds\n", (unsigned long long)key); return path; }
     std::vector<uint8_t> rgb, dds;
     if (!BuildGroundBaked(root, 16384, rgb)) return {};
     if (!EncodeBc3Dds(rgb.data(), 16384, dds)) return {};
