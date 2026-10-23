@@ -70,7 +70,16 @@ bool GpuTexture::InitFromDDSArray(const char* const* paths, int count,
     // roughly by the worker count on multi-core hardware. Falls back to
     // serial reads if JobSystem has no workers (e.g. test binaries that
     // never call JobSystem::Init()).
-    auto read_one = [](void* p) { auto* l = (LayerData*)p; l->buf = md::fs_read_alloc(l->path, &l->len); };
+    auto read_one = [](void* p) {
+        auto* l = (LayerData*)p;
+        if (l->path && strcmp(l->path, MD_DDS_STUB_1X1) == 0) {   // a built-in white 1x1 BC3 texture: a binding that has to exist but is never read
+            static const uint32_t hdr[32] = { 0x20534444u, 124, 0x81007u, 1, 1, 16, 0, 1, 0,0,0,0,0,0,0,0,0,0,0, 32, 4, 0x35545844u, 0,0,0,0,0, 0x1000, 0,0,0,0 };
+            l->len = 128 + 16; l->buf = (char*)malloc(l->len); memset(l->buf, 0, l->len); memcpy(l->buf, hdr, 128);
+            memset(l->buf + 128, 0xFF, 16);
+            return;
+        }
+        l->buf = md::fs_read_alloc(l->path, &l->len);
+    };
     if (JobSystem::Get().NumWorkers() > 0) {
         for (int i = 0; i < count; ++i) JobSystem::Get().Submit(read_one, &layers[i]);
         JobSystem::Get().Flush();

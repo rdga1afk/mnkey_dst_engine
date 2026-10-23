@@ -87,6 +87,8 @@ private:
 // SDL_GPU: SDL_CreateGPUTexture(R8G8B8A8_UNORM) + SDL_CreateGPUSampler +
 //   one-shot SDL_UploadToGPUTexture + optional SDL_GenerateMipmapsForGPUTexture.
 // ─────────────────────────────────────────────────────────────────────────────
+#define MD_DDS_STUB_1X1 ":stub1x1"
+
 class GpuTexture {
 public:
     bool InitFromFile  (const char* path,              const GpuSamplerDesc& s = {});
@@ -147,6 +149,7 @@ public:
                       const GpuSamplerDesc& s = {});
     // Load a 2D texture array from multiple BC3/DXT5 DDS files (SDL_GPU only).
     // All files must have identical dimensions, format, and mip count.
+    // A path equal to MD_DDS_STUB_1X1 is a built-in white 1x1 layer instead of a file.
     bool InitFromDDSArray(const char* const* paths, int count, const GpuSamplerDesc& s = {});
     // Load a DDS cube map (6 faces, every mip, BC3/DXT5 or BC1/DXT1; Kenshi's mp_irradiance.dds / mp_specularity.dds) as a SDL_GPU cube texture with a trilinear clamp sampler (#140 L2).
     bool InitFromDDSCube(const char* path);

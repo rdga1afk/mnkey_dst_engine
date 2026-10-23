@@ -194,7 +194,8 @@ bool TerrainRenderer::InitDetailArray(const char* dir, int max_layers)
     char path_buf[BiomeRegistry::MAX_TEXTURES][160];
     const char* path_ptrs[BiomeRegistry::MAX_TEXTURES];
     for (int i = 0; i < tex_count; ++i) {
-        snprintf(path_buf[i], sizeof(path_buf[i]), "%s/detail_%d.dds", dir, i);
+        if (max_layers == 1) snprintf(path_buf[i], sizeof(path_buf[i]), "%s", MD_DDS_STUB_1X1);   // the stub: no files (#201 R3e)
+        else snprintf(path_buf[i], sizeof(path_buf[i]), "%s/detail_%d.dds", dir, i);
         path_ptrs[i] = path_buf[i];
     }
 
@@ -215,7 +216,8 @@ bool TerrainRenderer::InitDetailArray(const char* dir, int max_layers)
     char tint_path[192];
     snprintf(tint_path, sizeof(tint_path), "%s/tint_table.png", dir);
     tex_detail_tint_.Shutdown();
-    if (!tex_detail_tint_.InitFromFile(tint_path, tint_sd)) {
+    static const uint8_t k_white[4] = { 255, 255, 255, 255 };
+    if (max_layers == 1 ? !tex_detail_tint_.InitFromMemory(k_white, 1, 1, tint_sd) : !tex_detail_tint_.InitFromFile(tint_path, tint_sd)) {
         fprintf(stderr, "[TerrainRenderer] KROK3 tint table failed (%s)\n", tint_path);
         detail_array_ready_ = false;
         return false;
