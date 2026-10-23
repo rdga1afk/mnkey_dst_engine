@@ -1,6 +1,7 @@
 #include <monkey_dust/render/gpu_hal_types.h>
 #include <monkey_dust/render/gpu_pipeline.h>
 #include <monkey_dust/render/gpu_compute.h>
+#include <monkey_dust/render/gpu_spirv_embed.h>
 #include <monkey_dust/render/gpu_depth_texture.h>
 #include <monkey_dust/render/gpu_hal_free_functions.h>
 #include <monkey_dust/render/gpu_resource_tracker.h>
@@ -120,7 +121,28 @@ static uint32_t SpvHash(const char* s) {
     return h ? h : 1u;
 }
 
+static const md::EmbeddedSpirv* s_embedded = nullptr;
+static size_t s_embedded_count = 0;
+void md::RegisterEmbeddedSpirv(const md::EmbeddedSpirv* table, size_t count) { s_embedded = table; s_embedded_count = count; }
+
+static bool EmbeddedOnly() { static const bool v = getenv("MD_SHADERS_EMBEDDED_ONLY") != nullptr; return v; }
+
+static const md::EmbeddedSpirv* FindEmbedded(const char* path) {
+    for (size_t i = 0; i < s_embedded_count; ++i) if (strcmp(s_embedded[i].path, path) == 0) return &s_embedded[i];
+    return nullptr;
+}
+
+static bool IsEmbeddedPtr(const void* p) {
+    for (size_t i = 0; i < s_embedded_count; ++i) if (s_embedded[i].data == p) return true;
+    return false;
+}
+
 static void* ReadBinaryFile(const char* path, size_t* out_size) {
+    // the compiled-in copy: used when it is asked for exclusively, or when the file is not on disk (a release has no shaders/ folder)
+    if (const md::EmbeddedSpirv* e = FindEmbedded(path)) {
+        if (EmbeddedOnly()) { *out_size = e->size; return (void*)e->data; }
+        if (FILE* t = fopen(path, "rb")) fclose(t); else { *out_size = e->size; return (void*)e->data; }
+    }
     uint32_t h = SpvHash(path);
     // Cache hit — update LRU generation, return cached pointer.
     for (int i = 0; i < SPV_CACHE_MAX; ++i) {
@@ -164,6 +186,7 @@ static void* ReadBinaryFile(const char* path, size_t* out_size) {
 
 // Returns true if ptr is owned by the cache (must not be freed by caller).
 static bool SpvIsCached(const void* ptr) {
+    if (IsEmbeddedPtr(ptr)) return true;
     for (int i = 0; i < SPV_CACHE_MAX; ++i)
         if (s_spv_cache[i].used && s_spv_cache[i].data == ptr) return true;
     return false;
@@ -208,8 +231,8 @@ static void MakeSpvPath(char* out, size_t out_sz, const char* glsl_path,
         // Try variant first, fall back to base.
         char variant[256];
         snprintf(variant, sizeof(variant), "shaders/spirv/%s%s.spv", name, suffix);
-        FILE* f = fopen(variant, "rb");
-        if (f) { fclose(f); snprintf(out, out_sz, "%s", variant); return; }
+        FILE* f = EmbeddedOnly() ? nullptr : fopen(variant, "rb");
+        if (f || FindEmbedded(variant)) { if (f) fclose(f); snprintf(out, out_sz, "%s", variant); return; }
     }
     snprintf(out, out_sz, "shaders/spirv/%s.spv", name);
 }
