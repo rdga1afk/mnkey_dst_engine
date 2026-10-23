@@ -8,6 +8,8 @@ namespace md {
 
 // FNV-1a over the size and mtime of each file: changes when the install changes.
 uint64_t HashFiles(const std::vector<std::string>& files);
+// Full path of <cache>/<key hex>/<name> (the file may not exist); "" when there is no home folder.
+std::string CachePath(uint64_t key, const char* name);
 // Reads <cache>/<key hex>/<name> into `out`; false when absent.
 bool CacheRead(uint64_t key, const char* name, std::vector<uint8_t>& out);
 // Writes the file (atomically, via a temp name); false when the cache folder cannot be written. Failure is not an error: the data is simply rebuilt next launch.

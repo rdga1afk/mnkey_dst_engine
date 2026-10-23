@@ -1,5 +1,6 @@
 #include <monkey_dust/world/overlay_mask_build.h>
 #include <monkey_dust/world/steepness_bake.h>
+#include <monkey_dust/world/terrain_colour_dds.h>
 #include <monkey_dust/world/terrain_gen.h>
 #include <monkey_dust/io/kenshi_dir.h>
 #include <string>
@@ -558,7 +559,10 @@ bool TerrainRenderer::InitKenshiOverlay(const char* path)
     // (tex_colour_.Shutdown() above already ran either way, so a failed
     // reload left tex_loaded_=true pointing at a texture that no longer
     // existed). Matches the other 3 callers' already-correct behavior.
-    return LoadTerrainTexture(tex_colour_, path, sd, tex_loaded_, "kenshi overlay");
+    // The overview is encoded from the install's colour tiles into the derived-data cache (#201 R3e); `path` is only the fallback.
+    std::string built;
+    if (!md::KenshiDir().empty()) built = md::EnsureTerrainColourDds(md::KenshiDir());
+    return LoadTerrainTexture(tex_colour_, built.empty() ? path : built.c_str(), sd, tex_loaded_, "kenshi overlay");
 }
 
 

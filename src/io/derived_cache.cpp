@@ -27,6 +27,11 @@ uint64_t HashFiles(const std::vector<std::string>& files) {
     return h;
 }
 
+std::string CachePath(uint64_t key, const char* name) {
+    const fs::path d = CacheFolder(key);
+    return d.empty() ? std::string() : (d / name).string();
+}
+
 bool CacheRead(uint64_t key, const char* name, std::vector<uint8_t>& out) {
     const fs::path p = CacheFolder(key) / name;
     FILE* f = p.empty() ? nullptr : fopen(p.string().c_str(), "rb");
