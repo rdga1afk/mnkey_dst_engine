@@ -14,8 +14,12 @@
 // baking/streaming needed, unlike the terrain/clutter systems.
 #include <monkey_dust/render/prop_renderer.h>
 #include <cstdint>
+#include <string>
 
 #include <SDL3/SDL_gpu.h>
+
+// The placement text (same lines as game/data/features_scatter.txt) built from the install's features.dat and game data; "" when the install lacks them.
+std::string BuildFeatureScatterText(const std::string& kenshi_dir);
 
 class FeatureScatterSystem {
 public:

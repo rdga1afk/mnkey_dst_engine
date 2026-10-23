@@ -1,5 +1,10 @@
 #include <monkey_dust/world/feature_scatter.h>
 #include <monkey_dust/platform/md_log.h>
+#include <monkey_dust/io/fcs_gamedata.h>
+#include <monkey_dust/io/kenshi_dir.h>
+#include <fstream>
+#include <iterator>
+#include <string>
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
@@ -41,8 +46,55 @@ int FeatureScatterSystem::FindOrSkipMesh(const char* kenshi_mesh_path) const {
     return -1;
 }
 
+// features.dat (magic MF01) + the item each record names -> the placement text Init reads (private/md_features_parse.py --export, now at run time)
+std::string BuildFeatureScatterText(const std::string& kenshi_dir) {
+    std::ifstream in(kenshi_dir + "/data/newland/land/features.dat", std::ios::binary);
+    if (!in) return "";
+    const std::string d((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    auto u32 = [&](size_t o) { uint32_t v = 0; if (o + 4 <= d.size()) memcpy(&v, d.data() + o, 4); return v; };
+    auto f32 = [&](size_t o) { float v = 0; if (o + 4 <= d.size()) memcpy(&v, d.data() + o, 4); return v; };
+    if (d.size() < 8 || d.compare(0, 4, "MF01") != 0) return "";
+    struct Rec { std::string name; float v[10]; };
+    std::vector<Rec> recs;
+    const uint32_t n_table = u32(4);
+    for (uint32_t i = 0; i + 1 < n_table; i += 2) {
+        const uint32_t off = u32(8 + 4 * (size_t)i), len = u32(8 + 4 * (size_t)i + 4);
+        if (off == 0 && len == 0) continue;
+        size_t pos = off; const int32_t n = (int32_t)u32(pos); pos += 4;
+        for (int32_t r = 0; r < n && pos < d.size(); ++r) {
+            Rec rec; const size_t nl = (unsigned char)d[pos++];
+            rec.name = d.substr(pos, nl); pos += nl;
+            for (int k = 0; k < 10; ++k, pos += 4) rec.v[k] = f32(pos);   // pos xyz, scale xyz, quat wxyz
+            recs.push_back(std::move(rec));
+        }
+        if (pos - off != len) return "";
+    }
+    md::fcs::Install inst(kenshi_dir); md::fcs::LoadOrder order; md::fcs::Error err; md::fcs::GameDataContainer gd;
+    if (!inst.LoadOrderFor(order, err) || !gd.Load(order, err)) return "";
+    // MapFeatureMode: world units are 0.1 m, world origin (14745.6, 14745.6) m (#176)
+    std::string out = "# game/data/features_scatter.txt -- built at run time from features.dat\n# mesh_path|x|y|z|sx|sy|sz|qw|qx|qy|qz|texture_mode (2 = TERRAIN)\n";
+    char buf[768];
+    for (const Rec& r : recs) {
+        const md::fcs::GameData* g = gd.Get(r.name);
+        if (!g) continue;
+        std::string mesh; auto m = g->files.find("mesh"); if (m != g->files.end()) mesh = m->second; else { auto s2 = g->strings.find("mesh"); if (s2 != g->strings.end()) mesh = s2->second; }
+        if (mesh.empty()) continue;
+        int mode = 0; auto tm = g->ints.find("texture mode"); if (tm != g->ints.end()) mode = tm->second;
+        snprintf(buf, sizeof buf, "%s|%.3f|%.3f|%.3f|%.4f|%.4f|%.4f|%.6f|%.6f|%.6f|%.6f|%d\n", mesh.c_str(),
+                 (double)r.v[0] / 10.0 + 14745.6, (double)r.v[1] / 10.0, (double)r.v[2] / 10.0 + 14745.6,
+                 (double)r.v[3], (double)r.v[4], (double)r.v[5], (double)r.v[6], (double)r.v[7], (double)r.v[8], (double)r.v[9], mode);
+        out += buf;
+    }
+    return out;
+}
+
 bool FeatureScatterSystem::Init(const char* scatter_path, const char* mesh_dir) {
     FILE* f = fopen(scatter_path, "r");
+    std::string generated;
+    if (!f) {   // the release has no committed placement file: build it from the install
+        generated = BuildFeatureScatterText(md::KenshiDir());
+        if (!generated.empty()) f = fmemopen((void*)generated.data(), generated.size(), "r");
+    }
     if (!f) {
         MD_LOG(MD_LOG_WARNING, "[FeatureScatter] cannot open %s — no real scatter objects loaded", scatter_path);
         return false;
