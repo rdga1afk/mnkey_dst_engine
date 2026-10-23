@@ -1,4 +1,5 @@
 #include <monkey_dust/io/kenshi_resources.h>
+#include <monkey_dust/io/data_files.h>
 #include <monkey_dust/world/biome_def.h>
 #include <monkey_dust/platform/md_log.h>
 #include <cstdio>
@@ -342,7 +343,7 @@ std::string BiomeRegistry::BuildTableFromFcs(const std::vector<md::fcs::Record>&
         std::string full = ResolveTexture(dir, fn);
         if (full.empty()) {
             MD_LOG(MD_LOG_ERROR, "[BiomeRegistry] ground texture %s is not in the Kenshi install (no substitution; white placeholder)", fn.c_str());
-            full = "game/data/textures/_MD_Missing_DIF.dds";
+            full = md::DataPath("game/data/textures/_MD_Missing_DIF.dds");
         }
         dif_path.push_back(full);
         const std::string tdir = std::filesystem::path(full).parent_path().string();
@@ -427,7 +428,7 @@ std::string BiomeRegistry::BuildTableFromFcs(const std::vector<md::fcs::Record>&
 
     std::string out = "tex_count " + std::to_string(tex_list.size()) + "\n";
     for (size_t i = 0; i < tex_list.size(); ++i) {
-        std::string nml = nml_path[i].empty() ? "game/data/textures/_MD_Flat_Normal_NML.dds" : nml_path[i];
+        std::string nml = nml_path[i].empty() ? md::DataPath("game/data/textures/_MD_Flat_Normal_NML.dds") : nml_path[i];
         out += "tex " + std::to_string(i) + "|" + dif_path[i] + "|" + nml + "\n";
     }
     out += "biome_count " + std::to_string(biome_count) + "\n" + biome_lines;

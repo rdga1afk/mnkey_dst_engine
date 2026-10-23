@@ -1,4 +1,5 @@
 #include <monkey_dust/world/feature_scatter.h>
+#include <monkey_dust/io/data_files.h>
 #include <monkey_dust/platform/md_log.h>
 #include <monkey_dust/io/fcs_gamedata.h>
 #include <monkey_dust/io/kenshi_dir.h>
@@ -89,7 +90,8 @@ std::string BuildFeatureScatterText(const std::string& kenshi_dir) {
 }
 
 bool FeatureScatterSystem::Init(const char* scatter_path, const char* mesh_dir) {
-    FILE* f = fopen(scatter_path, "r");
+    const std::string dev_scatter = md::DevFile(scatter_path);   // a pre-built placement file only in development (MD_DEV_FILES=1)
+    FILE* f = dev_scatter.empty() ? nullptr : fopen(dev_scatter.c_str(), "r");
     std::string generated;
     if (!f) {   // the release has no committed placement file: build it from the install
         generated = BuildFeatureScatterText(md::KenshiDir());
@@ -140,7 +142,8 @@ bool FeatureScatterSystem::Init(const char* scatter_path, const char* mesh_dir) 
             snprintf(glb_path, sizeof(glb_path), "%s/%s.glb", mesh_dir, name);
             mesh_idx = mesh_count_;
             // the converted .glb when it is there, else the install's own .mesh (units 0.1 m -> scale 0.1, as tools/md_convert_features.py)
-            if (!renderers_[mesh_idx].Init(glb_path) && !renderers_[mesh_idx].InitFromOgreMesh(mesh_path, 0.1f)) {
+            const std::string dev_glb = md::DevFile(glb_path);
+            if (!(!dev_glb.empty() && renderers_[mesh_idx].Init(dev_glb.c_str())) && !renderers_[mesh_idx].InitFromOgreMesh(mesh_path, 0.1f)) {
                 MD_LOG(MD_LOG_WARNING, "[FeatureScatter] failed to load %s (from %s) — skipping its placements", glb_path, mesh_path);
                 continue; // don't reserve a mesh slot for a mesh that failed to load
             }

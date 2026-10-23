@@ -1,5 +1,6 @@
 #pragma once
 #include <monkey_dust/platform/md_fs.h>
+#include <monkey_dust/io/data_files.h>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -55,7 +56,7 @@ struct RenderQualityConfig {
     // file is silent/expected (most runs have no overrides).
     static void LoadOverrides(const char* path = "game/data/render_quality_overrides.txt") noexcept {
         uint32_t size = 0;
-        char* buf = md::fs_read_alloc(path, &size);
+        char* buf = md::fs_read_alloc(md::DataPath(path).c_str(), &size);
         if (!buf) return;
         RenderQualityConfig& c = Get();
         char* line = buf;

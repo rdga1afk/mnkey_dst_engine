@@ -1,6 +1,7 @@
 #include <monkey_dust/world/world_registry.h>
 #include <monkey_dust/world/biome_system.h>
 #include <monkey_dust/io/kenshi_dir.h>
+#include <monkey_dust/io/data_files.h>
 #include <stb_image.h>
 #include <string>
 #include <vector>
@@ -11,7 +12,7 @@
 #include <dirent.h>
 
 void WorldRegistry::LoadFromTerrainConfig(const char* path) {
-    FILE* fp = fopen(path, "r");
+    FILE* fp = fopen(md::DataPath(path).c_str(), "r");
     if (!fp) {
         fprintf(stderr, "[WorldRegistry] terrain_config not found: %s\n", path);
         return;

@@ -167,7 +167,9 @@ bool TerrainAtlas_Load(const char* path) {
     s_atlas_derive_paths(path, r16_path, edits_path, sizeof(r16_path));
     if (!s_atlas_load_r16_base(r16_path)) return false;
     memset(s_atlas_dirty, 0, sizeof(s_atlas_dirty));
-    s_atlas_load_edits(edits_path);
+#ifndef MD_NO_DEV_PATHS
+    s_atlas_load_edits(edits_path);   // saved edits of the development tree (editor terrain brush); the release has none
+#endif
     s_atlas_loaded = true;
     strncpy(s_atlas_base_path, path, sizeof(s_atlas_base_path) - 1);
     fprintf(stdout, "[TerrainAtlas] loaded %s\n", r16_path);
