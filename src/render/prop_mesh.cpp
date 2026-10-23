@@ -18,7 +18,7 @@
 #include <cstdlib>
 #include <cstring>
 
-bool LoadOgreStaticMesh(const std::string& stored, float scale, float layer, std::vector<PropVertex>& verts, std::vector<uint32_t>& indices) {
+bool LoadOgreStaticMesh(const std::string& stored, float scale, float layer, std::vector<PropVertex>& verts, std::vector<uint32_t>& indices, bool keep_uv) {
     const std::string root = md::KenshiDir();
     if (root.empty()) return false;
     std::string file = root + "/" + md::NormalizeKenshiPath(stored);
@@ -34,7 +34,7 @@ bool LoadOgreStaticMesh(const std::string& stored, float scale, float layer, std
     auto append = [&](const md::ogre::Geometry& g) {
         std::vector<float> p, n, uv;
         g.Positions(p);
-        const bool hn = g.Normals(n), hu = g.Uvs(0, uv);
+        const bool hn = g.Normals(n), hu = keep_uv && g.Uvs(0, uv);
         for (uint32_t i = 0; i < g.vertex_count; ++i) {
             PropVertex v{};
             v.x = (float)((double)p[i * 3] * scale); v.y = (float)((double)p[i * 3 + 1] * scale); v.z = (float)((double)p[i * 3 + 2] * scale);

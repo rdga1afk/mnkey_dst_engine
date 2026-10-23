@@ -18,7 +18,7 @@ static_assert(sizeof(PropVertex) == 36, "PropVertex stride mismatch");
 
 // A Kenshi static .mesh (tools/md_convert_static.py without the .glb step): every submesh merged in file order, positions x scale, normals and UV 0 as stored.
 // `path` is a game-data path (`.\data\x\y.mesh`) or a file name; it is looked up in the Kenshi install. False when the mesh is missing or has no vertices.
-bool LoadOgreStaticMesh(const std::string& path, float scale, float layer, std::vector<PropVertex>& verts, std::vector<uint32_t>& indices);
+bool LoadOgreStaticMesh(const std::string& path, float scale, float layer, std::vector<PropVertex>& verts, std::vector<uint32_t>& indices, bool keep_uv = true);   // keep_uv false: UV 0 everywhere (the hair .glb files carry no UV)
 
 class PropMesh {
 public:
