@@ -1,6 +1,8 @@
 #include <monkey_dust/render/prop_tex_shared.h>
 #include <monkey_dust/render/asset_cache.h>
+#include <monkey_dust/io/kenshi_dir.h>
 #include <cstdio>
+#include <string>
 
 PropTexShared& PropTexShared::Get() {
     static PropTexShared s;
@@ -10,8 +12,10 @@ PropTexShared& PropTexShared::Get() {
 bool PropTexShared::Init() {
     if (ready) return true;
 
-    const char* rock_path = "tmp_/kenshi/data/foliage/Textures/GenericRockTexture_DIF.dds";
-    const char* veg_path  = "tmp_/kenshi/data/foliage/Textures/Trees&VegAtlas01.dds";
+    const std::string root = md::KenshiDir();
+    const std::string rock = root + "/data/foliage/Textures/GenericRockTexture_DIF.dds", veg = root + "/data/foliage/Textures/Trees&VegAtlas01.dds";
+    const char* rock_path = rock.c_str();
+    const char* veg_path  = veg.c_str();
 
     GpuSamplerDesc sd = GpuSamplerDesc::Default();
     tex_rock = AssetCache::Get().GetOrLoadDDS(rock_path, sd);
