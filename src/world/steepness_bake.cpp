@@ -4,6 +4,7 @@
 #include <monkey_dust/world/biome_def.h>
 #include <monkey_dust/world/terrain_gen.h>
 #include "terrain_gen_internal.h"
+#include "terrain_height_field.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -17,11 +18,6 @@ constexpr double CHUNK = 460.8, EXTENT = ZONES * CHUNK;
 
 // the python bake keeps the blurred height as float16
 float RoundHalf(float f) { return (float)(_Float16)f; }
-
-int RadiusForSmin(double smin) {
-    double t = (smin - 0.08) / (0.19 - 0.08); t = std::max(0.0, std::min(1.0, t));
-    return (int)std::nearbyint(16 + t * (8 - 16));
-}
 
 // (2r+1)^2 box mean, edge-padded
 void BoxBlur(const std::vector<float>& a, std::vector<float>& tmp, std::vector<float>& out, int r) {
@@ -48,11 +44,7 @@ void BoxBlur(const std::vector<float>& a, std::vector<float>& tmp, std::vector<f
 bool BuildSteepnessSmoothed(std::vector<uint8_t>& gray) {
     if (!TerrainAtlas_Loaded() || !BiomeRegistry::Get().Loaded()) return false;
     s_load_biomemap();   // TerrainGen_ResolveBiome reads the install's biomemap.png
-    std::vector<float> h((size_t)FULL * FULL);
-    for (int i = 0; i < FULL; ++i) for (int j = 0; j < FULL; ++j) {
-        const int zy = std::min(i / 128, ZONES - 1), zx = std::min(j / 128, ZONES - 1);
-        h[(size_t)i * FULL + j] = TerrainAtlas_GetHeight(zx, zy, j - zx * 128, i - zy * 128);
-    }
+    std::vector<float> h; FillTerrainHeightField(h);
     int radius[ZONES][ZONES]; std::set<int> radii;
     for (int zy = 0; zy < ZONES; ++zy) for (int zx = 0; zx < ZONES; ++zx) radii.insert(radius[zy][zx] = RadiusForSmin(TerrainGen_ResolveBiome(zx, zy).slope_min));
 

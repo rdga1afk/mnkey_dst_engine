@@ -6,7 +6,7 @@
 
 namespace md {
 namespace {
-constexpr int GRID = 8, TILE_OUT = OVERLAY_MASK_SIZE / GRID;
+constexpr int OVL_GRID = 8, TILE_OUT = OVERLAY_MASK_SIZE / OVL_GRID;
 std::string TilePath(const std::string& root, int tx, int ty) {
     char p[512]; snprintf(p, sizeof(p), "%s/data/newland/land/overlaymaps/new_overlay.%d.%d.png", root.c_str(), tx, ty);
     return p;
@@ -15,7 +15,7 @@ std::string TilePath(const std::string& root, int tx, int ty) {
 
 bool BuildOverlayMask(const std::string& root, std::vector<uint8_t>& out) {
     out.assign((size_t)OVERLAY_MASK_SIZE * OVERLAY_MASK_SIZE * 4, 0);
-    for (int ty = 0; ty < GRID; ++ty) for (int tx = 0; tx < GRID; ++tx) {
+    for (int ty = 0; ty < OVL_GRID; ++ty) for (int tx = 0; tx < OVL_GRID; ++tx) {
         int w = 0, h = 0, c = 0;
         uint8_t* t = stbi_load(TilePath(root, tx, ty).c_str(), &w, &h, &c, 4);
         if (!t) { fprintf(stderr, "[OverlayMask] missing tile %d.%d\n", tx, ty); out.clear(); return false; }
@@ -31,7 +31,7 @@ bool BuildOverlayMask(const std::string& root, std::vector<uint8_t>& out) {
 
 bool LoadOverlayMask(const std::string& root, std::vector<uint8_t>& out) {
     std::vector<std::string> files;
-    for (int ty = 0; ty < GRID; ++ty) for (int tx = 0; tx < GRID; ++tx) files.push_back(TilePath(root, tx, ty));
+    for (int ty = 0; ty < OVL_GRID; ++ty) for (int tx = 0; tx < OVL_GRID; ++tx) files.push_back(TilePath(root, tx, ty));
     const uint64_t key = HashFiles(files);
     if (CacheRead(key, "overlay_mask.rgba", out) && out.size() == (size_t)OVERLAY_MASK_SIZE * OVERLAY_MASK_SIZE * 4) return true;
     if (!BuildOverlayMask(root, out)) return false;

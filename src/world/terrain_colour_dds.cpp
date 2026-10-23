@@ -21,14 +21,14 @@ uint16_t Pack565(int r, int g, int b) { return (uint16_t)(((r >> 3) << 11) | ((g
 void Unpack565(uint16_t v, int& r, int& g, int& b) { r = ((v >> 11) & 31) * 255 / 31; g = ((v >> 5) & 63) * 255 / 63; b = (v & 31) * 255 / 31; }
 
 // one 4x4 block; px = 16 RGB triples in row-major order
-void EncodeBlock(const uint8_t* px, uint8_t* o) {
+void EncodeBlock(const uint8_t* px, uint8_t* o, bool legacy) {
     int mn[3] = { 255, 255, 255 }, mx[3] = { 0, 0, 0 };
     for (int i = 0; i < 16; ++i) for (int k = 0; k < 3; ++k) { mn[k] = std::min<int>(mn[k], px[i * 3 + k]); mx[k] = std::max<int>(mx[k], px[i * 3 + k]); }
     const uint16_t a = Pack565(mx[0], mx[1], mx[2]), b = Pack565(mn[0], mn[1], mn[2]);
     uint16_t c0 = a <= b ? b : a, c1 = a <= b ? a : b;
     if (a == b) c0 = (uint16_t)std::min<int>(c1 + 1, 0xFFFF);
     int col[4][3]; Unpack565(c0, col[0][0], col[0][1], col[0][2]); Unpack565(c1, col[1][0], col[1][1], col[1][2]);
-    for (int k = 0; k < 3; ++k) { col[2][k] = (2 * col[0][k] + col[1][k]) / 3; col[3][k] = (col[0][k] + (LegacyWrap() ? ((2 * col[1][k]) & 255) : 2 * col[1][k])) / 3; }
+    for (int k = 0; k < 3; ++k) { col[2][k] = (2 * col[0][k] + col[1][k]) / 3; col[3][k] = (col[0][k] + (legacy ? ((2 * col[1][k]) & 255) : 2 * col[1][k])) / 3; }
     uint32_t idx = 0;
     for (int t = 0; t < 16; ++t) {
         int best = 0, bd = 1 << 30;
@@ -55,14 +55,40 @@ void Down(const std::vector<uint8_t>& s, int dim, std::vector<uint8_t>& d) {
 size_t LevelBytes(int dim) { const size_t b = (size_t)((dim + 3) / 4); return b * b * 16; }
 }
 
-void EncodeBc3Opaque(const uint8_t* rgb, int w, int h, uint8_t* out) {
+void EncodeBc3Opaque(const uint8_t* rgb, int w, int h, uint8_t* out, bool legacy_wrap) {
     const int bw = (w + 3) / 4, bh = (h + 3) / 4;
     uint8_t px[48];
     for (int by = 0; by < bh; ++by) for (int bx = 0; bx < bw; ++bx) {
         for (int y = 0; y < 4; ++y) for (int x = 0; x < 4; ++x)
             memcpy(px + (y * 4 + x) * 3, rgb + ((size_t)std::min(by * 4 + y, h - 1) * w + std::min(bx * 4 + x, w - 1)) * 3, 3);
-        EncodeBlock(px, out + ((size_t)by * bw + bx) * 16);
+        EncodeBlock(px, out + ((size_t)by * bw + bx) * 16, legacy_wrap);
     }
+}
+
+bool EncodeBc3Dds(const uint8_t* rgb, int side, std::vector<uint8_t>& dds) {
+    int levels = 1; for (int d = side; d > 1; d /= 2) ++levels;
+    std::vector<size_t> off(levels + 1); off[0] = 128;
+    for (int l = 0; l < levels; ++l) off[l + 1] = off[l] + LevelBytes(side >> l);
+    dds.assign(off[levels], 0);
+    uint32_t hd[32] = { 0x20534444u, 124, 0x1 | 0x2 | 0x4 | 0x80000 | 0x20000, (uint32_t)side, (uint32_t)side, (uint32_t)LevelBytes(side), 0, (uint32_t)levels };
+    hd[19] = 32; hd[20] = 0x4; hd[21] = 0x35545844u; hd[27] = 0x1000 | 0x400000 | 0x8;
+    memcpy(dds.data(), hd, 128);
+    std::vector<uint8_t> cur(rgb, rgb + (size_t)side * side * 3), nxt;
+    for (int l = 0, dim = side; l < levels; ++l, dim /= 2) {
+        // block rows of this level in parallel
+        const int bw = (dim + 3) / 4, bh = bw, nt = (int)std::max(1u, std::min(4u, std::thread::hardware_concurrency()));
+        std::vector<std::thread> th;
+        for (int t = 0; t < nt; ++t) th.emplace_back([&, t] {
+            for (int by = t; by < bh; by += nt) {
+                const int y0 = by * 4, rows = std::min(4, dim - y0);
+                if (rows == 4) EncodeBc3Opaque(&cur[(size_t)y0 * dim * 3], dim, 4, &dds[off[l] + (size_t)by * bw * 16], false);
+                else { std::vector<uint8_t> pad((size_t)dim * 4 * 3); for (int r = 0; r < 4; ++r) memcpy(&pad[(size_t)r * dim * 3], &cur[(size_t)std::min(y0 + r, dim - 1) * dim * 3], (size_t)dim * 3); EncodeBc3Opaque(pad.data(), dim, 4, &dds[off[l] + (size_t)by * bw * 16], false); }
+            }
+        });
+        for (auto& x : th) x.join();
+        if (dim > 1) { Down(cur, dim, nxt); cur.swap(nxt); }
+    }
+    return true;
 }
 
 bool BuildTerrainColourDds(const std::string& root, std::vector<uint8_t>& dds) {
@@ -91,7 +117,7 @@ bool BuildTerrainColourDds(const std::string& root, std::vector<uint8_t>& dds) {
                 const int lw = SIDE >> l, bw_total = (lw + 3) / 4;
                 if (dim >= 4) {
                     std::vector<uint8_t> blk((size_t)(dim / 4) * (dim / 4) * 16);
-                    EncodeBc3Opaque(cur.data(), dim, dim, blk.data());
+                    EncodeBc3Opaque(cur.data(), dim, dim, blk.data(), LegacyWrap());
                     for (int by = 0; by < dim / 4; ++by)
                         memcpy(&dds[level_off[l] + ((size_t)(ty * (dim / 4) + by) * bw_total + tx * (dim / 4)) * 16], &blk[(size_t)by * (dim / 4) * 16], (size_t)(dim / 4) * 16);
                 }
@@ -110,7 +136,7 @@ bool BuildTerrainColourDds(const std::string& root, std::vector<uint8_t>& dds) {
     for (int l = 10; l < LEVELS; ++l, dim /= 2) {
         if (l == 11) cur = l11;
         else if (l > 11) { Down(cur, dim * 2, nxt); cur.swap(nxt); }
-        EncodeBc3Opaque(cur.data(), dim, dim, &dds[level_off[l]]);
+        EncodeBc3Opaque(cur.data(), dim, dim, &dds[level_off[l]], LegacyWrap());
     }
     return true;
 }

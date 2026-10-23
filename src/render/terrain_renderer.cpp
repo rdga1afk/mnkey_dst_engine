@@ -1,5 +1,6 @@
 #include <monkey_dust/world/overlay_mask_build.h>
 #include <monkey_dust/world/steepness_bake.h>
+#include <monkey_dust/world/ground_bake.h>
 #include <monkey_dust/world/terrain_colour_dds.h>
 #include <monkey_dust/world/terrain_gen.h>
 #include <monkey_dust/io/kenshi_dir.h>
@@ -245,7 +246,10 @@ bool TerrainRenderer::InitGroundBaked(const char* path)
     sd.gen_mipmap = true;
     sd.flip_v     = false;
 
-    return LoadTerrainTexture(tex_ground_baked_, path, sd, ground_baked_ready_, "ground baked texture");
+    // Baked from the install's ground textures, heights, biomes and overlay mask into the derived-data cache (#201 R3e); `path` is only the fallback.
+    std::string built;
+    if (!md::KenshiDir().empty() && TerrainAtlas_Loaded() && BiomeRegistry::Get().Loaded()) built = md::EnsureGroundBakedDds(md::KenshiDir());
+    return LoadTerrainTexture(tex_ground_baked_, built.empty() ? path : built.c_str(), sd, ground_baked_ready_, "ground baked texture");
 }
 
 bool TerrainRenderer::InitSteepnessSmoothed(const char* path)
