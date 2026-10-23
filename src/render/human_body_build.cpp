@@ -38,42 +38,6 @@ void Inverse(const double m[16], double o[16]) {   // cofactor expansion, as md_
     for (int c = 0; c < 4; ++c) for (int r = 0; r < 4; ++r) o[c * 4 + r] = cof[r * 4 + c] / det;
 }
 
-// tools/morph_gen_b.py
-const std::set<int> kSpine{ 0, 1, 12, 13, 14 }, kBelly{ 1, 12, 13 }, kArm{ 15, 16, 17, 18, 25, 26, 27, 28 }, kClav{ 15, 25 }, kHead{ 20, 21, 22, 23, 24 }, kLeg{ 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 }, kHip{ 1, 2, 7 }, kWaist{ 1, 12 }, kTorso{ 0, 1, 12, 13, 14, 15, 25 };
-double Bw(const uint8_t* j, const double* w, const std::set<int>& s) { double t = 0; for (int k = 0; k < 4; ++k) if (s.count(j[k])) t += w[k]; return t; }
-const char* const kOwn[10] = { "tall", "fat", "muscular", "longlegs", "bighead", "broadshdr", "female_body", "wide_hips", "stocky", "narrow_torso" };
-
-void OwnDelta(const HumanBodyData& b, int m, std::vector<float>& d) {
-    const double SC = 0.3;
-    d.assign((size_t)b.nv * 3, 0.f);
-    for (uint32_t i = 0; i < b.nv; ++i) {
-        const double* dummy = nullptr; (void)dummy;
-        const double p[3] = { b.pos[i * 3], b.pos[i * 3 + 1], b.pos[i * 3 + 2] }, nm[3] = { b.nrm[i * 3], b.nrm[i * 3 + 1], b.nrm[i * 3 + 2] };
-        const uint8_t* j = &b.joint[i * 4];
-        double wn[4]; double s = 0; for (int k = 0; k < 4; ++k) s += b.weight[i * 4 + k];   // morph_gen_b.py renormalises the stored float weights
-        for (int k = 0; k < 4; ++k) wn[k] = s > 0 ? b.weight[i * 4 + k] / s : 0.0;
-        const double* w = wn;
-        double x = 0, y = 0, z = 0;
-        switch (m) {
-        case 0: { const double sw = Bw(j, w, kSpine); y = p[1] * sw * 0.18; break; }
-        case 1: { const double mag = (Bw(j, w, kBelly) + Bw(j, w, kSpine) * 0.4) * SC; x = nm[0] * mag; y = nm[1] * mag * 0.3; z = nm[2] * mag; break; }
-        case 2: { const double mag = Bw(j, w, kArm) * SC * 0.7; x = nm[0] * mag; y = nm[1] * mag; z = nm[2] * mag; break; }
-        case 3: { y = p[1] * Bw(j, w, kLeg) * 0.22; break; }
-        case 4: { const double mag = Bw(j, w, kHead) * SC * 0.6; x = nm[0] * mag; y = nm[1] * mag; z = nm[2] * mag; break; }
-        case 5: { const double cv = Bw(j, w, kClav), av = Bw(j, w, kArm) * 0.5, sign = p[0] > 0 ? 1.0 : -1.0; x = sign * (cv + av) * SC * 0.5; break; }
-        case 6: {
-            const double sign = p[0] >= 0 ? 1.0 : -1.0;
-            const double sh_y = std::max(0.0, (p[1] - 1.25) / 0.25), sh_w = Bw(j, w, kClav) + Bw(j, w, kArm) * 0.2, shoulder = -sign * sh_w * sh_y * SC * 0.55;
-            const double hp_y = std::max(0.0, (1.05 - p[1]) / 0.2), hp_w = Bw(j, w, kHip), hip = sign * hp_w * hp_y * SC * 0.7, hip_y = -hp_w * hp_y * SC * 0.04;
-            const double wt_y = std::max(0.0, 1.0 - std::fabs(p[1] - 1.12) / 0.13), wt_w = Bw(j, w, kWaist), waist = -sign * wt_w * wt_y * SC * 0.25;
-            x = shoulder + hip + waist; y = hip_y; break; }
-        case 7: { const double sign = p[0] >= 0 ? 1.0 : -1.0, hp_y = std::max(0.0, (1.1 - p[1]) / 0.25), hw = Bw(j, w, kHip), mag = hw * hp_y * SC * 0.65; x = sign * mag; z = nm[2] * hw * hp_y * SC * 0.2; break; }
-        case 8: { const double sw = Bw(j, w, kSpine), lw = Bw(j, w, kLeg), bw = Bw(j, w, kBelly) + Bw(j, w, kTorso) * 0.3; y = -(p[1] * (sw * 0.10 + lw * 0.12)); x = nm[0] * bw * SC * 0.25; z = nm[2] * bw * SC * 0.15; break; }
-        case 9: { const double bw = Bw(j, w, kBelly) + Bw(j, w, kSpine) * 0.35, arm_w = Bw(j, w, kArm) + Bw(j, w, kLeg), factor = std::max(0.0, bw - arm_w * 0.3), mag = -factor * SC * 0.55; x = nm[0] * mag; z = nm[2] * mag; break; }
-        }
-        d[i * 3] = (float)x; d[i * 3 + 1] = (float)y; d[i * 3 + 2] = (float)z;
-    }
-}
 }  // namespace
 
 bool BuildHumanBody(const std::string& root, HumanBodyData& o) {
@@ -153,7 +117,7 @@ bool BuildHumanBody(const std::string& root, HumanBodyData& o) {
         }
         o.clips.push_back(std::move(c));
     }
-    // morphs: the mesh's face poses (first of a repeated name), then our own
+    // morphs: the mesh's face poses (first of a repeated name)
     std::set<std::string> seen;
     for (const md::ogre::Pose& po : m.poses) {
         if (!seen.insert(po.name).second) continue;
@@ -161,6 +125,5 @@ bool BuildHumanBody(const std::string& root, HumanBodyData& o) {
         for (const auto& of : po.offsets) if (of.first < o.nv) for (int k = 0; k < 3; ++k) d[of.first * 3 + k] = (float)((double)of.second[k] * kScale);
         o.morph_names.push_back(po.name); o.morph_delta.push_back(std::move(d));
     }
-    for (int i = 0; i < 10; ++i) { std::vector<float> d; OwnDelta(o, i, d); o.morph_names.push_back(kOwn[i]); o.morph_delta.push_back(std::move(d)); }
     return true;
 }

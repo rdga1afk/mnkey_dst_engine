@@ -1,5 +1,5 @@
 // The NPC body (what tools/md_convert.py + tools/morph_gen_b.py wrote into game/data/props/md_human.glb), built at run time from the Kenshi install: human_male.mesh + male_skeleton.skeleton.
-// Mesh, skeleton and the 14 clips come from the install files; the 10 body morphs (tall … narrow_torso) are our own procedural deltas from the bone weights (tools/morph_gen_b.py, ported 1:1).
+// Mesh, skeleton and the 14 clips come from the install files; morphs are only the mesh's own face poses (1:1 with the original; no hand-made body morphs).
 // LOAD TIME only (std::vector / std::string). Units: metres (the file's 0.1 m units x 0.1), column-major matrices.
 #pragma once
 #include <string>
@@ -18,7 +18,7 @@ struct HumanBodyData {
     struct Key { float t, tx, ty, tz, qx, qy, qz, qw; };
     struct Clip { std::string name; float duration = 0; std::vector<std::vector<Key>> tracks; };   // tracks[bone]
     std::vector<Clip> clips;
-    std::vector<std::string> morph_names;     // 23 face poses of the mesh, then the 10 own body morphs
+    std::vector<std::string> morph_names;     // face poses of the mesh
     std::vector<std::vector<float>> morph_delta;   // 3 floats per vertex
 };
 
