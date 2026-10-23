@@ -35,6 +35,11 @@ std::string SolidDds(const char* fourcc, const unsigned char* block, size_t bloc
 
 void RegisterEmbeddedFiles(const EmbeddedFile* files, size_t n) { for (size_t i = 0; i < n; ++i) Table().push_back(files[i]); }
 
+const unsigned char* EmbeddedFileBytes(const char* path, size_t* size) {
+    for (const EmbeddedFile& f : Table()) if (!strcmp(f.path, path)) { *size = f.size; return f.data; }
+    return nullptr;
+}
+
 bool DevFilesEnabled() {
 #ifdef MD_NO_DEV_PATHS
     return false;

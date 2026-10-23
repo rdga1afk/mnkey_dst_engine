@@ -10,6 +10,9 @@ namespace md {
 struct EmbeddedFile { const char* path; const unsigned char* data; size_t size; };
 void RegisterEmbeddedFiles(const EmbeddedFile* files, size_t n);   // called by the generated scripts/embed_data.py table at start-up
 
+// The bytes of an embedded file (nullptr when not embedded), for --licenses.
+const unsigned char* EmbeddedFileBytes(const char* path, size_t* size);
+
 bool DevFilesEnabled();                  // MD_DEV_FILES=1 in the environment (always false when built with MD_NO_DEV_PATHS)
 std::string DataPath(const char* rel);
 // An optional development-only file (a pre-built copy of something the run time can also build): its path when MD_DEV_FILES=1 and it exists, else "" (nothing is opened).
