@@ -56,11 +56,20 @@ std::vector<std::string> FindSteamKenshi(const std::string& home) {
 bool SaveKenshiDir(const std::string& dir, const std::string& home) {
     if (!IsKenshi(dir)) return false;
     std::error_code ec;
-    std::filesystem::create_directories(home + "/.config/monkey_dust", ec);
-    std::ofstream f(home + "/.config/monkey_dust/kenshi_dir", std::ios::trunc);
+    std::filesystem::create_directories(home + "/.config/monkeydust", ec);
+    std::ofstream f(home + "/.config/monkeydust/kenshi_dir", std::ios::trunc);
     if (!f) return false;
     f << dir << "\n";
     return (bool)f;
+}
+
+std::string SavedKenshiDir(const std::string& home) {
+    std::string saved = Trim(ReadAll(home + "/.config/monkeydust/kenshi_dir"));
+    if (saved.empty()) {   // saved under the old name (monkey_dust) before 23.10: take it over once, then only the new file counts
+        saved = Trim(ReadAll(home + "/.config/monkey_dust/kenshi_dir"));
+        if (!saved.empty() && IsKenshi(saved)) SaveKenshiDir(saved, home);
+    }
+    return !saved.empty() && IsKenshi(saved) ? saved : std::string();
 }
 
 std::string KenshiDir() {
@@ -71,8 +80,8 @@ std::string KenshiDir() {
     static const std::string found = [] {
         const std::string home = Home();
         if (home.empty()) return std::string();
-        const std::string saved = Trim(ReadAll(home + "/.config/monkey_dust/kenshi_dir"));
-        if (!saved.empty() && IsKenshi(saved)) return saved;
+        const std::string saved = SavedKenshiDir(home);
+        if (!saved.empty()) return saved;
         const std::vector<std::string> steam = FindSteamKenshi(home);
         return steam.empty() ? std::string() : steam.front();
     }();

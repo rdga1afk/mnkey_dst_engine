@@ -1,4 +1,4 @@
-// Run-time cache of data derived from the player's install: ~/.cache/monkey_dust/<input-hash>/<name>. Never committed, never shipped (#201 R3e).
+// Run-time cache of data derived from the player's install: ~/.cache/monkeydust/<input-hash>/<name>. Never committed, never shipped (#201 R3e).
 #pragma once
 #include <cstdint>
 #include <string>

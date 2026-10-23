@@ -9,5 +9,5 @@
 namespace md {
 constexpr int STEEPNESS_SIZE = 2048;
 bool BuildSteepnessSmoothed(std::vector<uint8_t>& gray);    // compute
-bool LoadSteepnessSmoothed(std::vector<uint8_t>& gray);     // ~/.cache/monkey_dust first, then compute + store
+bool LoadSteepnessSmoothed(std::vector<uint8_t>& gray);     // ~/.cache/monkeydust first, then compute + store
 }

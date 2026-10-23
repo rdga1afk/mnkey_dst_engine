@@ -265,7 +265,7 @@ bool TerrainRenderer::InitSteepnessSmoothed(const char* path)
     sd.gen_mipmap = true;
     sd.flip_v     = false;
 
-    // Built from the install's heights + biomes (cached under ~/.cache/monkey_dust, #201 R3e); the committed png is only a fallback.
+    // Built from the install's heights + biomes (cached under ~/.cache/monkeydust, #201 R3e); the committed png is only a fallback.
     std::vector<uint8_t> gray;
     if (TerrainAtlas_Loaded() && BiomeRegistry::Get().Loaded() && md::LoadSteepnessSmoothed(gray)) {
         std::vector<uint8_t> rgba(gray.size() * 4);
@@ -481,7 +481,7 @@ bool TerrainRenderer::InitOverlayMask(const char* path)
 
     tex_overlay_mask_.Shutdown();
 
-    // Built from the install's new_overlay tiles (cached under ~/.cache/monkey_dust, #201 R3e); the committed copy is only a fallback.
+    // Built from the install's new_overlay tiles (cached under ~/.cache/monkeydust, #201 R3e); the committed copy is only a fallback.
     std::vector<uint8_t> mask;
     if (!md::KenshiDir().empty() && md::LoadOverlayMask(md::KenshiDir(), mask)
         && tex_overlay_mask_.InitFromMemory(mask.data(), md::OVERLAY_MASK_SIZE, md::OVERLAY_MASK_SIZE, sd)) {

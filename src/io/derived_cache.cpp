@@ -12,7 +12,7 @@ fs::path CacheFolder(uint64_t key) {
     fs::path base = (x && *x) ? fs::path(x) : (h && *h) ? fs::path(h) / ".cache" : fs::path();
     if (base.empty()) return {};
     char hex[20]; snprintf(hex, sizeof(hex), "%016llx", (unsigned long long)key);
-    return base / "monkey_dust" / hex;
+    return base / "monkeydust" / hex;
 }
 }
 
