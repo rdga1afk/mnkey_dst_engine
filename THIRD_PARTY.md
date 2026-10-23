@@ -55,3 +55,7 @@ SOFTWARE.
 - Source: <https://github.com/SnapdragonStudios/snapdragon-gsr>, `sgsr/v1/include/glsl/sgsr1_shader_mobile.frag` (RGBA mode).
 - Used for: the optional spatial upscale of #198 S1 (`shaders/sgsr1.frag`, `md.set_sgsr1`), a port of that fragment shader to our SDL_GPU sets. Only the licence is copied into `third_party/sgsr1/`.
 - Licence: `third_party/sgsr1/LICENSE.txt` (BSD-3-Clause, Copyright (c) 2023, Qualcomm Innovation Center, Inc.).
+
+## SDL3 and Lua (static link, #201 R5, owner 23.10)
+- SDL3 `release-3.4.8` (https://github.com/libsdl-org/SDL, zlib licence), commit `d9d5536704d585616d4db3c8ba3c4ff6fc2757e1`; fetched by CMake `FetchContent` into `third_party/SDL3_src` (not committed), built static with `-DMD_STATIC_DEPS=ON`.
+- Lua 5.4.8 (https://www.lua.org/ftp/lua-5.4.8.tar.gz, MIT licence), sha256 `4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae` (the value published on lua.org), unpacked unchanged into `third_party/lua54_src`.
