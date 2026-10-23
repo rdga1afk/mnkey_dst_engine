@@ -4,7 +4,6 @@
 #include <algorithm>
 #include <atomic>
 #include <cstdio>
-#include <cstdlib>
 #include <cstring>
 #include <thread>
 
@@ -12,23 +11,18 @@ namespace md {
 namespace {
 constexpr int GRID = 8, TILE = 2048, SIDE = GRID * TILE, LEVELS = 15;   // 16384 .. 1
 
-// tools/md_bc3_encode.py computed the 4th palette colour (c0 + 2*c1)/3 with c1 as uint8, so 2*c1 wrapped for channels >= 128 and the index bits of about half
-// of the blocks were chosen against a wrong colour. The gate references (#173) were accepted with that overview, so it is reproduced by default (byte for byte equal to the
-// offline file, test TerrainColourDds); MD_BC3_FIXED=1 encodes it correctly (needs the references re-baselined with the owner's permission).
-bool LegacyWrap() { static const bool legacy = !getenv("MD_BC3_FIXED"); return legacy; }
-
 uint16_t Pack565(int r, int g, int b) { return (uint16_t)(((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3)); }
 void Unpack565(uint16_t v, int& r, int& g, int& b) { r = ((v >> 11) & 31) * 255 / 31; g = ((v >> 5) & 63) * 255 / 63; b = (v & 31) * 255 / 31; }
 
 // one 4x4 block; px = 16 RGB triples in row-major order
-void EncodeBlock(const uint8_t* px, uint8_t* o, bool legacy) {
+void EncodeBlock(const uint8_t* px, uint8_t* o) {
     int mn[3] = { 255, 255, 255 }, mx[3] = { 0, 0, 0 };
     for (int i = 0; i < 16; ++i) for (int k = 0; k < 3; ++k) { mn[k] = std::min<int>(mn[k], px[i * 3 + k]); mx[k] = std::max<int>(mx[k], px[i * 3 + k]); }
     const uint16_t a = Pack565(mx[0], mx[1], mx[2]), b = Pack565(mn[0], mn[1], mn[2]);
     uint16_t c0 = a <= b ? b : a, c1 = a <= b ? a : b;
     if (a == b) c0 = (uint16_t)std::min<int>(c1 + 1, 0xFFFF);
     int col[4][3]; Unpack565(c0, col[0][0], col[0][1], col[0][2]); Unpack565(c1, col[1][0], col[1][1], col[1][2]);
-    for (int k = 0; k < 3; ++k) { col[2][k] = (2 * col[0][k] + col[1][k]) / 3; col[3][k] = (col[0][k] + (legacy ? ((2 * col[1][k]) & 255) : 2 * col[1][k])) / 3; }
+    for (int k = 0; k < 3; ++k) { col[2][k] = (2 * col[0][k] + col[1][k]) / 3; col[3][k] = (col[0][k] + 2 * col[1][k]) / 3; }
     uint32_t idx = 0;
     for (int t = 0; t < 16; ++t) {
         int best = 0, bd = 1 << 30;
@@ -55,13 +49,13 @@ void Down(const std::vector<uint8_t>& s, int dim, std::vector<uint8_t>& d) {
 size_t LevelBytes(int dim) { const size_t b = (size_t)((dim + 3) / 4); return b * b * 16; }
 }
 
-void EncodeBc3Opaque(const uint8_t* rgb, int w, int h, uint8_t* out, bool legacy_wrap) {
+void EncodeBc3Opaque(const uint8_t* rgb, int w, int h, uint8_t* out) {
     const int bw = (w + 3) / 4, bh = (h + 3) / 4;
     uint8_t px[48];
     for (int by = 0; by < bh; ++by) for (int bx = 0; bx < bw; ++bx) {
         for (int y = 0; y < 4; ++y) for (int x = 0; x < 4; ++x)
             memcpy(px + (y * 4 + x) * 3, rgb + ((size_t)std::min(by * 4 + y, h - 1) * w + std::min(bx * 4 + x, w - 1)) * 3, 3);
-        EncodeBlock(px, out + ((size_t)by * bw + bx) * 16, legacy_wrap);
+        EncodeBlock(px, out + ((size_t)by * bw + bx) * 16);
     }
 }
 
@@ -81,8 +75,8 @@ bool EncodeBc3Dds(const uint8_t* rgb, int side, std::vector<uint8_t>& dds) {
         for (int t = 0; t < nt; ++t) th.emplace_back([&, t] {
             for (int by = t; by < bh; by += nt) {
                 const int y0 = by * 4, rows = std::min(4, dim - y0);
-                if (rows == 4) EncodeBc3Opaque(&cur[(size_t)y0 * dim * 3], dim, 4, &dds[off[l] + (size_t)by * bw * 16], false);
-                else { std::vector<uint8_t> pad((size_t)dim * 4 * 3); for (int r = 0; r < 4; ++r) memcpy(&pad[(size_t)r * dim * 3], &cur[(size_t)std::min(y0 + r, dim - 1) * dim * 3], (size_t)dim * 3); EncodeBc3Opaque(pad.data(), dim, 4, &dds[off[l] + (size_t)by * bw * 16], false); }
+                if (rows == 4) EncodeBc3Opaque(&cur[(size_t)y0 * dim * 3], dim, 4, &dds[off[l] + (size_t)by * bw * 16]);
+                else { std::vector<uint8_t> pad((size_t)dim * 4 * 3); for (int r = 0; r < 4; ++r) memcpy(&pad[(size_t)r * dim * 3], &cur[(size_t)std::min(y0 + r, dim - 1) * dim * 3], (size_t)dim * 3); EncodeBc3Opaque(pad.data(), dim, 4, &dds[off[l] + (size_t)by * bw * 16]); }
             }
         });
         for (auto& x : th) x.join();
@@ -117,7 +111,7 @@ bool BuildTerrainColourDds(const std::string& root, std::vector<uint8_t>& dds) {
                 const int lw = SIDE >> l, bw_total = (lw + 3) / 4;
                 if (dim >= 4) {
                     std::vector<uint8_t> blk((size_t)(dim / 4) * (dim / 4) * 16);
-                    EncodeBc3Opaque(cur.data(), dim, dim, blk.data(), LegacyWrap());
+                    EncodeBc3Opaque(cur.data(), dim, dim, blk.data());
                     for (int by = 0; by < dim / 4; ++by)
                         memcpy(&dds[level_off[l] + ((size_t)(ty * (dim / 4) + by) * bw_total + tx * (dim / 4)) * 16], &blk[(size_t)by * (dim / 4) * 16], (size_t)(dim / 4) * 16);
                 }
@@ -136,7 +130,7 @@ bool BuildTerrainColourDds(const std::string& root, std::vector<uint8_t>& dds) {
     for (int l = 10; l < LEVELS; ++l, dim /= 2) {
         if (l == 11) cur = l11;
         else if (l > 11) { Down(cur, dim * 2, nxt); cur.swap(nxt); }
-        EncodeBc3Opaque(cur.data(), dim, dim, &dds[level_off[l]], LegacyWrap());
+        EncodeBc3Opaque(cur.data(), dim, dim, &dds[level_off[l]]);
     }
     return true;
 }
@@ -144,12 +138,12 @@ bool BuildTerrainColourDds(const std::string& root, std::vector<uint8_t>& dds) {
 std::string EnsureTerrainColourDds(const std::string& root) {
     std::vector<std::string> files;
     for (int ty = 0; ty < GRID; ++ty) for (int tx = 0; tx < GRID; ++tx) { char p[512]; snprintf(p, sizeof(p), "%s/data/newland/land/overlaymaps/colour.%d.%d.png", root.c_str(), tx, ty); files.push_back(p); }
-    const uint64_t key = HashFiles(files) ^ 0x5eed0001ull;   // salt = encoder revision
-    const std::string path = CachePath(key, LegacyWrap() ? "terrain_colour.dds" : "terrain_colour_fixed.dds");
+    const uint64_t key = HashFiles(files) ^ 0x5eed0002ull;   // salt = encoder revision (2: the palette colour is no longer computed in uint8)
+    const std::string path = CachePath(key, "terrain_colour.dds");
     if (path.empty()) return {};
     if (FILE* f = fopen(path.c_str(), "rb")) { fseek(f, 0, SEEK_END); const long n = ftell(f); fclose(f); if ((size_t)n == 128 + [] { size_t t = 0; for (int l = 0; l < LEVELS; ++l) t += LevelBytes(SIDE >> l); return t; }()) return path; }
     std::vector<uint8_t> dds;
-    if (!BuildTerrainColourDds(root, dds) || !CacheWrite(key, LegacyWrap() ? "terrain_colour.dds" : "terrain_colour_fixed.dds", dds.data(), dds.size())) return {};
+    if (!BuildTerrainColourDds(root, dds) || !CacheWrite(key, "terrain_colour.dds", dds.data(), dds.size())) return {};
     return path;
 }
 }
