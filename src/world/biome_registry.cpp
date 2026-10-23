@@ -487,3 +487,24 @@ bool BiomeRegistry::LoadPreferFcs(const char* fallback_table, const char* terrai
     MD_LOG(MD_LOG_INFO, "[BiomeRegistry] no usable Kenshi FCS data (%s) -- loading %s", dir.empty() ? "none found" : dir.c_str(), fallback_table);
     return LoadFromFile(fallback_table);
 }
+
+bool BiomeRegistry::BuildKbi1Lookup(const std::string& d, int& dim, std::vector<uint8_t>& rgba) const {
+    if (d.size() < 12 || d.compare(0, 4, "KBI1") != 0) return false;
+    int32_t n = 0; memcpy(&n, d.data() + 4, 4);
+    if (n <= 0 || n > 1024 || d.size() < 12 + (size_t)n * n * 20) return false;
+    dim = n;
+    auto biome_of = [&](int32_t raw) -> uint8_t {
+        if (raw == 0) return 255;
+        for (int i = 0; i < biome_count_; ++i)
+            if (((uint32_t)biomes_[i].legend_rgb[0] << 16 | (uint32_t)biomes_[i].legend_rgb[1] << 8 | biomes_[i].legend_rgb[2]) == (uint32_t)raw) return (uint8_t)i;
+        return 255;
+    };
+    rgba.assign((size_t)n * 2 * n * 4, 255);
+    for (int cy = 0; cy < n; ++cy) for (int cx = 0; cx < n; ++cx) {
+        int32_t c[5]; memcpy(c, d.data() + 12 + ((size_t)cy * n + cx) * 20, 20);
+        uint8_t* a = &rgba[((size_t)cy * n + cx) * 4];
+        for (int k = 0; k < 4; ++k) a[k] = biome_of(c[k]);
+        rgba[((size_t)(n + cy) * n + cx) * 4] = biome_of(c[4]);
+    }
+    return true;
+}

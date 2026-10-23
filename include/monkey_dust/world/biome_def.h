@@ -152,6 +152,11 @@ public:
     // by slug/colour. idx out of [0,BiomeCount()) returns the same
     // zeroed-fallback BiomeDef ForZone/ForColor use.
     int BiomeCount() const { return biome_count_; }
+
+    // The KBI1 blend lookup (private/md_bake_kbi1_lookup.py, now at run time) from the bytes of the install's blendinfo.dat: dim x 2*dim RGBA8, rows 0..dim-1 = the four
+    // candidate slots (R,G,B,A), rows dim..2*dim-1 = slot 4 in R; each byte is the biome load-order index, 255 = inactive. A cell's raw value is the biome's legend colour
+    // packed 0xRRGGBB (all 57 entries of the old raw -> slug table agree). Returns false when the bytes are not a KBI1 file.
+    bool BuildKbi1Lookup(const std::string& blendinfo, int& dim, std::vector<uint8_t>& rgba) const;
     const BiomeDef& ForIndex(int idx) const;
 
 private:

@@ -1,3 +1,8 @@
+#include <monkey_dust/io/kenshi_dir.h>
+#include <string>
+#include <iterator>
+#include <fstream>
+#include <filesystem>
 #include <algorithm>
 #include <monkey_dust/render/terrain_renderer.h>
 #include <monkey_dust/world/biome_def.h>
@@ -311,6 +316,16 @@ bool TerrainRenderer::InitKbi1BlendLookup(const char* path)
     sd.flip_v     = false;
 
     bool ready = false;
+    if (!std::filesystem::exists(path)) {   // the release has no baked copy: build it from the install's blendinfo.dat
+        std::ifstream in(md::KenshiDir() + "/data/newland/land/blendinfo.dat", std::ios::binary);
+        const std::string bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        int dim = 0; std::vector<uint8_t> px;
+        kbi1_lookup_tex_.Shutdown();
+        if (BiomeRegistry::Get().BuildKbi1Lookup(bytes, dim, px) && kbi1_lookup_tex_.InitFromMemory(px.data(), dim, 2 * dim, sd)) {
+            fprintf(stdout, "[TerrainRenderer] KBI1 blend lookup built from the Kenshi install (%dx%d)\n", dim, 2 * dim);
+            return true;
+        }
+    }
     return LoadTerrainTexture(kbi1_lookup_tex_, path, sd, ready, "KBI1 blend lookup");
 }
 
