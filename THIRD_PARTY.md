@@ -59,3 +59,7 @@ SOFTWARE.
 ## SDL3 and Lua (static link, #201 R5, owner 23.10)
 - SDL3 `release-3.4.8` (https://github.com/libsdl-org/SDL, zlib licence), commit `d9d5536704d585616d4db3c8ba3c4ff6fc2757e1`; fetched by CMake `FetchContent` into `third_party/SDL3_src` (not committed), built static with `-DMD_STATIC_DEPS=ON`.
 - Lua 5.4.8 (https://www.lua.org/ftp/lua-5.4.8.tar.gz, MIT licence), sha256 `4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae` (the value published on lua.org), unpacked unchanged into `third_party/lua54_src`.
+
+## AlexeyShirshov/skills — pdca (MIT, #204)
+Process skill only, no code in the binaries. `.claude/skills/pdca/UPSTREAM.md` is the upstream `skills/pdca/SKILL.md` kept verbatim for reference (fetched 24.10.2026), `.claude/skills/pdca/SKILL.md` is our adaptation, `.claude/skills/pdca/LICENSE-UPSTREAM` the licence text. Copyright (c) 2026 Alexey Shirshov, MIT License.
+
