@@ -212,13 +212,13 @@ std::string EnsureGroundBakedDds(const std::string& root) {
     BiomeRegistry& reg = BiomeRegistry::Get();
     for (int i = 0; i < reg.GroundTexCount(); ++i) if (const char* p = reg.GroundTexPath(i)) files.push_back(p);
     for (int ty = 0; ty < 8; ++ty) for (int tx = 0; tx < 8; ++tx) { char p[512]; snprintf(p, sizeof(p), "%s/data/newland/land/overlaymaps/new_overlay.%d.%d.png", root.c_str(), tx, ty); files.push_back(p); }
-    const uint64_t key = HashFiles(files) ^ 0x6a0d0001ull;   // salt = bake revision
+    const uint64_t key = HashFiles(files) ^ 0x6a0d0002ull;   // salt = bake revision (2: BC1 instead of BC3, constant opaque alpha)
     const std::string path = CachePath(key, "ground_baked.dds");
     if (path.empty()) return {};
     if (FILE* f = fopen(path.c_str(), "rb")) { fclose(f); fprintf(stderr, "[Cache] hit  %016llx/ground_baked.dds\n", (unsigned long long)key); return path; }
     std::vector<uint8_t> rgb, dds;
     if (!BuildGroundBaked(root, 16384, rgb)) return {};
-    if (!EncodeBc3Dds(rgb.data(), 16384, dds)) return {};
+    if (!EncodeBc1Dds(rgb.data(), 16384, dds)) return {};
     rgb = {}; 
     if (!CacheWrite(key, "ground_baked.dds", dds.data(), dds.size())) return {};
     return path;

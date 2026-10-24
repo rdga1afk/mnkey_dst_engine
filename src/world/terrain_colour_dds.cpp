@@ -33,9 +33,8 @@ void EncodeBlock(const uint8_t* px, uint8_t* o) {
         }
         idx |= (uint32_t)best << (t * 2);
     }
-    o[0] = o[1] = 255; memset(o + 2, 0, 6);   // alpha0 = alpha1 = 255: opaque
-    o[8] = c0 & 0xFF; o[9] = c0 >> 8; o[10] = c1 & 0xFF; o[11] = c1 >> 8;
-    memcpy(o + 12, &idx, 4);
+    o[0] = c0 & 0xFF; o[1] = c0 >> 8; o[2] = c1 & 0xFF; o[3] = c1 >> 8;   // c0 > c1: the four-colour mode, opaque
+    memcpy(o + 4, &idx, 4);
 }
 
 // 2x2 box, truncating like numpy's mean(...).astype(uint8)
@@ -46,26 +45,26 @@ void Down(const std::vector<uint8_t>& s, int dim, std::vector<uint8_t>& d) {
         d[((size_t)y * n + x) * 3 + k] = (uint8_t)((s[i] + s[i + 3] + s[i + (size_t)dim * 3] + s[i + (size_t)dim * 3 + 3] ) / 4);
     }
 }
-size_t LevelBytes(int dim) { const size_t b = (size_t)((dim + 3) / 4); return b * b * 16; }
+size_t LevelBytes(int dim) { const size_t b = (size_t)((dim + 3) / 4); return b * b * 8; }
 }
 
-void EncodeBc3Opaque(const uint8_t* rgb, int w, int h, uint8_t* out) {
+void EncodeBc1(const uint8_t* rgb, int w, int h, uint8_t* out) {
     const int bw = (w + 3) / 4, bh = (h + 3) / 4;
     uint8_t px[48];
     for (int by = 0; by < bh; ++by) for (int bx = 0; bx < bw; ++bx) {
         for (int y = 0; y < 4; ++y) for (int x = 0; x < 4; ++x)
             memcpy(px + (y * 4 + x) * 3, rgb + ((size_t)std::min(by * 4 + y, h - 1) * w + std::min(bx * 4 + x, w - 1)) * 3, 3);
-        EncodeBlock(px, out + ((size_t)by * bw + bx) * 16);
+        EncodeBlock(px, out + ((size_t)by * bw + bx) * 8);
     }
 }
 
-bool EncodeBc3Dds(const uint8_t* rgb, int side, std::vector<uint8_t>& dds) {
+bool EncodeBc1Dds(const uint8_t* rgb, int side, std::vector<uint8_t>& dds) {
     int levels = 1; for (int d = side; d > 1; d /= 2) ++levels;
     std::vector<size_t> off(levels + 1); off[0] = 128;
     for (int l = 0; l < levels; ++l) off[l + 1] = off[l] + LevelBytes(side >> l);
     dds.assign(off[levels], 0);
     uint32_t hd[32] = { 0x20534444u, 124, 0x1 | 0x2 | 0x4 | 0x80000 | 0x20000, (uint32_t)side, (uint32_t)side, (uint32_t)LevelBytes(side), 0, (uint32_t)levels };
-    hd[19] = 32; hd[20] = 0x4; hd[21] = 0x35545844u; hd[27] = 0x1000 | 0x400000 | 0x8;
+    hd[19] = 32; hd[20] = 0x4; hd[21] = 0x31545844u; hd[27] = 0x1000 | 0x400000 | 0x8;
     memcpy(dds.data(), hd, 128);
     std::vector<uint8_t> cur(rgb, rgb + (size_t)side * side * 3), nxt;
     for (int l = 0, dim = side; l < levels; ++l, dim /= 2) {
@@ -75,8 +74,8 @@ bool EncodeBc3Dds(const uint8_t* rgb, int side, std::vector<uint8_t>& dds) {
         for (int t = 0; t < nt; ++t) th.emplace_back([&, t] {
             for (int by = t; by < bh; by += nt) {
                 const int y0 = by * 4, rows = std::min(4, dim - y0);
-                if (rows == 4) EncodeBc3Opaque(&cur[(size_t)y0 * dim * 3], dim, 4, &dds[off[l] + (size_t)by * bw * 16]);
-                else { std::vector<uint8_t> pad((size_t)dim * 4 * 3); for (int r = 0; r < 4; ++r) memcpy(&pad[(size_t)r * dim * 3], &cur[(size_t)std::min(y0 + r, dim - 1) * dim * 3], (size_t)dim * 3); EncodeBc3Opaque(pad.data(), dim, 4, &dds[off[l] + (size_t)by * bw * 16]); }
+                if (rows == 4) EncodeBc1(&cur[(size_t)y0 * dim * 3], dim, 4, &dds[off[l] + (size_t)by * bw * 8]);
+                else { std::vector<uint8_t> pad((size_t)dim * 4 * 3); for (int r = 0; r < 4; ++r) memcpy(&pad[(size_t)r * dim * 3], &cur[(size_t)std::min(y0 + r, dim - 1) * dim * 3], (size_t)dim * 3); EncodeBc1(pad.data(), dim, 4, &dds[off[l] + (size_t)by * bw * 8]); }
             }
         });
         for (auto& x : th) x.join();
@@ -91,7 +90,7 @@ bool BuildTerrainColourDds(const std::string& root, std::vector<uint8_t>& dds) {
     dds.assign(level_off[LEVELS], 0);
     // header exactly as tools/md_bc3_encode.py
     uint32_t hd[32] = { 0x20534444u, 124, 0x1 | 0x2 | 0x4 | 0x80000 | 0x20000, SIDE, SIDE, (uint32_t)LevelBytes(SIDE), 0, LEVELS };
-    hd[19] = 32; hd[20] = 0x4; hd[21] = 0x35545844u; hd[27] = 0x1000 | 0x400000 | 0x8;
+    hd[19] = 32; hd[20] = 0x4; hd[21] = 0x31545844u; hd[27] = 0x1000 | 0x400000 | 0x8;
     memcpy(dds.data(), hd, 128);
 
     std::vector<uint8_t> l10((size_t)16 * 16 * 3), l11((size_t)8 * 8 * 3);   // levels 10 (16x16) and 11 (8x8) are smaller than a block per tile: assembled from all tiles
@@ -110,10 +109,10 @@ bool BuildTerrainColourDds(const std::string& root, std::vector<uint8_t>& dds) {
                 // this tile's blocks of level l: block rows [ty*dim/4, ..) of the level's (SIDE>>l)/4-wide block grid
                 const int lw = SIDE >> l, bw_total = (lw + 3) / 4;
                 if (dim >= 4) {
-                    std::vector<uint8_t> blk((size_t)(dim / 4) * (dim / 4) * 16);
-                    EncodeBc3Opaque(cur.data(), dim, dim, blk.data());
+                    std::vector<uint8_t> blk((size_t)(dim / 4) * (dim / 4) * 8);
+                    EncodeBc1(cur.data(), dim, dim, blk.data());
                     for (int by = 0; by < dim / 4; ++by)
-                        memcpy(&dds[level_off[l] + ((size_t)(ty * (dim / 4) + by) * bw_total + tx * (dim / 4)) * 16], &blk[(size_t)by * (dim / 4) * 16], (size_t)(dim / 4) * 16);
+                        memcpy(&dds[level_off[l] + ((size_t)(ty * (dim / 4) + by) * bw_total + tx * (dim / 4)) * 8], &blk[(size_t)by * (dim / 4) * 8], (size_t)(dim / 4) * 8);
                 }
                 if (l == 10) for (int y = 0; y < 2; ++y) memcpy(&l10[((size_t)(ty * 2 + y) * 16 + tx * 2) * 3], &cur[(size_t)y * 2 * 3], 6);
                 if (l == 11) { memcpy(&l11[((size_t)ty * GRID + tx) * 3], cur.data(), 3); break; }
@@ -130,7 +129,7 @@ bool BuildTerrainColourDds(const std::string& root, std::vector<uint8_t>& dds) {
     for (int l = 10; l < LEVELS; ++l, dim /= 2) {
         if (l == 11) cur = l11;
         else if (l > 11) { Down(cur, dim * 2, nxt); cur.swap(nxt); }
-        EncodeBc3Opaque(cur.data(), dim, dim, &dds[level_off[l]]);
+        EncodeBc1(cur.data(), dim, dim, &dds[level_off[l]]);
     }
     return true;
 }
@@ -138,7 +137,7 @@ bool BuildTerrainColourDds(const std::string& root, std::vector<uint8_t>& dds) {
 std::string EnsureTerrainColourDds(const std::string& root) {
     std::vector<std::string> files;
     for (int ty = 0; ty < GRID; ++ty) for (int tx = 0; tx < GRID; ++tx) { char p[512]; snprintf(p, sizeof(p), "%s/data/newland/land/overlaymaps/colour.%d.%d.png", root.c_str(), tx, ty); files.push_back(p); }
-    const uint64_t key = HashFiles(files) ^ 0x5eed0002ull;   // salt = encoder revision (2: the palette colour is no longer computed in uint8)
+    const uint64_t key = HashFiles(files) ^ 0x5eed0003ull;   // salt = encoder revision (3: BC1 instead of BC3, the alpha block was a constant 255)
     const std::string path = CachePath(key, "terrain_colour.dds");
     if (path.empty()) return {};
     if (FILE* f = fopen(path.c_str(), "rb")) { fseek(f, 0, SEEK_END); const long n = ftell(f); fclose(f); if ((size_t)n == 128 + [] { size_t t = 0; for (int l = 0; l < LEVELS; ++l) t += LevelBytes(SIDE >> l); return t; }()) { fprintf(stderr, "[Cache] hit  %016llx/terrain_colour.dds\n", (unsigned long long)key); return path; } }
