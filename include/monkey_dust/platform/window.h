@@ -80,11 +80,19 @@
 
    // The wait at the top of a frame: sleeps until 1/cap s after the previous frame start. In auto mode it sleeps in 2 ms slices and, when a key / mouse
    // event arrives meanwhile, switches to the 60 fps interval at once (no 33 ms wait before the first frame of an input).
+   // True when a queued key / button / wheel / text event or a mouse motion with a non-zero delta is waiting (zero-delta motion is not activity).
+   inline bool window_has_input_event() {
+       SDL_Event ev[16];
+       const int n = SDL_PeepEvents(ev, 16, SDL_PEEKEVENT, SDL_EVENT_KEY_DOWN, SDL_EVENT_MOUSE_WHEEL);
+       for (int i = 0; i < n; ++i)
+           if (ev[i].type != SDL_EVENT_MOUSE_MOTION || ev[i].motion.xrel != 0.f || ev[i].motion.yrel != 0.f) return true;
+       return false;
+   }
    inline void window_frame_cap_wait(Uint64& prev_ns) {
        while (prev_ns) {
            if (_window_fps_setting() == -1) {
                SDL_PumpEvents();
-               if (SDL_HasEvents(SDL_EVENT_KEY_DOWN, SDL_EVENT_MOUSE_WHEEL)) window_note_activity();
+               if (window_has_input_event()) window_note_activity();
            }
            const int cap = window_fps_cap();
            if (cap <= 0) break;
