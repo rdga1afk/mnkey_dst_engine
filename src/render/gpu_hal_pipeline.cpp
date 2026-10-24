@@ -138,6 +138,16 @@ static bool IsEmbeddedPtr(const void* p) {
 }
 
 static void* ReadBinaryFile(const char* path, size_t* out_size) {
+    // measurement hook (#207 ablations): a SPIR-V of the same file name in $MD_SPV_OVERRIDE replaces the shipped one
+    if (const char* od = getenv("MD_SPV_OVERRIDE")) {
+        const char* sl = strrchr(path, '/'); char op[512]; snprintf(op, sizeof(op), "%s/%s", od, sl ? sl + 1 : path);
+        if (FILE* of = fopen(op, "rb")) {
+            fseek(of, 0, SEEK_END); const long n = ftell(of); rewind(of);
+            void* b = malloc((size_t)n);
+            if (b && fread(b, 1, (size_t)n, of) == (size_t)n) { fclose(of); *out_size = (size_t)n; fprintf(stderr, "[SpvOverride] %s\n", op); return b; }
+            free(b); fclose(of);
+        }
+    }
     // the compiled-in copy: used when it is asked for exclusively, or when the file is not on disk (a release has no shaders/ folder)
     if (const md::EmbeddedSpirv* e = FindEmbedded(path)) {
         if (EmbeddedOnly()) { *out_size = e->size; return (void*)e->data; }
