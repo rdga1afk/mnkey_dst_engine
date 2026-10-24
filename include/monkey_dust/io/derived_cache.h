@@ -15,4 +15,7 @@ bool CacheRead(uint64_t key, const char* name, std::vector<uint8_t>& out);
 // Writes the file (atomically, via a temp name); false when the cache folder cannot be written. Failure is not an error: the data is simply rebuilt next launch.
 bool CacheWrite(uint64_t key, const char* name, const uint8_t* data, size_t n);
 
+// Deletes the files of artifacts that this process asked for under another (older) key, then empty folders; artifacts it never asked for are left alone. Call once startup is done. Returns the number of files removed.
+int CacheCollectGarbage();
+
 } // namespace md
