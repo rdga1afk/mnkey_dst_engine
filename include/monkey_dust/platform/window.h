@@ -68,10 +68,14 @@
    inline void window_set_fps_cap(int fps) { _window_fps_setting() = fps < -1 ? -1 : fps; }
    inline int  window_fps_setting() { return _window_fps_setting(); }
    inline void window_note_activity() { _window_last_activity_ns() = SDL_GetTicksNS(); }
+   inline int& _window_idle_fps() { static int v = 0; return v; }   // deep idle (#207): > 0 = auto cap falls to this many fps after 2 s without input; 0 = off
+   inline void window_set_idle_fps(int fps) { _window_idle_fps() = fps < 0 ? 0 : fps; }
    inline int  window_fps_cap() {   // the cap in force now (0 = unlimited)
        const int s = _window_fps_setting();
        if (s != -1) return s;
-       return (SDL_GetTicksNS() - _window_last_activity_ns() < 500000000ULL) ? 60 : 30;
+       const Uint64 idle_ns = SDL_GetTicksNS() - _window_last_activity_ns();
+       if (idle_ns < 500000000ULL) return 60;
+       return (_window_idle_fps() > 0 && idle_ns > 2000000000ULL) ? _window_idle_fps() : 30;
    }
 
    // The wait at the top of a frame: sleeps until 1/cap s after the previous frame start. In auto mode it sleeps in 2 ms slices and, when a key / mouse
