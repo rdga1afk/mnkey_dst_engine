@@ -3,7 +3,7 @@ id: kb-engine-readme
 type: reference
 status: active
 date: 2026-05-14
-updated: 2026-10-22
+updated: 2026-10-25
 repo: engine
 tags: [engine, readme, kenshi, sdl-gpu, terrain, public-repo]
 summary: "Public engine README (EN + UA): native Linux engine that renders Kenshi's world from the player's own install; status, goal to 2026-12-31, build, KENSHI_DIR, mods, architecture, module map, legal"
@@ -32,7 +32,7 @@ summary: "Public engine README (EN + UA): native Linux engine that renders Kensh
 - **Not a Kenshi replacement or a remake.** Kenshi is © Lo-Fi Games. This is an independent, unofficial engine.
 - **There is nothing to download and play.** The game executable lives in a separate private repository; this repository is the engine library.
 
-### Status (2026-10-22)
+### Status (2026-10-25)
 
 | Area | State |
 |---|---|
@@ -45,9 +45,11 @@ summary: "Public engine README (EN + UA): native Linux engine that renders Kensh
 | **Lighting, sky, water** | **Done (22.10).** Kenshi's main light in the ground resolve with fixed exposure (fog and auto exposure behind switches); **Kenshi's sky (SkyX)** rendered into a panorama a few times per second and sampled every frame (default on); **Kenshi's water shader** (three flow-driven normal layers, colour map, sun highlight, depth-based alpha; no reflections yet) at Kenshi's water level 1.5 m — about 30 % of the world, mostly ocean; cost within measurement noise |
 | **Towns** (Ogre `.mesh` from zone files) | **Done, off by default (22.10).** Buildings read from Kenshi's zone files, nested building parts and roofs, streamed 3×3 zones on a worker thread with a 3 ms per-frame budget, back faces culled per Kenshi material, duplicate vertices welded. Off by default until the route p99 with buildings is ≤ 16.7 ms (a Hub street still costs about +4–6 ms) |
 | **Foliage** (trees, bushes, rocks, grass) | **Done, off by default (22.10).** Placement follows Kenshi's own scatter (per-layer random generator and formulas checked against the game), trees / bushes / rocks streamed by zone, grass in a 50 m ring around the camera; terrain-textured rocks drawn like Kenshi's. Cost +0.4…1.5 ms, no loading hitches in continuous flight. Settings: on / off, view range, grass density |
-| Steam library auto-detection | Not yet: set `KENSHI_DIR` |
+| Finding the Kenshi folder | **Done (23.10).** Order: `KENSHI_DIR` → the folder saved at the last start (`~/.config/monkeydust/kenshi_dir`) → Steam (native and Flatpak, all libraries from `libraryfolders.vdf`). The game asks for the folder on the first start (the detected one is offered); paths with spaces and Cyrillic work |
+| **Release: one file** (#201) | **Mostly done (24.10), not published yet.** The game builds as one static binary `monkeydust` (only glibc from the system): shaders (SPIR-V) and our own small data are compiled in. Everything derived from Kenshi (ground colour, biome grid, steepness, ground layers, meshes, the NPC body) is read from the install or built from it on the first start into `~/.cache/monkeydust/` (first start ≈ 2 min, then ≈ 8 s); stale cache files are removed at startup. Nothing is written next to the binary or into the Kenshi folder |
+| Known regression (24.10) | Since meshes are read straight from the install, some cliffs and rocks show dark patches and the ground has a visible line in places; being fixed against Kenshi's code and data before new reference frames |
 | Workshop mods | Code path exists, **not yet tested on real Workshop data** |
-| **Performance, 1920×1080, HD 520** | Fixed flight route **p99 ≈ 15.0 ms** (19.10.2026; 19 ms on 17.10, 30–31 ms on 13.10) — **the 60 FPS goal (≤ 16.7 ms) is met on the route**. **New (22.10):** «Ground quality» setting — *Fast motion* (default: normal ground filtering, 0.75 resolution only while moving, switch without hitches), anisotropic ×16 + dynamic resolution, or ×16 + softer ground reuse; frame cap **«auto»: 30 FPS when idle, 60 when moving** (fan almost silent when idle). Helped by: GPU occlusion culling (HZB), **ground shading reused across frames** (refreshed every 16 frames by default; Settings: 4 / 8 / 16), the terrain resolve no longer writing depth, and dynamic resolution only while the camera moves (0.75, native when still). Known tail: continuous flight at 50 m/s, p99 ≈ 18.9 ms. Long-term target: 99 FPS on the landscape |
+| **Performance, 1920×1080, HD 520** | Fixed flight route **p99 ≈ 15.0 ms** (19.10.2026; 19 ms on 17.10, 30–31 ms on 13.10) — **the 60 FPS goal (≤ 16.7 ms) is met on the route**. **New (22.10):** «Ground quality» setting — *Fast motion* (default: normal ground filtering, 0.75 resolution only while moving, switch without hitches), anisotropic ×16 + dynamic resolution, or ×16 + softer ground reuse; frame cap **«auto»: 30 FPS when idle, 60 when moving** (fan almost silent when idle). Helped by: GPU occlusion culling (HZB), **ground shading reused across frames** (refreshed every 16 frames by default; Settings: 4 / 8 / 16), the terrain resolve no longer writing depth, and dynamic resolution only while the camera moves (0.75, native when still). Known tail: continuous flight at 50 m/s, p99 ≈ 18.9 ms. Long-term target: 99 FPS on the landscape. **Main goal since 24.10: lower GPU load, heat and fan noise**, not only frame time — target: in normal play at 1080p with the default frame cap the laptop fan stays off. Low frame rates only by game state (pause, menus, unfocused window), not by missing input |
 | **Code clean-up** (Oct 2026) | **Done (19.10):** ≈ 85 000 lines of own code removed across the three repositories (old prototype game layer, OpenGL leftovers, effects for stronger GPUs that never ran on the HD 520, an unused 200 MB ground cache), plus 2 × 131 000 lines of font arrays and the 8 700-line GL loader. Audit: clang-tidy, cppcheck, ASan / UBSan, code coverage; every change checked against pixel-exact reference frames. The engine and tools libraries are now built on GitHub (laptop build 19 → 7 min) |
 
 ### Goals
@@ -75,7 +77,7 @@ ninja -C build monkey_dust_engine
 ninja -C build md_tests            # small smoke tests
 ```
 Dependencies: SDL3, gaia-ecs, ozz-animation, Jolt Physics, miniaudio, Lua 5.4, AMD FSR 1 (vendored or via CMake). Recast/Detour is vendored for the planned character movement.
-Shaders (GLSL → SPIR-V) live in the game repository; the library loads pre-compiled SPIR-V at runtime.
+Shaders (GLSL → SPIR-V) live in the game repository; the library loads pre-compiled SPIR-V at runtime, from disk or from a table compiled into the game binary (`RegisterEmbeddedSpirv`).
 
 ### Pointing the engine at Kenshi
 ```bash
@@ -83,6 +85,7 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"   # the fol
 ```
 - `md::KenshiDir()` returns `$KENSHI_DIR` (an empty value disables the install on purpose).
 - `md::KenshiLandFile(name, fallback)` returns `<KENSHI_DIR>/data/newland/land/<name>` if it exists, else the fallback; the choice is logged once.
+- Without `KENSHI_DIR` the game looks for the folder itself (saved choice, then Steam native / Flatpak, `libraryfolders.vdf`) and asks on the first start; `--choose-kenshi-folder` asks again.
 - Tests that need real game data run only when `KENSHI_DIR` is set.
 
 ### Mods
@@ -154,7 +157,7 @@ index.html             documentation site (GitHub Pages)
 - **Це не заміна і не ремейк Kenshi.** Kenshi © Lo-Fi Games. Це незалежний неофіційний рушій.
 - **Завантажити й зіграти поки нічого.** Виконуваний файл гри — в окремому приватному репозиторії; тут бібліотека рушія.
 
-### Стан (22.10.2026)
+### Стан (25.10.2026)
 
 | Напрям | Стан |
 |---|---|
@@ -167,9 +170,11 @@ index.html             documentation site (GitHub Pages)
 | **Світло, небо, вода** | **Готово (22.10).** Основне світло Kenshi в resolve ґрунту з фіксованою експозицією (туман і автоекспозиція — за перемикачами); **небо Kenshi (SkyX)** рахується в панораму кілька разів на секунду, щокадру — лише вибірка (за замовчуванням увімкнено); **шейдер води Kenshi** (три шари нормалей за течією, карта кольору, відблиск сонця, прозорість від глибини; відображень поки нема) на рівні води Kenshi 1,5 м — близько 30 % світу, переважно океан; ціна в межах шуму замірів |
 | **Міста** (Ogre `.mesh` з файлів зон) | **Готово, за замовчуванням вимкнено (22.10).** Будівлі з файлів зон Kenshi, вкладені частини й дахи, стрімінг зон 3×3 у фоновому потоці з бюджетом 3 мс на кадр, відсікання задніх граней за матеріалами Kenshi, зварювання однакових вершин. Вимкнено, доки p99 маршруту з будівлями не стане ≤ 16,7 мс (вулиця Хабу досі коштує ≈ +4–6 мс) |
 | **Рослини** (дерева, кущі, каміння, трава) | **Готово, за замовчуванням вимкнено (22.10).** Розташування — за розсіюванням самої Kenshi (генератор випадкових чисел і формули звірено з грою), дерева / кущі / каміння підвантажуються за зонами, трава — колом 50 м навколо камери; скелі з текстурою землі — як у Kenshi. Ціна +0,4…1,5 мс, без ривків у безперервному польоті. Налаштування: увімк. / вимк., дальність, густина трави |
-| Автопошук бібліотеки Steam | Ще ні: задайте `KENSHI_DIR` |
+| Пошук теки Kenshi | **Готово (23.10).** Порядок: `KENSHI_DIR` → тека, збережена під час минулого запуску (`~/.config/monkeydust/kenshi_dir`) → Steam (звичайний і Flatpak, усі бібліотеки з `libraryfolders.vdf`). Під час першого запуску гра питає теку (знайдена підставляється); шляхи з пробілами й кирилицею працюють |
+| **Реліз: один файл** (#201) | **Переважно готово (24.10), ще не опубліковано.** Гра збирається одним статичним бінарником `monkeydust` (із системи — лише glibc): шейдери (SPIR-V) і наші невеликі дані вбудовано. Усе похідне від Kenshi (колір ґрунту, сітка біомів, крутизна, шари ґрунту, меші, тіло NPC) читається з інсталяції або будується з неї під час першого запуску в `~/.cache/monkeydust/` (перший запуск ≈ 2 хв, далі ≈ 8 с); застарілі файли кешу прибираються під час запуску. Поруч із бінарником і в теку Kenshi нічого не пишеться |
+| Відома регресія (24.10) | Відколи меші читаються прямо з інсталяції, на деяких кручах і каменях видно темні плями, а на ґрунті місцями — лінію; виправляється за кодом і даними Kenshi перед новими еталонними кадрами |
 | Моди з Workshop | Код є, **на справжніх даних Workshop ще не перевірено** |
-| **Продуктивність, 1920×1080, HD 520** | Фіксований маршрут польоту **p99 ≈ 15,0 мс** (19.10.2026; 17.10 — 19 мс, 13.10 — 30–31 мс) — **мету 60 FPS (≤ 16,7 мс) на маршруті досягнуто**. Допомогли: відсікання невидимого на GPU (HZB), **перевикористання освітленого ґрунту між кадрами** (оновлення раз на 16 кадрів за замовчуванням; Settings: 4 / 8 / 16), resolve ґрунту більше не пише глибину, динамічна роздільність лише в русі (0,75, нативна, коли камера стоїть). Відомий хвіст: безперервний політ 50 м/с, p99 ≈ 18,9 мс. Довгострокова мета — 99 FPS на ландшафті. **Нове (22.10):** налаштування «Ground quality» — *Fast motion* (за замовчуванням: звичайна фільтрація ґрунту, роздільність 0,75 лише в русі, перемикання без ривків), анізотропна ×16 + динамічна роздільність або ×16 + м'якше перевикористання ґрунту; стеля кадрів **«авто»: 30 FPS у спокої, 60 у русі** (у спокої вентилятор майже не чути) |
+| **Продуктивність, 1920×1080, HD 520** | Фіксований маршрут польоту **p99 ≈ 15,0 мс** (19.10.2026; 17.10 — 19 мс, 13.10 — 30–31 мс) — **мету 60 FPS (≤ 16,7 мс) на маршруті досягнуто**. Допомогли: відсікання невидимого на GPU (HZB), **перевикористання освітленого ґрунту між кадрами** (оновлення раз на 16 кадрів за замовчуванням; Settings: 4 / 8 / 16), resolve ґрунту більше не пише глибину, динамічна роздільність лише в русі (0,75, нативна, коли камера стоїть). Відомий хвіст: безперервний політ 50 м/с, p99 ≈ 18,9 мс. Довгострокова мета — 99 FPS на ландшафті. **Нове (22.10):** налаштування «Ground quality» — *Fast motion* (за замовчуванням: звичайна фільтрація ґрунту, роздільність 0,75 лише в русі, перемикання без ривків), анізотропна ×16 + динамічна роздільність або ×16 + м'якше перевикористання ґрунту; стеля кадрів **«авто»: 30 FPS у спокої, 60 у русі** (у спокої вентилятор майже не чути). **Головна ціль з 24.10 — менше навантаження на GPU, нагрів і шум вентилятора**, а не лише час кадру: у звичайній грі при 1080p зі стандартною стелею кадрів вентилятор ноутбука не вмикається. Низька частота кадрів — лише за станом гри (пауза, меню, вікно без фокуса), не за відсутністю вводу |
 | **Чистка коду** (жовтень 2026) | **Завершено (19.10):** ≈ 85 000 рядків власного коду прибрано в трьох репозиторіях (старий ігровий прототип, залишки OpenGL, ефекти для сильніших GPU, що на HD 520 не вмикались, невикористаний кеш ґрунту на 200 МБ), плюс 2 × 131 000 рядків масивів шрифтів і завантажувач GL на 8 700. Аудит: clang-tidy, cppcheck, ASan / UBSan, покриття коду; кожна зміна звірена з еталонними кадрами до пікселя. Рушій і бібліотеки tools тепер збираються на GitHub (збірка на ноутбуці 19 → 7 хв) |
 
 ### Мета
