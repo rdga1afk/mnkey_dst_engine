@@ -467,7 +467,7 @@ bool GpuPipeline::Create(const Desc& desc) {
     if (desc.has_depth_target || desc.depth_only) {
         // D32_FLOAT: must match GpuDepthTexture::Init which uses D32_FLOAT.
         // Intel Gen9 (HD 520) cannot sample D24_UNORM — pipeline must match texture.
-        target_info.depth_stencil_format       = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
+        target_info.depth_stencil_format       = desc.depth_format != SDL_GPU_TEXTUREFORMAT_INVALID ? desc.depth_format : SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
         target_info.has_depth_stencil_target   = true;
     }
 
@@ -491,6 +491,15 @@ bool GpuPipeline::Create(const Desc& desc) {
     ci.depth_stencil_state.compare_op         = eff_compare_op;
     ci.depth_stencil_state.enable_depth_test  = desc.raster.depth_test  ? true : false;
     ci.depth_stencil_state.enable_depth_write = desc.raster.depth_write ? true : false;
+    if (desc.stencil_mode != 0) {   // #207: 1 = REPLACE with the pass reference where the fragment survives; 2 = pass where the stencil is not the reference
+        SDL_GPUStencilOpState so = {};
+        so.fail_op = SDL_GPU_STENCILOP_KEEP; so.depth_fail_op = SDL_GPU_STENCILOP_KEEP;
+        so.pass_op = desc.stencil_mode == 1 ? SDL_GPU_STENCILOP_REPLACE : SDL_GPU_STENCILOP_KEEP;
+        so.compare_op = desc.stencil_mode == 1 ? SDL_GPU_COMPAREOP_ALWAYS : SDL_GPU_COMPAREOP_NOT_EQUAL;
+        ci.depth_stencil_state.enable_stencil_test = true;
+        ci.depth_stencil_state.front_stencil_state = so; ci.depth_stencil_state.back_stencil_state = so;
+        ci.depth_stencil_state.compare_mask = 0xFF; ci.depth_stencil_state.write_mask = desc.stencil_mode == 1 ? 0xFF : 0x00;
+    }
     ci.target_info = target_info;
 
     // Pipeline object cache: avoid recompiling identical pipeline configs.
@@ -502,6 +511,8 @@ bool GpuPipeline::Create(const Desc& desc) {
     raster_bits |= (uint32_t)desc.raster.depth_compare_op << 4;
     raster_bits |= (uint32_t)desc.raster.wireframe      << 12; // leaves room below compare_op's multi-bit range
     raster_bits |= (uint32_t)desc.color_format          << 16; // INVALID (0) = the swapchain format; two formats of the same shaders are two pipelines
+    raster_bits |= (uint32_t)desc.stencil_mode          << 28; // #207: the stencil variants of the same shaders are other pipelines
+    raster_bits ^= (uint32_t)desc.depth_format * 2654435761u; // INVALID (0) leaves the key of every existing pipeline unchanged
     const uint32_t pipe_hash = PipeHash(desc.vert_path, desc.frag_path,
                                          desc.shader_features, raster_bits);
     SDL_GPUGraphicsPipeline* cached = PipeCache_Get(pipe_hash);

@@ -88,6 +88,11 @@ public:
     void SetKLight(const KLightParams* k) { klight_ = k; }
     // #140 L4: the ground target is RGBA16F and holds the colour before the exposure (klight variants with a float colour target)
     void SetFloatTarget(bool f) { float_target_ = f; }
+    // #207 stencil split (measurement prototype, MD_STENCIL_SPLIT=1, default off): pass A = the lean reproject-only shader (accepted pixels write the colour and stencil 1, the live ones discard),
+    // pass B = the heavy non-reuse shader with the stencil test NOT_EQUAL 1 (the hardware rejects the accepted pixels before the shader starts). Both in the ground pass, whose depth
+    // attachment must then be a D32_FLOAT_S8_UINT texture (SetStencilSplitActive(true) by the caller that opened such a pass).
+    bool StencilSplitReady() const { return split_ready_; }
+    void SetStencilSplitActive(bool a) { split_active_ = a; }
 
     // Begin the G-buffer geometry pass -- CLEARs both gbuf_color_ (unused
     // channels don't matter) and gbuf_depth_ (to 1.0). Caller draws terrain
@@ -159,6 +164,8 @@ private:
     const KLightParams* klight_ = nullptr;
     bool float_target_ = false;
     GpuPipeline resolve_klight_f_pipeline_, resolve_reuse_klight_f_pipeline_;
+    GpuPipeline resolve_split_p_[2][3];   // #207 [RGBA8 / RGBA16F target][A lean reuse-only, B heavy with stencil test, C plain heavy for the frames without a history]
+    bool split_ready_ = false, split_active_ = false;
     bool resolve_klight_f_ready_ = false, resolve_reuse_klight_f_ready_ = false;
     GpuPipeline resolve_kenshi_klight_pipeline_, resolve_kenshi_reuse_klight_pipeline_;
     bool resolve_klight_ready_ = false, resolve_reuse_klight_ready_ = false;

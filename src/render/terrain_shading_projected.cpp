@@ -136,6 +136,25 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
         kd.frag_uniform_bufs = 3; kd.frag_path = "shaders/terrain_shading_screenspace_kenshi_klight.frag";
         resolve_klight_f_ready_ = resolve_klight_f_pipeline_.Create(kd);
         if (!resolve_klight_f_ready_ || !resolve_reuse_klight_f_ready_) MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] float-target klight variants failed (L4 unavailable)");
+        if (getenv("MD_STENCIL_SPLIT")) {   // #207 measurement prototype: the two stencil passes of the default (klight, float target, reuse) path
+            SDL_GPUDevice* sdev = md::GpuDevice::Get().SDLDevice();
+            if (sdev && SDL_GPUTextureSupportsFormat(sdev, SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT, SDL_GPU_TEXTURETYPE_2D, SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET)) {
+                bool all_ok = true;
+                for (int f = 0; f < 2; ++f) {   // f = 0: the default RGBA8 ground target (lighting mode 2), f = 1: the RGBA16F one (mode 4)
+                    GpuPipeline::Desc sd = kd;
+                    sd.color_format = f ? SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT : rd.color_format;
+                    sd.depth_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT;
+                    sd.frag_uniform_bufs = 4; sd.frag_path = "shaders/terrain_shading_screenspace_kenshi_reuse_only_klight.frag"; sd.stencil_mode = 1;
+                    all_ok &= resolve_split_p_[f][0].Create(sd);
+                    sd.frag_uniform_bufs = 3; sd.frag_path = "shaders/terrain_shading_screenspace_kenshi_klight.frag"; sd.stencil_mode = 2;
+                    all_ok &= resolve_split_p_[f][1].Create(sd);
+                    sd.stencil_mode = 0;
+                    all_ok &= resolve_split_p_[f][2].Create(sd);
+                }
+                split_ready_ = all_ok;
+                MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] stencil split pipelines ok=%d", (int)all_ok);
+            } else MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] MD_STENCIL_SPLIT: D32_FLOAT_S8_UINT is not a supported depth-stencil target");
+        }
     }
     ready_ = true;
     MD_LOG(MD_LOG_INFO, "[TerrainShadingProjected] ready %dx%d (RGBA32F gbuffer + isolated D32_FLOAT)", w, h);
@@ -185,6 +204,7 @@ void TerrainShadingProjected::Shutdown() {
     resolve_kenshi_reuse_ready_ = false;
     resolve_kenshi_klight_pipeline_.Destroy(); resolve_kenshi_reuse_klight_pipeline_.Destroy();
     resolve_klight_f_pipeline_.Destroy(); resolve_reuse_klight_f_pipeline_.Destroy();
+    for (auto& sp : resolve_split_p_) for (GpuPipeline& q : sp) q.Destroy(); split_ready_ = false;
     resolve_klight_ready_ = resolve_reuse_klight_ready_ = false;
     gd_alt_.Shutdown();
     gbuf_depth_.Shutdown();
@@ -285,8 +305,8 @@ void TerrainShadingProjected::DrawFullscreen(SDL_GPURenderPass* rp, md::GpuComma
     for (int i = 0; i < 7; ++i) {
         if (!ground_bindings[i].texture || !ground_bindings[i].sampler) return;
     }
-    const bool reuse_draw = (&pipeline == &resolve_kenshi_reuse_pipeline_ || &pipeline == &resolve_kenshi_reuse_klight_pipeline_ || &pipeline == &resolve_reuse_klight_f_pipeline_) && reuse_;
-    const bool klight_draw = (&pipeline == &resolve_kenshi_klight_pipeline_ || &pipeline == &resolve_kenshi_reuse_klight_pipeline_ || &pipeline == &resolve_klight_f_pipeline_ || &pipeline == &resolve_reuse_klight_f_pipeline_) && klight_;
+    const bool reuse_draw = (&pipeline == &resolve_kenshi_reuse_pipeline_ || &pipeline == &resolve_kenshi_reuse_klight_pipeline_ || &pipeline == &resolve_reuse_klight_f_pipeline_ || &pipeline == &resolve_split_p_[0][0] || &pipeline == &resolve_split_p_[1][0]) && reuse_;
+    const bool klight_draw = (&pipeline == &resolve_kenshi_klight_pipeline_ || &pipeline == &resolve_kenshi_reuse_klight_pipeline_ || &pipeline == &resolve_klight_f_pipeline_ || &pipeline == &resolve_reuse_klight_f_pipeline_ || (&pipeline >= &resolve_split_p_[0][0] && &pipeline <= &resolve_split_p_[1][2])) && klight_;
     if (klight_draw) {   // slots 5 / 6: the Kenshi cube maps
         ground_bindings[5] = { ground.KenshiIrradianceCube(), ground.KenshiIrradianceSampler() };
         ground_bindings[6] = { ground.KenshiSpecularityCube(), ground.KenshiSpecularitySampler() };
@@ -405,6 +425,16 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
     if (float_target_ && use_klight) {
         if (use_reuse && resolve_reuse_klight_f_ready_) kp = &resolve_reuse_klight_f_pipeline_;
         else if (!use_reuse && resolve_klight_f_ready_) kp = &resolve_klight_f_pipeline_;
+    }
+    if (split_active_) {   // #207: the pass has a depth-stencil attachment, only pipelines of that format may draw in it
+        if (!(split_ready_ && use_klight)) { static bool once = false; if (!once) { once = true; MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] stencil split pass without klight / float target: ground not drawn"); } return; }
+        { static bool once = false; if (!once) { once = true; MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] stencil split pass active (reuse %d)", (int)use_reuse); } }
+        SDL_SetGPUStencilReference(rp, 1);
+        if (use_reuse) {   // the lean pass marks the accepted pixels, the heavy pass runs on the others only (stencil test)
+            DrawFullscreen(rp, cmd, resolve_split_p_[float_target_ ? 1 : 0][0], c);
+            DrawFullscreen(rp, cmd, resolve_split_p_[float_target_ ? 1 : 0][1], c);
+        } else DrawFullscreen(rp, cmd, resolve_split_p_[float_target_ ? 1 : 0][2], c);   // no history: every pixel is live
+        return;
     }
     DrawFullscreen(rp, cmd, *kp, c);
 }

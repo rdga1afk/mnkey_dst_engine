@@ -36,6 +36,11 @@ public:
         // Override swapchain color format (e.g. SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM
         // for intermediate render targets). INVALID (0) = use swapchain format.
         SDL_GPUTextureFormat color_format = SDL_GPU_TEXTUREFORMAT_INVALID;
+        // #207 stencil split (measurement prototype): INVALID = D32_FLOAT (every existing pipeline); D32_FLOAT_S8_UINT for the two passes that use a stencil.
+        // stencil_mode: 0 off; 1 = write 1 where the fragment survives (REPLACE, reference 1); 2 = pass only where the stencil is not 1 (NOT_EQUAL, reference 1).
+        // The reference is set on the pass (SDL_SetGPUStencilReference), the same value 1 for both.
+        SDL_GPUTextureFormat depth_format = SDL_GPU_TEXTUREFORMAT_INVALID;
+        int                  stencil_mode = 0;
     };
 
     bool Create(const Desc& desc);
@@ -150,6 +155,7 @@ public:
         // this comment) changes behavior by not setting them.
         bool                  color_dont_care     = false; // true overrides load_color -> LOADOP_DONT_CARE
         bool                  depth_discard_after = false; // true -> depth STOREOP_DONT_CARE (mirrors DepthDesc::discard_after)
+        bool                  clear_stencil       = false; // #207: the depth texture has a stencil aspect: clear it to 0 on entry (otherwise DONT_CARE)
     };
     void BeginColorPass(const ColorPassDesc& desc);
 
