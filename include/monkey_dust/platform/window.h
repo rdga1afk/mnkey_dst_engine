@@ -70,11 +70,15 @@
    inline void window_note_activity() { _window_last_activity_ns() = SDL_GetTicksNS(); }
    inline int& _window_idle_fps() { static int v = 0; return v; }   // deep idle (#207): > 0 = auto cap falls to this many fps after 2 s without input; 0 = off
    inline void window_set_idle_fps(int fps) { _window_idle_fps() = fps < 0 ? 0 : fps; }
+   inline int& _window_state_fps() { static int v = 0; return v; }   // set every frame by the game loop: > 0 while the game state needs no smooth frames (paused, unfocused / minimised window); 0 = normal
+   inline void window_set_state_fps(int fps) { _window_state_fps() = fps < 0 ? 0 : fps; }
    inline int  window_fps_cap() {   // the cap in force now (0 = unlimited)
        const int s = _window_fps_setting();
        if (s != -1) return s;
        const Uint64 idle_ns = SDL_GetTicksNS() - _window_last_activity_ns();
        if (idle_ns < 500000000ULL) return 60;
+       // (auto mode only) a game state that needs no smooth frames lowers the cap once there was no input for 0.5 s; input still wakes the loop at 60 at once
+       if (_window_state_fps() > 0) return _window_state_fps();
        return (_window_idle_fps() > 0 && idle_ns > 2000000000ULL) ? _window_idle_fps() : 30;
    }
 
