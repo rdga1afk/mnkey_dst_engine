@@ -136,7 +136,7 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
         kd.frag_uniform_bufs = 3; kd.frag_path = "shaders/terrain_shading_screenspace_kenshi_klight.frag";
         resolve_klight_f_ready_ = resolve_klight_f_pipeline_.Create(kd);
         if (!resolve_klight_f_ready_ || !resolve_reuse_klight_f_ready_) MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] float-target klight variants failed (L4 unavailable)");
-        if (getenv("MD_STENCIL_SPLIT")) {   // #207 measurement prototype: the two stencil passes of the default (klight, float target, reuse) path
+        if (const char* e = getenv("MD_STENCIL_SPLIT"); !(e && e[0] == '0')) {   // #207: the ground resolve as two stencil-separated passes (default on, MD_STENCIL_SPLIT=0 turns it off): the lean reuse-only pass marks the accepted pixels, the heavy pass runs on the others
             SDL_GPUDevice* sdev = md::GpuDevice::Get().SDLDevice();
             if (sdev && SDL_GPUTextureSupportsFormat(sdev, SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT, SDL_GPU_TEXTURETYPE_2D, SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET)) {
                 bool all_ok = true;
@@ -152,8 +152,8 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
                     all_ok &= resolve_split_p_[f][2].Create(sd);
                 }
                 split_ready_ = all_ok;
-                MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] stencil split pipelines ok=%d", (int)all_ok);
-            } else MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] MD_STENCIL_SPLIT: D32_FLOAT_S8_UINT is not a supported depth-stencil target");
+                MD_LOG(MD_LOG_INFO, "[TerrainShadingProjected] stencil split pipelines ok=%d", (int)all_ok);
+            } else MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] stencil split off: D32_FLOAT_S8_UINT is not a supported depth-stencil target");
         }
     }
     ready_ = true;
@@ -428,7 +428,6 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
     }
     if (split_active_) {   // #207: the pass has a depth-stencil attachment, only pipelines of that format may draw in it
         if (!(split_ready_ && use_klight)) { static bool once = false; if (!once) { once = true; MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] stencil split pass without klight / float target: ground not drawn"); } return; }
-        { static bool once = false; if (!once) { once = true; MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] stencil split pass active (reuse %d)", (int)use_reuse); } }
         SDL_SetGPUStencilReference(rp, 1);
         if (use_reuse) {   // the lean pass marks the accepted pixels, the heavy pass runs on the others only (stencil test)
             DrawFullscreen(rp, cmd, resolve_split_p_[float_target_ ? 1 : 0][0], c);
