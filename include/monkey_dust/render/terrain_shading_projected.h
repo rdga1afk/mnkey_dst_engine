@@ -164,7 +164,7 @@ private:
     const KLightParams* klight_ = nullptr;
     bool float_target_ = false;
     GpuPipeline resolve_klight_f_pipeline_, resolve_reuse_klight_f_pipeline_;
-    GpuPipeline resolve_split_p_[2][3];   // #207 [RGBA8 / RGBA16F target][A lean reuse-only, B heavy with stencil test, C plain heavy for the frames without a history]
+    GpuPipeline resolve_split_p_[2][3];   // #207 [RGBA8 / RGBA16F target][A lean reuse-only, B full shader with stencil test, one-biome pass (stencil test + write)]
     bool split_ready_ = false, split_active_ = false;
     bool resolve_klight_f_ready_ = false, resolve_reuse_klight_f_ready_ = false;
     GpuPipeline resolve_kenshi_klight_pipeline_, resolve_kenshi_reuse_klight_pipeline_;

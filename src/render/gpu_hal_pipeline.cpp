@@ -494,11 +494,11 @@ bool GpuPipeline::Create(const Desc& desc) {
     if (desc.stencil_mode != 0) {   // #207: 1 = REPLACE with the pass reference where the fragment survives; 2 = pass where the stencil is not the reference
         SDL_GPUStencilOpState so = {};
         so.fail_op = SDL_GPU_STENCILOP_KEEP; so.depth_fail_op = SDL_GPU_STENCILOP_KEEP;
-        so.pass_op = desc.stencil_mode == 1 ? SDL_GPU_STENCILOP_REPLACE : SDL_GPU_STENCILOP_KEEP;
+        so.pass_op = desc.stencil_mode != 2 ? SDL_GPU_STENCILOP_REPLACE : SDL_GPU_STENCILOP_KEEP;
         so.compare_op = desc.stencil_mode == 1 ? SDL_GPU_COMPAREOP_ALWAYS : SDL_GPU_COMPAREOP_NOT_EQUAL;
         ci.depth_stencil_state.enable_stencil_test = true;
         ci.depth_stencil_state.front_stencil_state = so; ci.depth_stencil_state.back_stencil_state = so;
-        ci.depth_stencil_state.compare_mask = 0xFF; ci.depth_stencil_state.write_mask = desc.stencil_mode == 1 ? 0xFF : 0x00;
+        ci.depth_stencil_state.compare_mask = 0xFF; ci.depth_stencil_state.write_mask = desc.stencil_mode != 2 ? 0xFF : 0x00;
     }
     ci.target_info = target_info;
 

@@ -148,7 +148,7 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
                     all_ok &= resolve_split_p_[f][0].Create(sd);
                     sd.frag_uniform_bufs = 3; sd.frag_path = "shaders/terrain_shading_screenspace_kenshi_klight.frag"; sd.stencil_mode = 2;
                     all_ok &= resolve_split_p_[f][1].Create(sd);
-                    sd.stencil_mode = 0;
+                    sd.frag_path = "shaders/terrain_shading_screenspace_kenshi_onebiome_klight.frag"; sd.stencil_mode = 3;   // the pixels with exactly one biome evaluation (the others are discarded here and shaded by the pass above)
                     all_ok &= resolve_split_p_[f][2].Create(sd);
                 }
                 split_ready_ = all_ok;
@@ -429,10 +429,12 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
     if (split_active_) {   // #207: the pass has a depth-stencil attachment, only pipelines of that format may draw in it
         if (!(split_ready_ && use_klight)) { static bool once = false; if (!once) { once = true; MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] stencil split pass without klight / float target: ground not drawn"); } return; }
         SDL_SetGPUStencilReference(rp, 1);
-        if (use_reuse) {   // the lean pass marks the accepted pixels, the heavy pass runs on the others only (stencil test)
+        if (use_reuse) {   // pass A (lean): marks the accepted pixels; then the one-biome pass and the full pass run on the others only (stencil test)
             DrawFullscreen(rp, cmd, resolve_split_p_[float_target_ ? 1 : 0][0], c);
-            DrawFullscreen(rp, cmd, resolve_split_p_[float_target_ ? 1 : 0][1], c);
-        } else DrawFullscreen(rp, cmd, resolve_split_p_[float_target_ ? 1 : 0][2], c);   // no history: every pixel is live
+        }
+        static const bool one_biome_pass = getenv("MD_ONEBIOME_PASS") && getenv("MD_ONEBIOME_PASS")[0] == '1';   // WIP: off until it is verified (0 px on the 17 views) and measured; MD_ONEBIOME_PASS=1 turns it on
+        if (one_biome_pass) DrawFullscreen(rp, cmd, resolve_split_p_[float_target_ ? 1 : 0][2], c);
+        DrawFullscreen(rp, cmd, resolve_split_p_[float_target_ ? 1 : 0][1], c);
         return;
     }
     DrawFullscreen(rp, cmd, *kp, c);
