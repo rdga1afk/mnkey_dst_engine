@@ -26,6 +26,8 @@ public:
     // Replace the per-mesh texture (white 1x1 by default) with a file (DDS or image); layer 2 / 3 vertices sample it.
     bool SetCustomTexture(const char* path);
     void SetSharedTexture(const GpuTexture* t) { shared_tex_ = t; }   // bind a texture the caller keeps alive (texture cache)
+    void SetTriplanar(bool on) { triplanar_ = on; }   // before Init: texture mode 1 feature (prop_tri.frag: diffuse + normal map from the world position, layer = 4 + tile / 1000)
+    void SetNormalTexture(const GpuTexture* t) { shared_normal_ = t; }   // triplanar normal map (cache-owned); flat when unset
     void SetCullBack(bool on) { cull_back_ = on; }   // before InitFromArrays: single-sided mesh (default off: both sides)
     // A Kenshi static .mesh from the install (see LoadOgreStaticMesh): the same geometry the converted .glb held.
     bool InitFromOgreMesh(const std::string& stored_path, float scale, float layer = 0.0f);
@@ -80,6 +82,8 @@ private:
     // binding-order rule: no gaps in fragment sampler slots.
     GpuTexture  tex_custom_;
     const GpuTexture* shared_tex_ = nullptr;   // a texture owned by someone else (cache), bound instead of tex_custom_; never shut down here
+    bool        triplanar_ = false;
+    const GpuTexture* shared_normal_ = nullptr;
     bool        custom_owned_ = false;   // false: the shared 1x1 white texture is bound instead of tex_custom_
     const GpuTexture& CustomTex() const;
 };
