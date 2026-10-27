@@ -3,7 +3,7 @@ id: kb-engine-readme
 type: reference
 status: active
 date: 2026-05-14
-updated: 2026-10-25
+updated: 2026-10-27
 repo: engine
 tags: [engine, readme, kenshi, sdl-gpu, terrain, public-repo]
 summary: "Public engine README (EN + UA): native Linux engine that renders Kenshi's world from the player's own install; status, goal to 2026-12-31, build, KENSHI_DIR, mods, architecture, module map, legal"
@@ -90,6 +90,16 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"   # the fol
 
 ### Mods
 Mods are read exactly as Kenshi reads them: `data/mods.cfg` order, then `mods/` and Steam Workshop folders; records are merged in load order (`monkey_dust/io/fcs_gamedata.h`). Edit content with Kenshi's FCS. Workshop mods are not yet verified on real data.
+
+### How we got here: problems and fixes
+An honest log of what went wrong, what we tried and what the numbers said is on the docs site: [Project history: problems and how we solved them](https://rdga1afk.github.io/mnkey_dst_engine/#history). In short:
+- **Ground looked unlike Kenshi** → we stopped guessing and ported Kenshi's own terrain shader logic, using facts from code and data, not screenshots.
+- **30 ms frames at 1080p** → footprint-based mips (shimmer 4.9 → 0.5), GPU occlusion culling, dynamic resolution only while moving, and reuse of the ground shading across frames: route p99 30 → 15 ms. A ring-shaped ground cache **lost** and was shelved.
+- **One-file release** → a static binary with embedded shaders. Kenshi data is read from the player's install. Along the way we found a misaligned-store bug in the ECS library, which its author fixed upstream.
+- **A loud laptop fan** → we now measure watts, not only milliseconds. Lesson: on a fully loaded GPU, savings turn into extra frames, not fewer watts, so we compare at a frame cap both variants hold.
+  - Kept: a restructured early exit in the ground shader, a stencil split (−5 % energy per frame, same picture), longer reuse of the previous frame (≈ −20 %), 10 FPS when paused.
+  - Dropped, with numbers: a far-ground shortcut, tile lists, a one-biome variant.
+- **Next:** SIMD16 terrain shaders and a terrain virtual texture.
 
 ### Architecture
 
@@ -213,6 +223,16 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"   # тек�
 
 ### Моди
 Моди читаються так само, як у Kenshi: порядок з `data/mods.cfg`, далі теки `mods/` і Steam Workshop; записи зливаються в порядку завантаження (`monkey_dust/io/fcs_gamedata.h`). Контент редагується у FCS. Моди з Workshop на справжніх даних ще не перевірені.
+
+### Як ми сюди дійшли: проблеми й рішення
+Чесний журнал (що йшло не так, що ми пробували і що показали цифри) — на сайті документації: [Історія проєкту: проблеми й рішення](https://rdga1afk.github.io/mnkey_dst_engine/#history). Коротко:
+- **Ґрунт не був схожий на Kenshi** → перестали вгадувати й перенесли логіку шейдера землі самої Kenshi, за фактами з коду й даних, а не зі скріншотів.
+- **Кадри по 30 мс у 1080p** → mip за слідом пікселя (мерехтіння 4,9 → 0,5), відсікання невидимого на GPU, динамічна роздільність лише в русі й повторне використання освітлення ґрунту між кадрами: p99 маршруту 30 → 15 мс. Кільцевий кеш ґрунту **програв** і відкладений.
+- **Реліз одним файлом** → статичний бінарник з вбудованими шейдерами. Дані Kenshi читаються з інсталяції гравця. Дорогою знайшли помилку вирівнювання в бібліотеці ECS, яку автор виправив.
+- **Гучний вентилятор ноутбука** → тепер міряємо вати, а не лише мілісекунди. Урок: на повністю завантаженому GPU економія йде в додаткові кадри, а не в менші вати, тож порівнюємо на стелі кадрів, яку тримають обидва варіанти.
+  - Лишили: іншу форму раннього виходу в шейдері ґрунту, розділення трафаретом (−5 % енергії на кадр, та сама картинка), довше повторне використання минулого кадру (≈ −20 %), 10 FPS на паузі.
+  - Відкинули з цифрами: спрощення далекої землі, списки плиток, варіант на один біом.
+- **Далі:** SIMD16 для шейдерів землі й віртуальна текстура землі.
 
 ### Архітектура
 
