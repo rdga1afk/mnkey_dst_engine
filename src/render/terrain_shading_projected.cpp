@@ -377,7 +377,7 @@ void TerrainShadingProjected::DrawFullscreen(SDL_GPURenderPass* rp, md::GpuComma
 
     // binding 15: the history colour of the reuse variants; gbuf_color_ is the same format and stands in for the other variants
     SDL_GPUTextureSamplerBinding slot15[1] = { SDL_GPUTextureSamplerBinding{ gbuf_color_.SDLTexture(), gbuf_color_.SDLSampler() } };
-    if (reuse_draw) { slot15[0] = { reuse_->hist_colour, reuse_->hist_sampler }; pv.PushFragmentUniforms(3, reuse_->p_old, 208); }   // p_old, p_new, t (3 x 64 B) + params (16 B), in the order of ReuseParams
+    if (reuse_draw) { slot15[0] = { reuse_->hist_colour, reuse_->hist_sampler }; pv.PushFragmentUniforms(3, reuse_->p_old, 224); }   // p_old, p_new, t (3 x 64 B) + params (16 B), in the order of ReuseParams
     pv.BindFragmentSamplers(15, slot15, 1);
 
     // 2026-09-19 (docs/RESOLVE_OPT.md session finding): directional

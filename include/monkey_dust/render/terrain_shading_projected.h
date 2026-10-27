@@ -81,6 +81,7 @@ public:
         SDL_GPUTexture* hist_colour = nullptr; SDL_GPUSampler* hist_sampler = nullptr;
         float p_old[16], p_new[16], t[16];   // column-major
         float params[4];                     // x = history valid, y = camera static, z = live block phase
+        float chain[4];                      // x = alpha lost per reuse (0: a reused pixel is written with 0.75; 0.04 / 0.02: reuse chain of 3 / 5)
     };
     void SetReuse(const ReuseParams* r) { reuse_ = r; }
     // #140 L2: the Kenshi main light variant: sun direction (to the sun), sun colour + strength, (envColour.w, ambientParams.w, exposure); null = the current lighting.
