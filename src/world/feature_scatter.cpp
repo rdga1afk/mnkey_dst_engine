@@ -3,6 +3,8 @@
 #include <monkey_dust/platform/md_log.h>
 #include <monkey_dust/io/fcs_gamedata.h>
 #include <monkey_dust/io/kenshi_dir.h>
+#include <monkey_dust/render/asset_cache.h>
+#include <monkey_dust/render/gpu_sampler_texture.h>
 #include <fstream>
 #include <iterator>
 #include <string>
@@ -73,7 +75,7 @@ std::string BuildFeatureScatterText(const std::string& kenshi_dir) {
     md::fcs::Install inst(kenshi_dir); md::fcs::LoadOrder order; md::fcs::Error err; md::fcs::GameDataContainer gd;
     if (!inst.LoadOrderFor(order, err) || !gd.Load(order, err)) return "";
     // MapFeatureMode: world units are 0.1 m, world origin (14745.6, 14745.6) m (#176)
-    std::string out = "# game/data/features_scatter.txt -- built at run time from features.dat\n# mesh_path|x|y|z|sx|sy|sz|qw|qx|qy|qz|texture_mode (2 = TERRAIN)\n";
+    std::string out = "# game/data/features_scatter.txt -- built at run time from features.dat\n# mesh_path|x|y|z|sx|sy|sz|qw|qx|qy|qz|texture_mode (2 = TERRAIN)|texture map|tile X (mode 1 = triplanar)\n";
     char buf[768];
     for (const Rec& r : recs) {
         const md::fcs::GameData* g = gd.Get(r.name);
@@ -81,9 +83,11 @@ std::string BuildFeatureScatterText(const std::string& kenshi_dir) {
         std::string mesh; auto m = g->files.find("mesh"); if (m != g->files.end()) mesh = m->second; else { auto s2 = g->strings.find("mesh"); if (s2 != g->strings.end()) mesh = s2->second; }
         if (mesh.empty()) continue;
         int mode = 0; auto tm = g->ints.find("texture mode"); if (tm != g->ints.end()) mode = tm->second;
-        snprintf(buf, sizeof buf, "%s|%.3f|%.3f|%.3f|%.4f|%.4f|%.4f|%.6f|%.6f|%.6f|%.6f|%d\n", mesh.c_str(),
+        std::string tex; auto tf = g->files.find("texture map"); if (tf != g->files.end()) tex = tf->second;
+        float tile = 0; auto tl = g->floats.find("tile X"); if (tl != g->floats.end()) tile = tl->second;
+        snprintf(buf, sizeof buf, "%s|%.3f|%.3f|%.3f|%.4f|%.4f|%.4f|%.6f|%.6f|%.6f|%.6f|%d|%s|%.1f\n", mesh.c_str(),
                  (double)r.v[0] / 10.0 + 14745.6, (double)r.v[1] / 10.0, (double)r.v[2] / 10.0 + 14745.6,
-                 (double)r.v[3], (double)r.v[4], (double)r.v[5], (double)r.v[6], (double)r.v[7], (double)r.v[8], (double)r.v[9], mode);
+                 (double)r.v[3], (double)r.v[4], (double)r.v[5], (double)r.v[6], (double)r.v[7], (double)r.v[8], (double)r.v[9], mode, tex.c_str(), (double)tile);
         out += buf;
     }
     return out;
@@ -124,6 +128,11 @@ bool FeatureScatterSystem::Init(const char* scatter_path, const char* mesh_dir) 
                    &x, &y, &z, &sx, &sy, &sz, &qw, &qx, &qy, &qz, &mode) < 10) {
             continue;
         }
+        // optional tail: |texture map|tile X (texture mode 1 = Triplanar: the record's own texture, projected from the world position, tiling = tile X)
+        char tex_path[256] = ""; float tile = 0.f;
+        { const char* q = p; for (int k = 0; k < 11 && q; ++k) { q = strchr(q, '|'); if (q) ++q; }
+          if (q) { const char* e = strchr(q, '|'); if (e && (size_t)(e - q) < sizeof tex_path) { memcpy(tex_path, q, (size_t)(e - q)); tex_path[e - q] = '\0'; tile = (float)atof(e + 1); } } }
+        const bool triplanar = mode == 1 && tex_path[0] && tile > 0.f;
 
         if (placement_count_ >= MAX_PLACEMENTS) {
             MD_LOG(MD_LOG_WARNING, "[FeatureScatter] MAX_PLACEMENTS (%d) hit, dropping remaining rows", MAX_PLACEMENTS);
@@ -143,9 +152,15 @@ bool FeatureScatterSystem::Init(const char* scatter_path, const char* mesh_dir) 
             mesh_idx = mesh_count_;
             // the converted .glb when it is there, else the install's own .mesh (units 0.1 m -> scale 0.1, as tools/md_convert_features.py)
             const std::string dev_glb = md::DevFile(glb_path);
-            if (!(!dev_glb.empty() && renderers_[mesh_idx].Init(dev_glb.c_str())) && !renderers_[mesh_idx].InitFromOgreMesh(mesh_path, 0.1f)) {
+            if (!(!dev_glb.empty() && renderers_[mesh_idx].Init(dev_glb.c_str())) && !renderers_[mesh_idx].InitFromOgreMesh(mesh_path, 0.1f, triplanar ? 4.0f + tile * 0.001f : 0.f)) {
                 MD_LOG(MD_LOG_WARNING, "[FeatureScatter] failed to load %s (from %s) — skipping its placements", glb_path, mesh_path);
                 continue; // don't reserve a mesh slot for a mesh that failed to load
+            }
+            if (triplanar) {
+                static GpuSamplerDesc sd = GpuSamplerDesc::Default();
+                const std::string tp = md::KenshiDir() + "/" + md::NormalizeKenshiPath(tex_path);
+                if (GpuTexture* t = AssetCache::Get().GetOrLoadDDS(tp.c_str(), sd)) renderers_[mesh_idx].SetSharedTexture(t);
+                else MD_LOG(MD_LOG_WARNING, "[FeatureScatter] triplanar texture not loaded: %s", tp.c_str());
             }
             strncpy(mesh_names_[mesh_idx], name, sizeof(mesh_names_[mesh_idx]) - 1);
             ++mesh_count_;
