@@ -391,7 +391,7 @@ bool TerrainQuadtreeRenderer::InitLod(md::GpuDeviceHandle dev, const TerrainWorl
     if (!fine_sampler_) return false;
 
     {   // #207: the normal windows (bound in every case; 1x1 placeholders when the switch is off)
-        const char* e = getenv("MD_LOD_NORMTEX"); lod_normtex_ = e && e[0] == '1';   // off until it is verified (0 px on the 17 views) and measured
+        const char* e = getenv("MD_LOD_NORMTEX"); lod_normtex_ = !(e && e[0] == '0');   // default on (owner 28.10, #207; 0 px on the 17 views, -7.8 % J/frame at cap 45); MD_LOD_NORMTEX=0 turns it off
         world_cell_m_ = hmap.WorldExtent() / (float)(hmap.Resolution() - 1); world_max_cell_ = hmap.Resolution() - 1;
         for (auto& o : wnorm_o_) { o[0] = o[1] = -1; }
         SDL_GPUTextureCreateInfo ni{};
@@ -535,6 +535,13 @@ void TerrainQuadtreeRenderer::UploadLodNodes(md::GpuDeviceHandle dev, SDL_GPUCop
     SDL_GPUTextureRegion dst{}; dst.texture = node_data_tex_; dst.w = (Uint32)kNodeDataTexWidth; dst.h = (Uint32)rows; dst.d = 1;
     GpuCopyPass::FromRaw(cp, nullptr).UploadTexture(src, dst, false);
     GpuReleaseTransferBuffer(dev, tb);
+}
+
+bool TerrainQuadtreeRenderer::LodWindowsIdle(float cam_x, float cam_z) const {
+    if (!lod_ready_ || fine_job_active_ || fine_ox_ < 0 || fine_norm_pending_) return false;
+    for (int k = 0; k < kWLevels; ++k) if (wnorm_pending_[k]) return false;
+    const int cx = (int)std::lround(cam_x / kCellM), cz = (int)std::lround(cam_z / kCellM);
+    return std::abs(cx - (fine_ox_ + kFineW / 2)) <= fine_lim_cells_ && std::abs(cz - (fine_oz_ + kFineW / 2)) <= fine_lim_cells_;
 }
 
 void TerrainQuadtreeRenderer::BakeLodNormals(SDL_GPUCommandBuffer* cmd, const TerrainWorldHeightmap& hmap) {

@@ -209,6 +209,8 @@ public:
     SDL_GPUTexture* LodFineTex() const { return fine_tex_; }
     SDL_GPUSampler* LodFineSampler() const { return fine_sampler_; }
     int   LodFineOx() const { return fine_ox_; }
+    // #207: true when no window job is running or pending and the camera is inside the middle of the fine window (no recentre will start): the ground then is in its settled state
+    bool  LodWindowsIdle(float cam_x, float cam_z) const;
     int   LodFineOz() const { return fine_oz_; }
     int   LodFineCells() const { return 1536; }
     float LodHeightMin() const { return height_min_; }
