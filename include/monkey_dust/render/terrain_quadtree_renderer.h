@@ -263,7 +263,10 @@ private:
     SDL_GPUSampler* fine_sampler_ = nullptr;
     int fine_ox_ = -1000000, fine_oz_ = -1000000; // window origin in heightmap cells (1.8 m)
     // the fine window's file read + normalisation runs on a worker (it cost ~38 ms on the render thread at every recentre, ~every 970 m of flight)
-    std::future<std::vector<uint16_t>> fine_job_;
+    struct FineJobResult { std::vector<uint16_t> h; std::vector<float> n; };   // heights (R16) and, with MD_LOD_NORMTEX, the plugin's 6-tap normals of every cell (xyz, w = 0)
+    std::future<FineJobResult> fine_job_;
+    md::GpuTextureHandle fine_norm_tex_ = nullptr;   // RGBA32F, same window as fine_tex_ (#207: the lod vertex shader reads its normal here instead of 6 more heights)
+    bool lod_normtex_ = false, fine_norm_ok_ = false;
     int fine_job_ox_ = 0, fine_job_oz_ = 0;
     bool fine_job_active_ = false;
     int fine_lim_cells_ = 537;

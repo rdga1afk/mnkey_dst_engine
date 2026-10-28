@@ -336,7 +336,7 @@ constexpr int   kFineW        = 1536;       // fine height window side, cells (M
 constexpr float kCellM        = 1.8f;       // fullmap.tif spacing
 constexpr float kHeightScaleM = 980.0f;     // metres at raw 65535 (terrain_gen_atlas_io.cpp TERRAIN_HEIGHT_SCALE_M)
 constexpr int   kTifSide      = 16385;
-struct LodUBO { float vp[16]; float height_range[4]; float cam_pos_pad[4]; float fine_win[4]; };
+struct LodUBO { float vp[16]; float height_range[4]; float cam_pos_pad[4]; float fine_win[4]; float flags[4]; };   // flags.x = 1: fine-window nodes read their normal from the normal texture
 } // namespace
 
 bool TerrainQuadtreeRenderer::InitLod(md::GpuDeviceHandle dev, const TerrainWorldHeightmap& hmap) {
@@ -383,6 +383,14 @@ bool TerrainQuadtreeRenderer::InitLod(md::GpuDeviceHandle dev, const TerrainWorl
     ti.width = kFineW; ti.height = kFineW; ti.layer_count_or_depth = 1; ti.num_levels = 1;
     fine_tex_ = GpuCreateTexture(dev, &ti);
     if (!fine_tex_) { MD_LOG(MD_LOG_WARNING, "[TerrainQuadtreeRenderer] fine height window create failed: %s", SDL_GetError()); return false; }
+    { const char* e = getenv("MD_LOD_NORMTEX"); lod_normtex_ = e && e[0] == '1'; }   // #207: off until it is verified (0 px on the 17 views) and measured
+    {   // the normal texture is bound in every case (the shader's binding 3), a 1x1 one when the switch is off
+        SDL_GPUTextureCreateInfo ni = ti; ni.format = SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT;
+        if (!lod_normtex_) { ni.width = 1; ni.height = 1; }
+        fine_norm_tex_ = GpuCreateTexture(dev, &ni);
+        if (!fine_norm_tex_) { MD_LOG(MD_LOG_WARNING, "[TerrainQuadtreeRenderer] fine normal window create failed: %s", SDL_GetError()); lod_normtex_ = false; return false; }
+        if (lod_normtex_) MD_LOG(MD_LOG_INFO, "[TerrainQuadtreeRenderer] LOD normal texture on: %dx%d RGBA32F = %d MB", kFineW, kFineW, (int)((size_t)kFineW * kFineW * 16 >> 20));
+    }
     SDL_GPUSamplerCreateInfo si{};
     si.min_filter = SDL_GPU_FILTER_NEAREST; si.mag_filter = SDL_GPU_FILTER_NEAREST; si.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST;
     si.address_mode_u = si.address_mode_v = si.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
@@ -394,7 +402,7 @@ bool TerrainQuadtreeRenderer::InitLod(md::GpuDeviceHandle dev, const TerrainWorl
     pd.raster.depth_test = true; pd.raster.depth_write = true; pd.raster.cull_back = false;
     pd.has_depth_target = true;
     pd.vert_uniform_bufs = 1;
-    pd.vert_samplers = 3; // heightTex, fineTex, nodeDataTex
+    pd.vert_samplers = 4; // heightTex, fineTex, nodeDataTex, fineNormTex
     pd.vert_path = "shaders/terrain_quadtree_batched_lod.vert";
     pd.frag_path = "shaders/terrain_gbuffer_mini.frag";
     pd.frag_uniform_bufs = 0; pd.frag_samplers = 0; pd.frag_storage_bufs = 0;
@@ -413,7 +421,8 @@ void TerrainQuadtreeRenderer::UploadLodNodes(md::GpuDeviceHandle dev, SDL_GPUCop
     // stays in use until the new one is uploaded.
     {
         if (fine_job_active_ && fine_job_.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
-            std::vector<uint16_t> norm = fine_job_.get();
+            FineJobResult fr = fine_job_.get();
+            const std::vector<uint16_t>& norm = fr.h;
             fine_job_active_ = false;
             if (norm.size() == (size_t)kFineW * kFineW) {
                 const Uint32 bytes = (Uint32)(norm.size() * sizeof(uint16_t));
@@ -425,6 +434,20 @@ void TerrainQuadtreeRenderer::UploadLodNodes(md::GpuDeviceHandle dev, SDL_GPUCop
                     SDL_GPUTextureRegion dst{}; dst.texture = fine_tex_; dst.w = kFineW; dst.h = kFineW; dst.d = 1;
                     GpuCopyPass::FromRaw(cp, nullptr).UploadTexture(src, dst, false);
                     GpuReleaseTransferBuffer(dev, tb);
+                    fine_norm_ok_ = false;
+                    if (lod_normtex_ && fr.n.size() == (size_t)kFineW * kFineW * 4) {   // the normals go up in the same copy pass as the heights: the window origin below switches both at once
+                        const Uint32 nbytes = (Uint32)(fr.n.size() * sizeof(float));
+                        SDL_GPUTransferBufferCreateInfo nbi{}; nbi.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD; nbi.size = nbytes;
+                        if (SDL_GPUTransferBuffer* ntb = GpuCreateTransferBuffer(dev, &nbi)) {
+                            if (void* nmap = GpuMapTransfer(ntb, false)) std::memcpy(nmap, fr.n.data(), nbytes);
+                            GpuUnmapTransfer(ntb);
+                            SDL_GPUTextureTransferInfo nsrc{}; nsrc.transfer_buffer = ntb; nsrc.pixels_per_row = kFineW; nsrc.rows_per_layer = kFineW;
+                            SDL_GPUTextureRegion ndst{}; ndst.texture = fine_norm_tex_; ndst.w = kFineW; ndst.h = kFineW; ndst.d = 1;
+                            GpuCopyPass::FromRaw(cp, nullptr).UploadTexture(nsrc, ndst, false);
+                            GpuReleaseTransferBuffer(dev, ntb);
+                            fine_norm_ok_ = true;
+                        }
+                    }
                     fine_ox_ = fine_job_ox_; fine_oz_ = fine_job_oz_;
                 }
             } else {
@@ -437,8 +460,8 @@ void TerrainQuadtreeRenderer::UploadLodNodes(md::GpuDeviceHandle dev, SDL_GPUCop
             const int ox = std::min(std::max(cx - kFineW / 2, 0), kTifSide - kFineW);
             const int oz = std::min(std::max(cz - kFineW / 2, 0), kTifSide - kFineW);
             fine_job_ox_ = ox; fine_job_oz_ = oz; fine_job_active_ = true;
-            fine_job_ = std::async(std::launch::async, [path = tif_path_, ox, oz, hmin = height_min_, hrange = height_range_]() {
-                std::vector<uint16_t> norm;
+            fine_job_ = std::async(std::launch::async, [path = tif_path_, ox, oz, hmin = height_min_, hrange = height_range_, hmax = height_min_ + height_range_, with_n = lod_normtex_]() {
+                FineJobResult res; std::vector<uint16_t>& norm = res.h;
                 const auto t0 = std::chrono::steady_clock::now();
                 md::tiff::Image img; std::string err; std::vector<uint16_t> win;
                 if (img.Open(path.c_str(), err) && img.Window((uint32_t)ox, (uint32_t)oz, kFineW, kFineW, 1, win, err)) {
@@ -452,7 +475,28 @@ void TerrainQuadtreeRenderer::UploadLodNodes(md::GpuDeviceHandle dev, SDL_GPUCop
                     MD_LOG(MD_LOG_WARNING, "[TerrainQuadtreeRenderer] fine window read failed: %s", err.c_str());
                 }
                 MD_LOG(MD_LOG_INFO, "[TerrainQuadtreeRenderer] fine window (%d, %d) read in %lld ms", ox, oz, (long long)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count());
-                return norm;
+                if (with_n && norm.size() == (size_t)kFineW * kFineW) {   // #207: the lod vertex shader's NormalAt for every cell, same taps / formula (ring order, clamp to the window, -normalize of the summed crosses)
+                    const auto t1 = std::chrono::steady_clock::now();
+                    res.n.resize((size_t)kFineW * kFineW * 4);
+                    const float rng = hmax - hmin;
+                    auto H = [&](int x, int z) { x = std::min(std::max(x, 0), kFineW - 1); z = std::min(std::max(z, 0), kFineW - 1); return hmin + ((float)norm[(size_t)z * kFineW + x] / 65535.f) * rng; };
+                    static const int ring[6][2] = { { 0, -1 }, { 1, -1 }, { 1, 0 }, { 0, 1 }, { -1, 1 }, { -1, 0 } };
+                    for (int z = 0; z < kFineW; ++z)
+                        for (int x = 0; x < kFineW; ++x) {
+                            const float h0 = H(x, z); float r[6][3];
+                            for (int k = 0; k < 6; ++k) { r[k][0] = (float)ring[k][0] * kCellM; r[k][1] = H(x + ring[k][0], z + ring[k][1]) - h0; r[k][2] = (float)ring[k][1] * kCellM; }
+                            float sx = 0.f, sy = 0.f, sz = 0.f;
+                            for (int k = 0; k < 6; ++k) {
+                                const float* a = r[k]; const float* b = r[(k + 1) % 6];
+                                sx += a[1] * b[2] - a[2] * b[1]; sy += a[2] * b[0] - a[0] * b[2]; sz += a[0] * b[1] - a[1] * b[0];
+                            }
+                            const float inv = -1.f / std::sqrt(sx * sx + sy * sy + sz * sz);
+                            float* o = &res.n[((size_t)z * kFineW + x) * 4];
+                            o[0] = sx * inv; o[1] = sy * inv; o[2] = sz * inv; o[3] = 0.f;
+                        }
+                    MD_LOG(MD_LOG_INFO, "[TerrainQuadtreeRenderer] fine window normals built in %lld ms (%d MB)", (long long)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t1).count(), (int)((size_t)kFineW * kFineW * 16 >> 20));
+                }
+                return res;
             });
         }
     }
@@ -500,13 +544,16 @@ void TerrainQuadtreeRenderer::BeginBatchedLod(SDL_GPURenderPass* rp, md::GpuComm
     ubo.height_range[2] = hmap.WorldExtent(); ubo.height_range[3] = (float)hmap.Resolution();
     ubo.cam_pos_pad[0] = cam_x; ubo.cam_pos_pad[1] = cam_y; ubo.cam_pos_pad[2] = cam_z; ubo.cam_pos_pad[3] = (float)lod_cells_;
     ubo.fine_win[0] = (float)fine_ox_; ubo.fine_win[1] = (float)fine_oz_; ubo.fine_win[2] = (float)kFineW; ubo.fine_win[3] = kCellM;
+    static const bool nouse = getenv("MD_LOD_NORMTEX_NOUSE") != nullptr;   // diagnostic: build and bind the texture, do not read it
+    ubo.flags[0] = (lod_normtex_ && fine_norm_ok_ && !nouse) ? 1.f : 0.f;
     pv.PushVertexUniforms(0, &ubo, sizeof(ubo));
-    SDL_GPUTextureSamplerBinding samp[3] = {
+    SDL_GPUTextureSamplerBinding samp[4] = {
         { hmap.Texture(), hmap.Sampler() },
         { fine_tex_, fine_sampler_ },
         { node_data_tex_, node_data_sampler_ },
+        { fine_norm_tex_, fine_sampler_ },
     };
-    pv.BindVertexSamplers(0, samp, 3);
+    pv.BindVertexSamplers(0, samp, 4);
 }
 
 void TerrainQuadtreeRenderer::DrawBatchedLod(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, int count) {
