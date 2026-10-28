@@ -8,6 +8,7 @@
 #include <vector>
 #include <monkey_dust/render/gpu_hal_types.h>
 #include <monkey_dust/render/gpu_pipeline.h>
+#include <monkey_dust/render/gpu_compute.h>
 #include <monkey_dust/render/gpu_static_buffer.h>
 #include <monkey_dust/render/terrain_world_heightmap.h>
 #include <monkey_dust/render/terrain_renderer.h>
@@ -220,6 +221,8 @@ public:
     }
     // Inside the caller's open copy pass: recentres the fine window if needed and uploads the node data (2 texels per node, see the .vert).
     void UploadLodNodes(md::GpuDeviceHandle dev, SDL_GPUCopyPass* cp, const md::TerrainLodNode* nodes, int count, float cam_x, float cam_z);
+    // #207 (MD_LOD_NORMTEX=1): after UploadLodNodes and before the G-buffer pass, on the same command buffer: the compute passes that fill the normal windows (fine window, world strides) that moved this frame.
+    void BakeLodNormals(SDL_GPUCommandBuffer* cmd, const TerrainWorldHeightmap& hmap);
     void BeginBatchedLod(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, const TerrainWorldHeightmap& hmap, const float* vp16,
                          float cam_x, float cam_y, float cam_z);
     void DrawBatchedLod(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, int count);
@@ -239,6 +242,14 @@ public:
 private:
     std::chrono::steady_clock::time_point lod_build_t0_{};
     bool lod_ready_logged_ = false;
+    // #207: vertex normals of the LOD vertex shader as textures (RGBA16F), built by compute from the same heights: fine window (stride 1, 1.8 m) and the world heightmap at strides 1..32 (one 1024^2 window per stride, centred on the camera)
+    static constexpr int kWLevels = 6, kWSide = 1024;
+    bool lod_normtex_ = false, lod_norm_ready_ = false, fine_norm_pending_ = false, fine_norm_ok_ = false;
+    GpuComputePipeline lod_norm_pipeline_;
+    md::GpuTextureHandle fine_norm_tex_ = nullptr, world_norm_tex_ = nullptr;
+    int wnorm_o_[kWLevels][2] = {};   // window origin in stride cells, -1 = none
+    bool wnorm_pending_[kWLevels] = {};
+    float world_cell_m_ = 3.6f; int world_max_cell_ = 8192;
     bool ready_ = false;
     bool batched_ready_ = false;
     bool wireframe_ready_ = false;
@@ -263,10 +274,7 @@ private:
     SDL_GPUSampler* fine_sampler_ = nullptr;
     int fine_ox_ = -1000000, fine_oz_ = -1000000; // window origin in heightmap cells (1.8 m)
     // the fine window's file read + normalisation runs on a worker (it cost ~38 ms on the render thread at every recentre, ~every 970 m of flight)
-    struct FineJobResult { std::vector<uint16_t> h; std::vector<float> n; };   // heights (R16) and, with MD_LOD_NORMTEX, the plugin's 6-tap normals of every cell (xyz, w = 0)
-    std::future<FineJobResult> fine_job_;
-    md::GpuTextureHandle fine_norm_tex_ = nullptr;   // RGBA32F, same window as fine_tex_ (#207: the lod vertex shader reads its normal here instead of 6 more heights)
-    bool lod_normtex_ = false, fine_norm_ok_ = false;
+    std::future<std::vector<uint16_t>> fine_job_;
     int fine_job_ox_ = 0, fine_job_oz_ = 0;
     bool fine_job_active_ = false;
     int fine_lim_cells_ = 537;
