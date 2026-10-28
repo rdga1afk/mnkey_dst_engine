@@ -136,6 +136,13 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
         kd.frag_uniform_bufs = 3; kd.frag_path = "shaders/terrain_shading_screenspace_kenshi_klight.frag";
         resolve_klight_f_ready_ = resolve_klight_f_pipeline_.Create(kd);
         if (!resolve_klight_f_ready_ || !resolve_reuse_klight_f_ready_) MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] float-target klight variants failed (L4 unavailable)");
+        if (getenv("MD_UBIOME_PROBE")) {   // measurement only (#207 H1): create the per-draw-biome variants so the compiler dump (INTEL_DEBUG=fs) shows them; they are never drawn
+            kd.frag_uniform_bufs = 4; kd.frag_path = "shaders/terrain_shading_screenspace_kenshi_ubiome_klight.frag";
+            const bool a = ubiome_probe_p_[0].Create(kd);
+            kd.frag_path = "shaders/terrain_shading_screenspace_kenshi_ubiome_mat.frag"; kd.color_format2 = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+            const bool b = ubiome_probe_p_[1].Create(kd);
+            MD_LOG(MD_LOG_INFO, "[TerrainShadingProjected] uniform-biome probe pipelines: material+klight %d, material %d", (int)a, (int)b);
+        }
         if (const char* e = getenv("MD_STENCIL_SPLIT"); !(e && e[0] == '0')) {   // #207: the ground resolve as two stencil-separated passes (default on, MD_STENCIL_SPLIT=0 turns it off): the lean reuse-only pass marks the accepted pixels, the heavy pass runs on the others
             SDL_GPUDevice* sdev = md::GpuDevice::Get().SDLDevice();
             if (sdev && SDL_GPUTextureSupportsFormat(sdev, SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT, SDL_GPU_TEXTURETYPE_2D, SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET)) {
@@ -228,6 +235,7 @@ void TerrainShadingProjected::Shutdown() {
     for (auto& sp : resolve_split_p_) for (GpuPipeline& q : sp) q.Destroy(); split_ready_ = false;
     for (GpuPipeline& q : resolve_pvt_p_) q.Destroy();
     for (GpuPipeline& q : resolve_pvt_a_p_) q.Destroy();
+    for (GpuPipeline& q : ubiome_probe_p_) q.Destroy();
     pvt_tile_p_.Destroy(); pvt_.Shutdown(md::GpuDevice::Get().SDLDevice()); pvt_ready_ = pvt_active_ = false;
     resolve_klight_ready_ = resolve_reuse_klight_ready_ = false;
     gd_alt_.Shutdown();
