@@ -123,7 +123,7 @@ int TerrainPvt::Plan(const float cam[3], const float inv_vp[16], float pix_angle
                 const float px = x - cam[0], py = h - cam[1], pz = z - cam[2];
                 const float dist = std::sqrt(px * px + py * py + pz * pz);
                 const float zc = px * fwd[0] + py * fwd[1] + pz * fwd[2];
-                int mip = (int)std::floor(std::log2(std::max(dist * pix_angle / kFinest, 1e-6f)) + 0.5f);
+                int mip = (int)std::floor(std::log2(std::max(dist * pix_angle / Finest(), 1e-6f)) + 0.5f);
                 if (mip >= kMips) break;
                 if (mip >= 0) mip_prev = mip;
                 if (mip >= 0 && zc > 0.f && std::fabs(px * rgt[0] + py * rgt[1] + pz * rgt[2]) <= zc * tanX && std::fabs(px * up[0] + py * up[1] + pz * up[2]) <= zc * tanY) {

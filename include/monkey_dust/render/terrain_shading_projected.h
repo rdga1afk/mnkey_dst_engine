@@ -180,7 +180,7 @@ private:
     GpuPipeline resolve_split_p_[2][3];   // #207 [RGBA8 / RGBA16F target][A lean reuse-only, B full shader with stencil test, one-biome pass (stencil test + write)]
     bool split_ready_ = false, split_active_ = false;
     TerrainPvt pvt_;
-    GpuPipeline pvt_tile_p_, resolve_pvt_p_[2];   // the tile bake (two colour targets), the resolve pass [RGBA8 / RGBA16F target]
+    GpuPipeline pvt_tile_p_, resolve_pvt_p_[2], resolve_pvt_a_p_[2];   // the tile bake (two colour targets), the resolve pass [RGBA8 / RGBA16F target]
     bool pvt_ready_ = false, pvt_active_ = false;
     TerrainPvt::HeightFn pvt_hf_ = nullptr;
     PvtFine pvt_fine_;

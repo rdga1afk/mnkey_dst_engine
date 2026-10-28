@@ -162,6 +162,9 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
                         pd.depth_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT;
                         pd.frag_uniform_bufs = 3; pd.frag_path = "shaders/terrain_shading_screenspace_kenshi_pvt_klight.frag"; pd.stencil_mode = 3;
                         ok &= resolve_pvt_p_[f].Create(pd);
+                        pd.frag_uniform_bufs = 4; pd.frag_path = "shaders/terrain_shading_screenspace_kenshi_pvt_a_klight.frag";   // PVT lookup inside pass A: no extra full-screen pass
+                        pd.stencil_mode = 1;
+                        ok &= resolve_pvt_a_p_[f].Create(pd);
                     }
                     GpuPipeline::Desc td = kd;
                     td.frag_path = "shaders/terrain_shading_screenspace_kenshi_pvt_tile.frag"; td.frag_uniform_bufs = 4;
@@ -224,6 +227,7 @@ void TerrainShadingProjected::Shutdown() {
     resolve_klight_f_pipeline_.Destroy(); resolve_reuse_klight_f_pipeline_.Destroy();
     for (auto& sp : resolve_split_p_) for (GpuPipeline& q : sp) q.Destroy(); split_ready_ = false;
     for (GpuPipeline& q : resolve_pvt_p_) q.Destroy();
+    for (GpuPipeline& q : resolve_pvt_a_p_) q.Destroy();
     pvt_tile_p_.Destroy(); pvt_.Shutdown(md::GpuDevice::Get().SDLDevice()); pvt_ready_ = pvt_active_ = false;
     resolve_klight_ready_ = resolve_reuse_klight_ready_ = false;
     gd_alt_.Shutdown();
@@ -325,8 +329,8 @@ void TerrainShadingProjected::DrawFullscreen(SDL_GPURenderPass* rp, md::GpuComma
     for (int i = 0; i < 7; ++i) {
         if (!ground_bindings[i].texture || !ground_bindings[i].sampler) return;
     }
-    const bool reuse_draw = (&pipeline == &resolve_kenshi_reuse_pipeline_ || &pipeline == &resolve_kenshi_reuse_klight_pipeline_ || &pipeline == &resolve_reuse_klight_f_pipeline_ || &pipeline == &resolve_split_p_[0][0] || &pipeline == &resolve_split_p_[1][0]) && reuse_;
-    const bool klight_draw = (&pipeline == &resolve_kenshi_klight_pipeline_ || &pipeline == &resolve_kenshi_reuse_klight_pipeline_ || &pipeline == &resolve_klight_f_pipeline_ || &pipeline == &resolve_reuse_klight_f_pipeline_ || (&pipeline >= &resolve_split_p_[0][0] && &pipeline <= &resolve_split_p_[1][2]) || &pipeline == &pvt_tile_p_ || &pipeline == &resolve_pvt_p_[0] || &pipeline == &resolve_pvt_p_[1]) && klight_;
+    const bool reuse_draw = (&pipeline == &resolve_kenshi_reuse_pipeline_ || &pipeline == &resolve_kenshi_reuse_klight_pipeline_ || &pipeline == &resolve_reuse_klight_f_pipeline_ || &pipeline == &resolve_split_p_[0][0] || &pipeline == &resolve_split_p_[1][0] || &pipeline == &resolve_pvt_a_p_[0] || &pipeline == &resolve_pvt_a_p_[1]) && reuse_;
+    const bool klight_draw = (&pipeline == &resolve_kenshi_klight_pipeline_ || &pipeline == &resolve_kenshi_reuse_klight_pipeline_ || &pipeline == &resolve_klight_f_pipeline_ || &pipeline == &resolve_reuse_klight_f_pipeline_ || (&pipeline >= &resolve_split_p_[0][0] && &pipeline <= &resolve_split_p_[1][2]) || &pipeline == &pvt_tile_p_ || &pipeline == &resolve_pvt_p_[0] || &pipeline == &resolve_pvt_p_[1] || &pipeline == &resolve_pvt_a_p_[0] || &pipeline == &resolve_pvt_a_p_[1]) && klight_;
     if (klight_draw) {   // slots 5 / 6: the Kenshi cube maps
         ground_bindings[5] = { ground.KenshiIrradianceCube(), ground.KenshiIrradianceSampler() };
         ground_bindings[6] = { ground.KenshiSpecularityCube(), ground.KenshiSpecularitySampler() };
@@ -458,10 +462,13 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
     if (split_active_) {   // #207: the pass has a depth-stencil attachment, only pipelines of that format may draw in it
         if (!(split_ready_ && use_klight)) { static bool once = false; if (!once) { once = true; MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] stencil split pass without klight / float target: ground not drawn"); } return; }
         SDL_SetGPUStencilReference(rp, 1);
+        static const bool pvt_sep = getenv("MD_PVT_SEPARATE") != nullptr;   // measurement: the old separate PVT pass
+        const bool pvt_in_a = use_reuse && pvt_active_ && !pvt_sep;   // #207 PVT: with reuse the cache lookup is part of pass A (accepted pixel, else resident tile, else discard to pass B)
         if (use_reuse) {   // pass A (lean): marks the accepted pixels; then the one-biome pass and the full pass run on the others only (stencil test)
-            DrawFullscreen(rp, cmd, resolve_split_p_[float_target_ ? 1 : 0][0], c);
+            if (pvt_in_a) { ResolveCtx pc = c; pc.pvt = 2; DrawFullscreen(rp, cmd, resolve_pvt_a_p_[float_target_ ? 1 : 0], pc); }
+            else DrawFullscreen(rp, cmd, resolve_split_p_[float_target_ ? 1 : 0][0], c);
         }
-        if (pvt_active_) { ResolveCtx pc = c; pc.pvt = 2; DrawFullscreen(rp, cmd, resolve_pvt_p_[float_target_ ? 1 : 0], pc); }   // #207 PVT: the pixels whose tile is resident (the others are left to the full pass)
+        if (pvt_active_ && !pvt_in_a) { ResolveCtx pc = c; pc.pvt = 2; DrawFullscreen(rp, cmd, resolve_pvt_p_[float_target_ ? 1 : 0], pc); }   // #207 PVT: the pixels whose tile is resident (the others are left to the full pass)
         static const bool one_biome_pass = getenv("MD_ONEBIOME_PASS") && getenv("MD_ONEBIOME_PASS")[0] == '1';   // WIP: off until it is verified (0 px on the 17 views) and measured; MD_ONEBIOME_PASS=1 turns it on
         if (one_biome_pass) DrawFullscreen(rp, cmd, resolve_split_p_[float_target_ ? 1 : 0][2], c);
         DrawFullscreen(rp, cmd, resolve_split_p_[float_target_ ? 1 : 0][1], c);
