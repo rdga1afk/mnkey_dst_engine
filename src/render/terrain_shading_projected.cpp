@@ -481,9 +481,10 @@ void TerrainShadingProjected::PvtFrame(md::GpuCommandBufferHandle cmd, const Ter
     const float fmin[2] = { fine.ox * fine.spacing + margin, fine.oz * fine.spacing + margin };
     const float fmax[2] = { (fine.ox + fine.side - 1) * fine.spacing - margin, (fine.oz + fine.side - 1) * fine.spacing - margin };
     static const int budget = [] { const char* e = getenv("MD_PVT_BAKE"); return e ? std::max(0, std::min(64, atoi(e))) : 8; }();
+    static const uint32_t freeze = [] { const char* e = getenv("MD_PVT_FREEZE"); return e ? (uint32_t)std::max(0, atoi(e)) : 0u; }();   // measurement only: no baking from this frame on (bake cost = A/B against the same warm atlas)
     TerrainPvt::Bake bk[64];
     const float ps_abs = std::fabs(pix_scale_), ps = ps_abs - 100.f * std::floor((ps_abs + 50.f) / 100.f);   // the flags ride on pix_scale as +100 k (the shader decodes them the same way)
-    const int nb = pvt_.Plan(cam, s7_.inv_vp, ps / (float)h_, pvt_hf_, fmin, fmax, frame, bk, budget);
+    const int nb = pvt_.Plan(cam, s7_.inv_vp, ps / (float)h_, pvt_hf_, fmin, fmax, frame, bk, (freeze && frame >= freeze) ? 0 : budget);
     pvt_.UploadTable(md::GpuDevice::Get().SDLDevice(), cmd);
 
     ResolveCtx c;
