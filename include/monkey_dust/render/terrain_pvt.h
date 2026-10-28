@@ -36,6 +36,7 @@ public:
     SDL_GPUSampler* Nearest() const { return nearest_; }
     int  Layers() const { return layers_; }
     int  Resident() const { return resident_; }
+    static bool GradMip() { static const bool g = [] { const char* e = getenv("MD_PVT_GRADMIP"); return e && e[0] == '1'; }(); return g; }   // measurement switch: tile level from the XZ screen gradients (Dagor formula); the shader needs -DTS_PVT_GRADMIP
     static float TexelOf(int mip) { return Finest() * (float)(1 << mip); }
 
 private:

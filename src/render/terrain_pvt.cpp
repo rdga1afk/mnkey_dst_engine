@@ -125,6 +125,28 @@ int TerrainPvt::Plan(const float cam[3], const float inv_vp[16], float pix_angle
                 const float zc = px * fwd[0] + py * fwd[1] + pz * fwd[2];
                 int mip = (int)std::floor(std::log2(std::max(dist * pix_angle / Finest(), 1e-6f)) + 0.5f);
                 if (mip >= kMips) break;
+                if (mip >= 0 && GradMip()) {   // the same formula as the shader: footprint of a pixel on the surface projected on XZ (Dagor tex_mip_level_sample, anisotropy limit 4)
+                    const float e = 0.5f;
+                    float hx0 = h, hx1 = h, hz0 = h, hz1 = h;
+                    hf(x - e, z, hx0); hf(x + e, z, hx1); hf(x, z - e, hz0); hf(x, z + e, hz1);
+                    float n[3] = { hx0 - hx1, 2.f * e, hz0 - hz1 };
+                    const float nl = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+                    for (float& v : n) v /= nl;
+                    const float vl = std::max(dist, 1e-3f);
+                    const float v[3] = { px / vl, py / vl, pz / vl };
+                    const float nv = std::max(std::fabs(n[0] * v[0] + n[1] * v[1] + n[2] * v[2]), 0.05f);
+                    float m[3] = { v[0] - (v[0] * n[0] + v[1] * n[1] + v[2] * n[2]) * n[0], v[1] - (v[0] * n[0] + v[1] * n[1] + v[2] * n[2]) * n[1], v[2] - (v[0] * n[0] + v[1] * n[1] + v[2] * n[2]) * n[2] };
+                    const float ml = std::sqrt(m[0] * m[0] + m[1] * m[1] + m[2] * m[2]);
+                    if (ml > 1e-4f) {
+                        for (float& c : m) c /= ml;
+                        const float q[3] = { n[1] * m[2] - n[2] * m[1], n[2] * m[0] - n[0] * m[2], n[0] * m[1] - n[1] * m[0] };
+                        const float s = dist * pix_angle / Finest(), L1 = s / nv, L2 = s;   // in finest texels
+                        const float dx = L1 * L1 * m[0] * m[0] + L2 * L2 * q[0] * q[0], dz = L1 * L1 * m[2] * m[2] + L2 * L2 * q[2] * q[2];
+                        const float lo = std::log2(std::max(std::min(dx, dz), 1.f)), hi = std::log2(std::max(std::max(dx, dz), 1.f));
+                        const int mg = (int)std::floor(0.499f * std::max(lo, hi - std::min(hi - lo, 4.f)) + 0.5f);
+                        mip = std::min(std::max(mg, 0), kMips - 1);
+                    }
+                }
                 if (mip >= 0) mip_prev = mip;
                 if (mip >= 0 && zc > 0.f && std::fabs(px * rgt[0] + py * rgt[1] + pz * rgt[2]) <= zc * tanX && std::fabs(px * up[0] + py * up[1] + pz * up[2]) <= zc * tanY) {
                     const float S = (float)kInner * TexelOf(mip);
