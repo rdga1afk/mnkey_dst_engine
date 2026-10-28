@@ -153,7 +153,8 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
                     sd.depth_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT;
                     sd.frag_uniform_bufs = 4; sd.frag_path = "shaders/terrain_shading_screenspace_kenshi_reuse_only_klight.frag"; sd.stencil_mode = 1;
                     all_ok &= resolve_split_p_[f][0].Create(sd);
-                    sd.frag_uniform_bufs = 3; sd.frag_path = "shaders/terrain_shading_screenspace_kenshi_klight.frag"; sd.stencil_mode = 2;
+                    static const int ub_bid = getenv("MD_UBIOME_BID") ? atoi(getenv("MD_UBIOME_BID")) : -1;   // measurement (#207 H1 step 3): the heavy passes get a 4th uniform block with this biome's 9 parameter vec4s (needs the TS_UNIFORM_BIOME SPIR-V through MD_SPV_OVERRIDE)
+                    sd.frag_uniform_bufs = ub_bid >= 0 ? 4 : 3; sd.frag_path = "shaders/terrain_shading_screenspace_kenshi_klight.frag"; sd.stencil_mode = 2;
                     all_ok &= resolve_split_p_[f][1].Create(sd);
                     sd.frag_path = "shaders/terrain_shading_screenspace_kenshi_onebiome_klight.frag"; sd.stencil_mode = 3;   // the pixels with exactly one biome evaluation (the others are discarded here and shaded by the pass above)
                     all_ok &= resolve_split_p_[f][2].Create(sd);
@@ -418,6 +419,12 @@ void TerrainShadingProjected::DrawFullscreen(SDL_GPURenderPass* rp, md::GpuComma
 
     // binding 15: the history colour of the reuse variants; gbuf_color_ is the same format and stands in for the other variants
     SDL_GPUTextureSamplerBinding slot15[1] = { SDL_GPUTextureSamplerBinding{ gbuf_color_.SDLTexture(), gbuf_color_.SDLSampler() } };
+    {   // measurement (#207 H1 step 3): the one-biome parameters of the whole draw as a uniform block
+        static const int ub_bid = getenv("MD_UBIOME_BID") ? atoi(getenv("MD_UBIOME_BID")) : -1;
+        const std::vector<uint32_t>& bl = ground.BiomeLayersData();
+        if (ub_bid >= 0 && (&pipeline == &resolve_split_p_[0][1] || &pipeline == &resolve_split_p_[1][1] || &pipeline == &resolve_split_p_[0][2] || &pipeline == &resolve_split_p_[1][2]) && bl.size() >= (size_t)(ub_bid + 1) * 36)
+            pv.PushFragmentUniforms(3, bl.data() + (size_t)ub_bid * 36, 36 * sizeof(uint32_t));
+    }
     if (reuse_draw) { slot15[0] = { reuse_->hist_colour, reuse_->hist_sampler }; pv.PushFragmentUniforms(3, reuse_->p_old, 224); }   // p_old, p_new, t (3 x 64 B) + params (16 B), in the order of ReuseParams
     pv.BindFragmentSamplers(15, slot15, 1);
 
