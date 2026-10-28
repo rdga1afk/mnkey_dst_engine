@@ -437,33 +437,34 @@ bool GpuPipeline::Create(const Desc& desc) {
     vertex_input.num_vertex_attributes      = total_attribs;
 
     // Color target (uses swapchain format); skipped for depth_only passes.
-    SDL_GPUColorTargetDescription color_target = {};
+    SDL_GPUColorTargetDescription color_target[2] = {};
     if (!desc.depth_only) {
         SDL_GPUTextureFormat fmt = desc.color_format;
         if (fmt == SDL_GPU_TEXTUREFORMAT_INVALID) {
             SDL_Window* win = md::GpuDevice::Get().Window();
             fmt = SDL_GetGPUSwapchainTextureFormat(dev, win);
         }
-        color_target.format = fmt;
+        color_target[0].format = fmt;
+        color_target[1].format = desc.color_format2;
         if (desc.raster.blend_enable) {
-            color_target.blend_state.enable_blend          = true;
-            color_target.blend_state.src_color_blendfactor = ToSDLBlend(desc.raster.src_factor);
-            color_target.blend_state.dst_color_blendfactor = ToSDLBlend(desc.raster.dst_factor);
-            color_target.blend_state.color_blend_op        = SDL_GPU_BLENDOP_ADD;
-            color_target.blend_state.src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
-            color_target.blend_state.dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ZERO;
-            color_target.blend_state.alpha_blend_op        = SDL_GPU_BLENDOP_ADD;
-            color_target.blend_state.color_write_mask      = 0xF;
+            color_target[0].blend_state.enable_blend          = true;
+            color_target[0].blend_state.src_color_blendfactor = ToSDLBlend(desc.raster.src_factor);
+            color_target[0].blend_state.dst_color_blendfactor = ToSDLBlend(desc.raster.dst_factor);
+            color_target[0].blend_state.color_blend_op        = SDL_GPU_BLENDOP_ADD;
+            color_target[0].blend_state.src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
+            color_target[0].blend_state.dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ZERO;
+            color_target[0].blend_state.alpha_blend_op        = SDL_GPU_BLENDOP_ADD;
+            color_target[0].blend_state.color_write_mask      = 0xF;
         }
         if (!desc.raster.color_write) {
-            color_target.blend_state.enable_color_write_mask = true;
-            color_target.blend_state.color_write_mask        = 0;
+            color_target[0].blend_state.enable_color_write_mask = true;
+            color_target[0].blend_state.color_write_mask        = 0;
         }
     }
 
     SDL_GPUGraphicsPipelineTargetInfo target_info = {};
-    target_info.color_target_descriptions = desc.depth_only ? nullptr : &color_target;
-    target_info.num_color_targets         = desc.depth_only ? 0u : 1u;
+    target_info.color_target_descriptions = desc.depth_only ? nullptr : color_target;
+    target_info.num_color_targets         = desc.depth_only ? 0u : (desc.color_format2 != SDL_GPU_TEXTUREFORMAT_INVALID ? 2u : 1u);
     if (desc.has_depth_target || desc.depth_only) {
         // D32_FLOAT: must match GpuDepthTexture::Init which uses D32_FLOAT.
         // Intel Gen9 (HD 520) cannot sample D24_UNORM — pipeline must match texture.

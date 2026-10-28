@@ -209,6 +209,9 @@ public:
     SDL_GPUTexture* LodFineTex() const { return fine_tex_; }
     SDL_GPUSampler* LodFineSampler() const { return fine_sampler_; }
     int   LodFineOx() const { return fine_ox_; }
+    // #207 PVT: the fine normal window (xyz = normal, w = height in m) is baked for the current fine height window
+    SDL_GPUTexture* LodFineNormTex() const { return fine_norm_tex_; }
+    bool  LodFineNormOk() const { return lod_normtex_ && lod_norm_ready_ && fine_norm_ok_ && !fine_norm_pending_ && !fine_job_active_; }
     // #207: true when no window job is running or pending and the camera is inside the middle of the fine window (no recentre will start): the ground then is in its settled state
     bool  LodWindowsIdle(float cam_x, float cam_z) const;
     int   LodFineOz() const { return fine_oz_; }

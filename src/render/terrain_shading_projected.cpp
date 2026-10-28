@@ -153,6 +153,24 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
                 }
                 split_ready_ = all_ok;
                 MD_LOG(MD_LOG_INFO, "[TerrainShadingProjected] stencil split pipelines ok=%d", (int)all_ok);
+                if (all_ok) if (const char* pe = getenv("MD_TERRAIN_PVT"); pe && pe[0] == '1') {   // #207 PVT stage 1
+                    const char* me = getenv("MD_PVT_MB");
+                    bool ok = pvt_.Init(sdev, me ? atoi(me) : 64);
+                    for (int f = 0; f < 2; ++f) {
+                        GpuPipeline::Desc pd = kd;
+                        pd.color_format = f ? SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT : rd.color_format;
+                        pd.depth_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT;
+                        pd.frag_uniform_bufs = 3; pd.frag_path = "shaders/terrain_shading_screenspace_kenshi_pvt_klight.frag"; pd.stencil_mode = 3;
+                        ok &= resolve_pvt_p_[f].Create(pd);
+                    }
+                    GpuPipeline::Desc td = kd;
+                    td.frag_path = "shaders/terrain_shading_screenspace_kenshi_pvt_tile.frag"; td.frag_uniform_bufs = 4;
+                    td.color_format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM_SRGB; td.color_format2 = SDL_GPU_TEXTUREFORMAT_R8G8_UNORM;
+                    td.has_depth_target = false; td.depth_format = SDL_GPU_TEXTUREFORMAT_INVALID; td.stencil_mode = 0;
+                    ok &= pvt_tile_p_.Create(td);
+                    pvt_ready_ = ok;
+                    MD_LOG(MD_LOG_INFO, "[TerrainShadingProjected] PVT pipelines ok=%d", (int)ok);
+                }
             } else MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] stencil split off: D32_FLOAT_S8_UINT is not a supported depth-stencil target");
         }
     }
@@ -205,6 +223,8 @@ void TerrainShadingProjected::Shutdown() {
     resolve_kenshi_klight_pipeline_.Destroy(); resolve_kenshi_reuse_klight_pipeline_.Destroy();
     resolve_klight_f_pipeline_.Destroy(); resolve_reuse_klight_f_pipeline_.Destroy();
     for (auto& sp : resolve_split_p_) for (GpuPipeline& q : sp) q.Destroy(); split_ready_ = false;
+    for (GpuPipeline& q : resolve_pvt_p_) q.Destroy();
+    pvt_tile_p_.Destroy(); pvt_.Shutdown(md::GpuDevice::Get().SDLDevice()); pvt_ready_ = pvt_active_ = false;
     resolve_klight_ready_ = resolve_reuse_klight_ready_ = false;
     gd_alt_.Shutdown();
     gbuf_depth_.Shutdown();
@@ -306,13 +326,17 @@ void TerrainShadingProjected::DrawFullscreen(SDL_GPURenderPass* rp, md::GpuComma
         if (!ground_bindings[i].texture || !ground_bindings[i].sampler) return;
     }
     const bool reuse_draw = (&pipeline == &resolve_kenshi_reuse_pipeline_ || &pipeline == &resolve_kenshi_reuse_klight_pipeline_ || &pipeline == &resolve_reuse_klight_f_pipeline_ || &pipeline == &resolve_split_p_[0][0] || &pipeline == &resolve_split_p_[1][0]) && reuse_;
-    const bool klight_draw = (&pipeline == &resolve_kenshi_klight_pipeline_ || &pipeline == &resolve_kenshi_reuse_klight_pipeline_ || &pipeline == &resolve_klight_f_pipeline_ || &pipeline == &resolve_reuse_klight_f_pipeline_ || (&pipeline >= &resolve_split_p_[0][0] && &pipeline <= &resolve_split_p_[1][2])) && klight_;
+    const bool klight_draw = (&pipeline == &resolve_kenshi_klight_pipeline_ || &pipeline == &resolve_kenshi_reuse_klight_pipeline_ || &pipeline == &resolve_klight_f_pipeline_ || &pipeline == &resolve_reuse_klight_f_pipeline_ || (&pipeline >= &resolve_split_p_[0][0] && &pipeline <= &resolve_split_p_[1][2]) || &pipeline == &pvt_tile_p_ || &pipeline == &resolve_pvt_p_[0] || &pipeline == &resolve_pvt_p_[1]) && klight_;
     if (klight_draw) {   // slots 5 / 6: the Kenshi cube maps
         ground_bindings[5] = { ground.KenshiIrradianceCube(), ground.KenshiIrradianceSampler() };
         ground_bindings[6] = { ground.KenshiSpecularityCube(), ground.KenshiSpecularitySampler() };
         pv.PushFragmentUniforms(2, klight_->sun_dir, sizeof(KLightParams));
     }
     if (reuse_draw) ground_bindings[2] = xs_tex_ ? SDL_GPUTextureSamplerBinding{ xs_tex_, xs_samp_ } : SDL_GPUTextureSamplerBinding{ gd_prev_->SDLTexture(), gd_prev_->SDLSampler() };   // slot 2 of the reuse variant: the previous G-buffer depth
+    if (c.pvt == 2) {   // the atlas stands in for the ground arrays (slots 1 / 4); the page table takes the biome-layers slot below
+        ground_bindings[1] = { pvt_.Albedo(), pvt_.Linear() };
+        ground_bindings[4] = { pvt_.Normal(), pvt_.Linear() };
+    }
     pv.BindFragmentSamplers(0, ground_bindings, 7);
     // No SSBO left in this set (БОРГ-TERRAIN-2, 2026-09-13: vtPageMeta
     // removed with the rest of TerrainVtPageCache) -- zoneGroundLayers is
@@ -326,6 +350,10 @@ void TerrainShadingProjected::DrawFullscreen(SDL_GPURenderPass* rp, md::GpuComma
                  : SDL_GPUTextureSamplerBinding{ gbuf_color_.SDLTexture(), gbuf_color_.SDLSampler() },
         { gd_cur_->SDLTexture(), gd_cur_->SDLSampler() },
     };
+    if (c.pvt == 1) {   // the tile bake reads the fine normal window (xyz normal, w height) where the resolve reads the depth
+        gbuf_bindings[1] = { pvt_fine_.norm_tex, pvt_.Linear() };
+        pv.PushFragmentUniforms(3, c.pvt_ubo, 32);
+    }
     pv.BindFragmentSamplers(7, gbuf_bindings, 2);
 
     // Zone ground-layer lookup -- binding=9 (КРОК 3, 2026-09-17: was 7,
@@ -365,6 +393,7 @@ void TerrainShadingProjected::DrawFullscreen(SDL_GPURenderPass* rp, md::GpuComma
     for (int i = 0; i < 3; ++i) {
         if (!kenshi_bindings[i].texture || !kenshi_bindings[i].sampler) return;
     }
+    if (c.pvt == 2) kenshi_bindings[2] = { pvt_.Table(), pvt_.Nearest() };   // the page table stands in for biomeLayersTex
     pv.BindFragmentSamplers(11, kenshi_bindings, 3);
 
     // Divergence #14: binding=14, Kenshi's ambientmap.png. Falls back to the (always loaded) biome-blend texture as a type-matching
@@ -432,10 +461,51 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
         if (use_reuse) {   // pass A (lean): marks the accepted pixels; then the one-biome pass and the full pass run on the others only (stencil test)
             DrawFullscreen(rp, cmd, resolve_split_p_[float_target_ ? 1 : 0][0], c);
         }
+        if (pvt_active_) { ResolveCtx pc = c; pc.pvt = 2; DrawFullscreen(rp, cmd, resolve_pvt_p_[float_target_ ? 1 : 0], pc); }   // #207 PVT: the pixels whose tile is resident (the others are left to the full pass)
         static const bool one_biome_pass = getenv("MD_ONEBIOME_PASS") && getenv("MD_ONEBIOME_PASS")[0] == '1';   // WIP: off until it is verified (0 px on the 17 views) and measured; MD_ONEBIOME_PASS=1 turns it on
         if (one_biome_pass) DrawFullscreen(rp, cmd, resolve_split_p_[float_target_ ? 1 : 0][2], c);
         DrawFullscreen(rp, cmd, resolve_split_p_[float_target_ ? 1 : 0][1], c);
         return;
     }
     DrawFullscreen(rp, cmd, *kp, c);
+}
+
+void TerrainShadingProjected::PvtFrame(md::GpuCommandBufferHandle cmd, const TerrainRenderer::SunParams& sun, float cam_x, float cam_y, float cam_z,
+                                       float world_origin_x, float world_origin_z, float world_to_uv, float fog_far, const float fog_color[3], float fog_near,
+                                       const TerrainRenderer& ground, const PvtFine& fine, uint32_t frame, bool float_target) {
+    pvt_active_ = false;
+    if (!pvt_ready_ || !ready_ || !klight_ || !fine.ok || !fine.norm_tex || !pvt_hf_ || !ground.KenshiLightCubesReady() || h_ <= 0 || pix_scale_ <= 0.f) return;
+    pvt_fine_ = fine;
+    const float cam[3] = { cam_x, cam_y, cam_z };
+    const float margin = 2.f * fine.spacing;
+    const float fmin[2] = { fine.ox * fine.spacing + margin, fine.oz * fine.spacing + margin };
+    const float fmax[2] = { (fine.ox + fine.side - 1) * fine.spacing - margin, (fine.oz + fine.side - 1) * fine.spacing - margin };
+    static const int budget = [] { const char* e = getenv("MD_PVT_BAKE"); return e ? std::max(0, std::min(64, atoi(e))) : 8; }();
+    TerrainPvt::Bake bk[64];
+    const float ps_abs = std::fabs(pix_scale_), ps = ps_abs - 100.f * std::floor((ps_abs + 50.f) / 100.f);   // the flags ride on pix_scale as +100 k (the shader decodes them the same way)
+    const int nb = pvt_.Plan(cam, s7_.inv_vp, ps / (float)h_, pvt_hf_, fmin, fmax, frame, bk, budget);
+    pvt_.UploadTable(md::GpuDevice::Get().SDLDevice(), cmd);
+
+    ResolveCtx c;
+    c.sun = &sun; c.cam_x = cam_x; c.cam_y = cam_y; c.cam_z = cam_z;
+    c.world_origin_x = world_origin_x; c.world_origin_z = world_origin_z; c.world_to_uv = world_to_uv;
+    c.fog_far = fog_far; c.fog_color = fog_color; c.fog_near = fog_near; c.ground = &ground;
+    c.pvt = 1;
+    for (int i = 0; i < nb; ++i) {
+        const float T = TerrainPvt::TexelOf(bk[i].mip), S = (float)TerrainPvt::kInner * T;
+        float ubo[8] = { bk[i].ti * S - TerrainPvt::kBorder * T, bk[i].tj * S - TerrainPvt::kBorder * T, T, T / TerrainPvt::kRefPixAngle,
+                         fine.ox * fine.spacing, fine.oz * fine.spacing, 1.f / fine.spacing, (float)fine.side };
+        c.pvt_ubo = ubo;
+        SDL_GPUColorTargetInfo ct[2] = {};
+        ct[0].texture = pvt_.Albedo(); ct[1].texture = pvt_.Normal();
+        for (auto& t : ct) { t.layer_or_depth_plane = (Uint32)bk[i].layer; t.load_op = SDL_GPU_LOADOP_DONT_CARE; t.store_op = SDL_GPU_STOREOP_STORE; }
+        SDL_GPURenderPass* rp = SDL_BeginGPURenderPass(cmd, ct, 2, nullptr);
+        if (!rp) continue;
+        DrawFullscreen(rp, cmd, pvt_tile_p_, c);
+        SDL_EndGPURenderPass(rp);
+    }
+    pvt_active_ = pvt_.GetStats().resident > 0;
+    static const bool log = getenv("MD_PVT_LOG") && getenv("MD_PVT_LOG")[0] == '1';
+    if (log && (frame % 120) == 0) { const auto& st = pvt_.GetStats(); MD_LOG(MD_LOG_INFO, "[PVT] frame %u wanted %d missing %d resident %d/%d baked %d (+%d)", frame, st.wanted, st.missing, st.resident, st.layers, st.baked_total, nb); }
+    (void)float_target;
 }

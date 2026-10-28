@@ -4,6 +4,7 @@
 #include <monkey_dust/render/gpu_sampler_texture.h>
 #include <monkey_dust/render/gpu_pass_view.h>
 #include <monkey_dust/render/terrain_renderer.h>
+#include <monkey_dust/render/terrain_pvt.h>
 #include <SDL3/SDL_gpu.h>
 
 // TERRAIN_CA_REBUILD_PROMPT.md Phase 4 -- Variant A (screen-space decoupled
@@ -95,6 +96,17 @@ public:
     bool StencilSplitReady() const { return split_ready_; }
     void SetStencilSplitActive(bool a) { split_active_ = a; }
 
+    // #207 PVT stage 1 (MD_TERRAIN_PVT=1, default off; terrain_pvt.h): baked ground material tiles served by an extra stencil pass between pass A and the full pass.
+    struct PvtFine { SDL_GPUTexture* norm_tex = nullptr; int ox = 0, oz = 0; int side = 0; float spacing = 1.8f; bool ok = false; };   // the fine normal window (xyz normal, w height), its first lattice cell
+    bool PvtReady() const { return pvt_ready_; }
+    bool PvtActive() const { return pvt_active_; }
+    void SetPvtHeightFn(TerrainPvt::HeightFn f) { pvt_hf_ = f; }
+    // Before the ground pass opens (no pass open on `cmd`): plans the tiles, uploads the page table, bakes the new tiles. Takes the arguments of DrawShadingResolve.
+    void PvtFrame(md::GpuCommandBufferHandle cmd, const TerrainRenderer::SunParams& sun, float cam_x, float cam_y, float cam_z,
+                  float world_origin_x, float world_origin_z, float world_to_uv, float fog_far, const float fog_color[3], float fog_near,
+                  const TerrainRenderer& ground, const PvtFine& fine, uint32_t frame, bool float_target);
+    const TerrainPvt::Stats& PvtStats() const { return pvt_.GetStats(); }
+
     // Begin the G-buffer geometry pass -- CLEARs both gbuf_color_ (unused
     // channels don't matter) and gbuf_depth_ (to 1.0). Caller draws terrain
     // instances into the returned pass via TerrainPatchRenderer::
@@ -167,6 +179,11 @@ private:
     GpuPipeline resolve_klight_f_pipeline_, resolve_reuse_klight_f_pipeline_;
     GpuPipeline resolve_split_p_[2][3];   // #207 [RGBA8 / RGBA16F target][A lean reuse-only, B full shader with stencil test, one-biome pass (stencil test + write)]
     bool split_ready_ = false, split_active_ = false;
+    TerrainPvt pvt_;
+    GpuPipeline pvt_tile_p_, resolve_pvt_p_[2];   // the tile bake (two colour targets), the resolve pass [RGBA8 / RGBA16F target]
+    bool pvt_ready_ = false, pvt_active_ = false;
+    TerrainPvt::HeightFn pvt_hf_ = nullptr;
+    PvtFine pvt_fine_;
     bool resolve_klight_f_ready_ = false, resolve_reuse_klight_f_ready_ = false;
     GpuPipeline resolve_kenshi_klight_pipeline_, resolve_kenshi_reuse_klight_pipeline_;
     bool resolve_klight_ready_ = false, resolve_reuse_klight_ready_ = false;
@@ -201,6 +218,8 @@ private:
         const float* fog_color = nullptr;
         float fog_near = 0.f;
         const TerrainRenderer* ground = nullptr;
+        int pvt = 0;                      // 0 = none, 1 = tile bake (pvt_ubo = PvtTileUBO, 8 floats), 2 = the PVT resolve pass
+        const float* pvt_ubo = nullptr;
     };
     // The resource set the resolve binds (UBOs, 16 samplers, the probe SSBO) + the fullscreen triangle.
     void DrawFullscreen(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, GpuPipeline& pipeline, const ResolveCtx& c);
