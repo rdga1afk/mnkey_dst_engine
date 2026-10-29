@@ -125,6 +125,13 @@ int TerrainPvt::Plan(const float cam[3], const float inv_vp[16], float pix_angle
                 const float zc = px * fwd[0] + py * fwd[1] + pz * fwd[2];
                 int mip = (int)std::floor(std::log2(std::max(dist * pix_angle / Finest(), 1e-6f)) + 0.5f);
                 if (mip >= kMips) break;
+                if (mip >= 0 && NyThreshold() > 0.f) {   // P4: the shader's slope rule (N.y of the height field, 0.5 m finite difference): below T stays live, above T a finer mip
+                    const float e = 0.5f; float hx0 = h, hx1 = h, hz0 = h, hz1 = h;
+                    hf(x - e, z, hx0); hf(x + e, z, hx1); hf(x, z - e, hz0); hf(x, z + e, hz1);
+                    const float gx = (hx0 - hx1) / (2.f * e), gz = (hz0 - hz1) / (2.f * e);
+                    const float ny = 1.f / std::sqrt(gx * gx + 1.f + gz * gz);
+                    mip = ny < NyThreshold() ? -1 : (int)std::floor(std::log2(std::max(dist * pix_angle * ny / Finest(), 1e-6f)) + 0.5f);
+                }
                 if (mip >= 0 && GradMip()) {   // the same formula as the shader: footprint of a pixel on the surface projected on XZ (Dagor tex_mip_level_sample, anisotropy limit 4)
                     const float e = 0.5f;
                     float hx0 = h, hx1 = h, hz0 = h, hz1 = h;

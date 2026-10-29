@@ -37,6 +37,7 @@ public:
     int  Layers() const { return layers_; }
     int  Resident() const { return resident_; }
     static bool GradMip() { static const bool g = [] { const char* e = getenv("MD_PVT_GRADMIP"); return e && e[0] == '1'; }(); return g; }   // measurement switch: tile level from the XZ screen gradients (Dagor formula); the shader needs -DTS_PVT_GRADMIP
+    static float NyThreshold() { static const float t = [] { const char* e = getenv("MD_PVT_NYT"); return e ? (float)atof(e) : 0.f; }(); return t; }   // measurement (#207 PVT P4): > 0 = a sloped pixel with N.y >= T is served by a tile of mip floor(log2(s * N.y) + 0.5) (finer by the 1/N.y stretch of a top-down tile); the shader needs the same -DTS_PVT_NYT
     static float TexelOf(int mip) { return Finest() * (float)(1 << mip); }
 
 private:
