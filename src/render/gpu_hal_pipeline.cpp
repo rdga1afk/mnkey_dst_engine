@@ -382,7 +382,7 @@ bool GpuPipeline::Create(const Desc& desc) {
 
     char spv_vert[256], spv_frag[256];
     MakeSpvPath(spv_vert, sizeof(spv_vert), desc.vert_path, desc.shader_features);
-    MakeSpvPath(spv_frag, sizeof(spv_frag), desc.frag_path, desc.shader_features);
+    if (desc.frag_spv_path) snprintf(spv_frag, sizeof(spv_frag), "%s", desc.frag_spv_path); else MakeSpvPath(spv_frag, sizeof(spv_frag), desc.frag_path, desc.shader_features);
 
     SDL_GPUShader* vert_sh = LoadSpvShader(dev, spv_vert,
         SDL_GPU_SHADERSTAGE_VERTEX,

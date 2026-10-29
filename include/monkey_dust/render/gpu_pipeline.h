@@ -20,6 +20,7 @@ public:
     struct Desc {
         const char*     vert_path = nullptr;  // GLSL (OpenGL) or SPIR-V basename (SDL_GPU)
         const char*     frag_path = nullptr;
+        const char*     frag_spv_path = nullptr;  // measurement (#207 variant_eval): this SPIR-V file instead of shaders/spirv/<name of frag_path>.spv; frag_path then only names the pipeline (cache key, log)
         uint32_t        shader_features = SF_None; // bitmask of ShaderFeature — selects .spv variant
         GpuVertexLayout layout;
         GpuRasterState  raster;

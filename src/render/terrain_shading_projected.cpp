@@ -9,6 +9,7 @@
 // Divergence #7 prototype (md.set_terrain_ground_aniso, game/src/scripting/lua_scenario_api.cpp; read by npc_render_frame_prep.cpp for the
 // shader flag): 0 = off (the DDS arrays' own LINEAR samplers, textureLod in the shader); N >= 1 = textureGrad in the shader and a LINEAR sampler
 // with max_anisotropy = N for tex_ground / tex_ground_nml (N = 1: gradients without anisotropy, to separate the two costs).
+int g_ground_variant = -1;   // measurement (#207 variant_eval): the active pass-B variant of $MD_SPV_VARIANTS, set by md.set_ground_variant
 int g_terrain_ground_aniso_level = 1;   // ground layers: 1 = mip from the pixel footprint (textureGrad, default), 2..16 = + anisotropy (owner decision 17.10, #180)
 int g_terrain_ground_min_lod = 0;   // sampler min_lod of the ground layers in the textureGrad path: 1 = what Kenshi's "texture resolution gimping 1" gives (the largest mip is never read)
 // Divergence #14 (md.set_terrain_ambientmap): Kenshi's regional ambientmap.png multiplies the sun (2*alpha) and the ambient light (rgb) in
@@ -120,6 +121,30 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
         ud.frag_uniform_bufs = 4;
         resolve_kenshi_reuse_ready_ = resolve_kenshi_reuse_pipeline_.Create(ud);
         if (!resolve_kenshi_reuse_ready_) MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] reuse resolve variant create failed (ground reuse unavailable)");
+    }
+    {   // first of all pipelines, so the first variant (= ref, the same shader as the shipped pass B) is the one that gets compiled and dumped by the driver
+        SDL_GPUDevice* vdev = md::GpuDevice::Get().SDLDevice();
+        if (vdev && SDL_GPUTextureSupportsFormat(vdev, SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT, SDL_GPU_TEXTURETYPE_2D, SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET)) {
+        if (const char* ve = getenv("MD_SPV_VARIANTS")) {   // measurement (#207 variant_eval): one more pass-B pipeline per directory of the comma list, all created now (no restart per variant)
+            std::string list(ve); size_t pos = 0; var_count_ = 0;
+            while (pos <= list.size() && var_count_ < 8) {
+                size_t e = list.find(',', pos); if (e == std::string::npos) e = list.size();
+                const std::string dir = list.substr(pos, e - pos); pos = e + 1; if (dir.empty()) continue;
+                const int vi = var_count_++;
+                var_names_[vi] = "variant:" + std::to_string(vi) + ":" + dir;
+                const std::string spv = dir + "/terrain_shading_screenspace_kenshi_klight.frag.spv";
+                for (int f = 0; f < 2; ++f) {
+                    GpuPipeline::Desc vd = rd;
+                    vd.color_format = f ? SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT : rd.color_format; vd.depth_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT;
+                    static const int ub_bid_v = getenv("MD_UBIOME_BID") ? atoi(getenv("MD_UBIOME_BID")) : -1;
+                    vd.frag_uniform_bufs = ub_bid_v >= 0 ? 4 : 3; vd.frag_path = var_names_[vi].c_str(); vd.frag_spv_path = spv.c_str(); vd.stencil_mode = 2;
+                    fprintf(stderr, "[VariantPipe] %d %d %s\n", vi, f, dir.c_str());
+                    if (!resolve_var_p_[vi][f].Create(vd)) MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] variant %d (%s) failed", vi, dir.c_str());
+                }
+            }
+            MD_LOG(MD_LOG_INFO, "[TerrainShadingProjected] pass-B variants: %d", var_count_);
+        }
+        }
     }
     // #140 L2: the Kenshi main light variants (cube maps in slots 5 / 6, KLightUBO at binding 2); non-fatal
     {
@@ -234,6 +259,7 @@ void TerrainShadingProjected::Shutdown() {
     resolve_kenshi_klight_pipeline_.Destroy(); resolve_kenshi_reuse_klight_pipeline_.Destroy();
     resolve_klight_f_pipeline_.Destroy(); resolve_reuse_klight_f_pipeline_.Destroy();
     for (auto& sp : resolve_split_p_) for (GpuPipeline& q : sp) q.Destroy(); split_ready_ = false;
+    for (auto& vp : resolve_var_p_) for (GpuPipeline& q : vp) q.Destroy(); var_count_ = 0;
     for (GpuPipeline& q : resolve_pvt_p_) q.Destroy();
     for (GpuPipeline& q : resolve_pvt_a_p_) q.Destroy();
     for (GpuPipeline& q : ubiome_probe_p_) q.Destroy();
@@ -339,7 +365,7 @@ void TerrainShadingProjected::DrawFullscreen(SDL_GPURenderPass* rp, md::GpuComma
         if (!ground_bindings[i].texture || !ground_bindings[i].sampler) return;
     }
     const bool reuse_draw = (&pipeline == &resolve_kenshi_reuse_pipeline_ || &pipeline == &resolve_kenshi_reuse_klight_pipeline_ || &pipeline == &resolve_reuse_klight_f_pipeline_ || &pipeline == &resolve_split_p_[0][0] || &pipeline == &resolve_split_p_[1][0] || &pipeline == &resolve_pvt_a_p_[0] || &pipeline == &resolve_pvt_a_p_[1]) && reuse_;
-    const bool klight_draw = (&pipeline == &resolve_kenshi_klight_pipeline_ || &pipeline == &resolve_kenshi_reuse_klight_pipeline_ || &pipeline == &resolve_klight_f_pipeline_ || &pipeline == &resolve_reuse_klight_f_pipeline_ || (&pipeline >= &resolve_split_p_[0][0] && &pipeline <= &resolve_split_p_[1][2]) || &pipeline == &pvt_tile_p_ || &pipeline == &resolve_pvt_p_[0] || &pipeline == &resolve_pvt_p_[1] || &pipeline == &resolve_pvt_a_p_[0] || &pipeline == &resolve_pvt_a_p_[1]) && klight_;
+    const bool klight_draw = (&pipeline == &resolve_kenshi_klight_pipeline_ || &pipeline == &resolve_kenshi_reuse_klight_pipeline_ || &pipeline == &resolve_klight_f_pipeline_ || &pipeline == &resolve_reuse_klight_f_pipeline_ || (&pipeline >= &resolve_split_p_[0][0] && &pipeline <= &resolve_split_p_[1][2]) || (&pipeline >= &resolve_var_p_[0][0] && &pipeline <= &resolve_var_p_[7][1]) || &pipeline == &pvt_tile_p_ || &pipeline == &resolve_pvt_p_[0] || &pipeline == &resolve_pvt_p_[1] || &pipeline == &resolve_pvt_a_p_[0] || &pipeline == &resolve_pvt_a_p_[1]) && klight_;
     if (klight_draw) {   // slots 5 / 6: the Kenshi cube maps
         ground_bindings[5] = { ground.KenshiIrradianceCube(), ground.KenshiIrradianceSampler() };
         ground_bindings[6] = { ground.KenshiSpecularityCube(), ground.KenshiSpecularitySampler() };
@@ -422,7 +448,7 @@ void TerrainShadingProjected::DrawFullscreen(SDL_GPURenderPass* rp, md::GpuComma
     {   // measurement (#207 H1 step 3): the one-biome parameters of the whole draw as a uniform block
         static const int ub_bid = getenv("MD_UBIOME_BID") ? atoi(getenv("MD_UBIOME_BID")) : -1;
         const std::vector<uint32_t>& bl = ground.BiomeLayersData();
-        if (ub_bid >= 0 && (&pipeline == &resolve_split_p_[0][1] || &pipeline == &resolve_split_p_[1][1] || &pipeline == &resolve_split_p_[0][2] || &pipeline == &resolve_split_p_[1][2]) && bl.size() >= (size_t)(ub_bid + 1) * 36)
+        if (ub_bid >= 0 && (&pipeline == &resolve_split_p_[0][1] || &pipeline == &resolve_split_p_[1][1] || &pipeline == &resolve_split_p_[0][2] || &pipeline == &resolve_split_p_[1][2] || (&pipeline >= &resolve_var_p_[0][0] && &pipeline <= &resolve_var_p_[7][1])) && bl.size() >= (size_t)(ub_bid + 1) * 36)
             pv.PushFragmentUniforms(3, bl.data() + (size_t)ub_bid * 36, 36 * sizeof(uint32_t));
     }
     if (reuse_draw) { slot15[0] = { reuse_->hist_colour, reuse_->hist_sampler }; pv.PushFragmentUniforms(3, reuse_->p_old, 224); }   // p_old, p_new, t (3 x 64 B) + params (16 B), in the order of ReuseParams
@@ -486,7 +512,8 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
         if (pvt_active_ && !pvt_in_a) { ResolveCtx pc = c; pc.pvt = 2; DrawFullscreen(rp, cmd, resolve_pvt_p_[float_target_ ? 1 : 0], pc); }   // #207 PVT: the pixels whose tile is resident (the others are left to the full pass)
         static const bool one_biome_pass = getenv("MD_ONEBIOME_PASS") && getenv("MD_ONEBIOME_PASS")[0] == '1';   // WIP: off until it is verified (0 px on the 17 views) and measured; MD_ONEBIOME_PASS=1 turns it on
         if (one_biome_pass) DrawFullscreen(rp, cmd, resolve_split_p_[float_target_ ? 1 : 0][2], c);
-        DrawFullscreen(rp, cmd, resolve_split_p_[float_target_ ? 1 : 0][1], c);
+        if (g_ground_variant >= 0 && g_ground_variant < var_count_) DrawFullscreen(rp, cmd, resolve_var_p_[g_ground_variant][float_target_ ? 1 : 0], c);   // measurement: the pass-B variant of the frame block
+        else DrawFullscreen(rp, cmd, resolve_split_p_[float_target_ ? 1 : 0][1], c);
         return;
     }
     DrawFullscreen(rp, cmd, *kp, c);

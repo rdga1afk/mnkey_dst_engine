@@ -6,6 +6,7 @@
 #include <monkey_dust/render/terrain_renderer.h>
 #include <monkey_dust/render/terrain_pvt.h>
 #include <SDL3/SDL_gpu.h>
+#include <string>
 
 // TERRAIN_CA_REBUILD_PROMPT.md Phase 4 -- Variant A (screen-space decoupled
 // shading, terrain_research/perf/PHASE4_PLAN.md). Owns the two resources
@@ -178,6 +179,8 @@ private:
     bool float_target_ = false;
     GpuPipeline resolve_klight_f_pipeline_, resolve_reuse_klight_f_pipeline_;
     GpuPipeline resolve_split_p_[2][3];   // #207 [RGBA8 / RGBA16F target][A lean reuse-only, B full shader with stencil test, one-biome pass (stencil test + write)]
+    GpuPipeline resolve_var_p_[8][2];   // measurement (#207 variant_eval): pass B variants from $MD_SPV_VARIANTS (comma list of dirs), [variant][RGBA8 / RGBA16F]; g_ground_variant picks one (-1 = the shipped pass B)
+    std::string var_names_[8]; int var_count_ = 0;
     bool split_ready_ = false, split_active_ = false;
     TerrainPvt pvt_;
     GpuPipeline pvt_tile_p_, resolve_pvt_p_[2], resolve_pvt_a_p_[2], ubiome_probe_p_[2];   // the tile bake (two colour targets), the resolve pass [RGBA8 / RGBA16F target]
