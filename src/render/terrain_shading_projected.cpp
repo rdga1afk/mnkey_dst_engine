@@ -39,6 +39,24 @@ SDL_GPUSampler* GroundAnisoSampler(int level) {
     }
     return cache[level][ml];
 }
+// measurement (#207 H7a): the same sampler with mipmap_mode NEAREST (bilinear inside one mip instead of trilinear), bound for the variants listed in $MD_VARIANT_NEARMIP (comma list of variant indices)
+SDL_GPUSampler* GroundNearMipSampler() {
+    static SDL_GPUSampler* s = nullptr;
+    if (!s) {
+        SDL_GPUSamplerCreateInfo si = {};
+        si.min_filter = si.mag_filter = SDL_GPU_FILTER_LINEAR;
+        si.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST;
+        si.address_mode_u = si.address_mode_v = si.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
+        si.min_lod = (float)(g_terrain_ground_min_lod < 0 ? 0 : (g_terrain_ground_min_lod > 3 ? 3 : g_terrain_ground_min_lod));
+        si.max_lod = 15.f;
+        s = SDL_CreateGPUSampler(md::GpuDevice::Get().SDLDevice(), &si);
+    }
+    return s;
+}
+bool VariantNearMip(int v) {
+    static unsigned mask = [] { unsigned m = 0; if (const char* e = getenv("MD_VARIANT_NEARMIP")) for (const char* c = e; *c; ++c) if (*c >= '0' && *c <= '7') m |= 1u << (*c - '0'); return m; }();
+    return v >= 0 && v < 8 && (mask >> v & 1u);
+}
 }
 
 
@@ -354,6 +372,7 @@ void TerrainShadingProjected::DrawFullscreen(SDL_GPURenderPass* rp, md::GpuComma
             ground_bindings[1].sampler = as;
             ground_bindings[4].sampler = as;
         }
+        if (VariantNearMip(g_ground_variant)) if (SDL_GPUSampler* nm = GroundNearMipSampler()) { ground_bindings[1].sampler = nm; ground_bindings[4].sampler = nm; }
     }
     // All 7 must be checked, not just index 0 -- unlike slots 0/2/3/6
     // (plain sampler2D, always backed by a same-typed 1x1 fallback texture
