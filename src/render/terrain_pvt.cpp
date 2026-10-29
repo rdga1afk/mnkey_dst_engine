@@ -142,9 +142,13 @@ int TerrainPvt::Plan(const float cam[3], const float inv_vp[16], float pix_angle
                         const float q[3] = { n[1] * m[2] - n[2] * m[1], n[2] * m[0] - n[0] * m[2], n[0] * m[1] - n[1] * m[0] };
                         const float s = dist * pix_angle / Finest(), L1 = s / nv, L2 = s;   // in finest texels
                         const float dx = L1 * L1 * m[0] * m[0] + L2 * L2 * q[0] * q[0], dz = L1 * L1 * m[2] * m[2] + L2 * L2 * q[2] * q[2];
-                        const float lo = std::log2(std::max(std::min(dx, dz), 1.f)), hi = std::log2(std::max(std::max(dx, dz), 1.f));
-                        const int mg = (int)std::floor(0.499f * std::max(lo, hi - std::min(hi - lo, 4.f)) + 0.5f);
-                        mip = std::min(std::max(mg, 0), kMips - 1);
+                        const float lo = std::log2(std::max(std::min(dx, dz), 1e-6f)), hi = std::log2(std::max(std::max(dx, dz), 1e-6f));
+                        const float mr = 0.499f * std::max(lo, hi - std::min(hi - lo, 4.f));
+                        if (mr < -0.5f) mip = -1;   // finer than the finest texel: stays live (the shader's rule)
+                        else {   // the level: the clamped (Dagor) form, as the shader
+                            const float lc = std::log2(std::max(std::min(dx, dz), 1.f)), hc = std::log2(std::max(std::max(dx, dz), 1.f));
+                            mip = std::min((int)std::floor(0.499f * std::max(lc, hc - std::min(hc - lc, 4.f)) + 0.5f), kMips - 1);
+                        }
                     }
                 }
                 if (mip >= 0) mip_prev = mip;
