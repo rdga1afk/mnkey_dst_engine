@@ -53,6 +53,11 @@ SDL_GPUSampler* GroundNearMipSampler() {
     }
     return s;
 }
+bool VariantEnvBit(const char* name, int v) {   // measurement (#207): a comma / digit list of variant indices in an environment variable
+    const char* e = getenv(name); if (!e) return false;
+    for (const char* c = e; *c; ++c) if (*c - '0' == v) return true;
+    return false;
+}
 bool VariantNearMip(int v) {
     static unsigned mask = [] { unsigned m = 0; if (const char* e = getenv("MD_VARIANT_NEARMIP")) for (const char* c = e; *c; ++c) if (*c >= '0' && *c <= '7') m |= 1u << (*c - '0'); return m; }();
     return v >= 0 && v < 8 && (mask >> v & 1u);
@@ -155,7 +160,7 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
                     GpuPipeline::Desc vd = rd;
                     vd.color_format = f ? SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT : rd.color_format; vd.depth_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT;
                     static const int ub_bid_v = getenv("MD_UBIOME_BID") ? atoi(getenv("MD_UBIOME_BID")) : -1;
-                    vd.frag_uniform_bufs = ub_bid_v >= 0 ? 4 : 3; vd.frag_path = var_names_[vi].c_str(); vd.frag_spv_path = spv.c_str(); vd.stencil_mode = 2;
+                    vd.frag_uniform_bufs = ub_bid_v >= 0 ? 4 : 3; vd.frag_path = var_names_[vi].c_str(); vd.frag_spv_path = spv.c_str(); vd.stencil_mode = VariantEnvBit("MD_VARIANT_NOSTENCIL", vi) ? 0 : 2;   // H11c: no stencil test = the variant draws every pixel
                     fprintf(stderr, "[VariantPipe] %d %d %s\n", vi, f, dir.c_str());
                     if (!resolve_var_p_[vi][f].Create(vd)) MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] variant %d (%s) failed", vi, dir.c_str());
                 }
@@ -524,6 +529,8 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
         SDL_SetGPUStencilReference(rp, 1);
         static const bool pvt_sep = getenv("MD_PVT_SEPARATE") != nullptr;   // measurement: the old separate PVT pass
         const bool pvt_in_a = use_reuse && pvt_active_ && !pvt_sep;   // #207 PVT: with reuse the cache lookup is part of pass A (accepted pixel, else resident tile, else discard to pass B)
+        const bool h11_skip = g_ground_variant >= 0 && VariantEnvBit("MD_VARIANT_SKIPALL", g_ground_variant);   // H11d: begin / end the pass with no draw at all
+        if (h11_skip) return;
         if (use_reuse) {   // pass A (lean): marks the accepted pixels; then the one-biome pass and the full pass run on the others only (stencil test)
             if (pvt_in_a) { ResolveCtx pc = c; pc.pvt = 2; DrawFullscreen(rp, cmd, resolve_pvt_a_p_[float_target_ ? 1 : 0], pc); }
             else DrawFullscreen(rp, cmd, resolve_split_p_[float_target_ ? 1 : 0][0], c);
