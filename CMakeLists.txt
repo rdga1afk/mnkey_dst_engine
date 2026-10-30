@@ -133,6 +133,13 @@ list(FILTER ENGINE_SRC EXCLUDE REGEX "cgltf_impl\\.cpp$")
 # transform_soa_simd_avx2.cpp needs its own unconditional -mavx2/-mfma (or
 # /arch:AVX2) regardless of build type/config.
 list(FILTER ENGINE_SRC EXCLUDE REGEX "transform_soa_simd_avx2\\.cpp$")
+# Detour (recastnavigation, zlib): the navmesh of the Kenshi navtiles (src/nav); only the query / builder sources, no Recast
+set(MD_DETOUR_DIR ${MD_THIRD_PARTY}/recastnavigation/Detour)
+add_library(monkey_dust_detour STATIC
+    ${MD_DETOUR_DIR}/Source/DetourAlloc.cpp ${MD_DETOUR_DIR}/Source/DetourAssert.cpp ${MD_DETOUR_DIR}/Source/DetourCommon.cpp
+    ${MD_DETOUR_DIR}/Source/DetourNavMesh.cpp ${MD_DETOUR_DIR}/Source/DetourNavMeshBuilder.cpp ${MD_DETOUR_DIR}/Source/DetourNavMeshQuery.cpp ${MD_DETOUR_DIR}/Source/DetourNode.cpp)
+target_include_directories(monkey_dust_detour PUBLIC ${MD_DETOUR_DIR}/Include)
+set_target_properties(monkey_dust_detour PROPERTIES CXX_STANDARD 17 POSITION_INDEPENDENT_CODE ON)
 add_library(monkey_dust_engine STATIC ${ENGINE_SRC})
 
 # ── Unity Build — 110 engine .cpp → ~14 batched TU ──────────────────────────
@@ -202,6 +209,7 @@ if(MD_MYGUI)
     set_target_properties(monkey_dust_mygui PROPERTIES CXX_STANDARD 17 POSITION_INDEPENDENT_CODE ON)
 endif()
 
+target_link_libraries(monkey_dust_engine PUBLIC monkey_dust_detour)
 target_include_directories(monkey_dust_engine
     PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}/include
     PUBLIC  ${MD_THIRD_PARTY}/ozz-animation/include
