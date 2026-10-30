@@ -571,6 +571,7 @@ void TerrainQuadtreeRenderer::BakeLodNormals(SDL_GPUCommandBuffer* cmd, const Te
         ub.hr[0] = hmap.HeightMin(); ub.hr[1] = hmap.HeightMax(); ub.hr[2] = world_cell_m_ * (float)stride;
         if (run(world_norm_tex_, k, hmap.Texture(), hmap.Sampler(), ub, kWSide)) ++jobs;
     }
+    if (jobs) ++lod_norm_bakes_;
     if (jobs) MD_LOG(MD_LOG_INFO, "[TerrainQuadtreeRenderer] LOD normal windows baked: %d (cpu side %lld us)", jobs, (long long)std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - t0).count());
 }
 

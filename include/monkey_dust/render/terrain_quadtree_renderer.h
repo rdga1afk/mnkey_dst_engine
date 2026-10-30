@@ -209,6 +209,7 @@ public:
     SDL_GPUTexture* LodFineTex() const { return fine_tex_; }
     SDL_GPUSampler* LodFineSampler() const { return fine_sampler_; }
     int   LodFineOx() const { return fine_ox_; }
+    uint32_t LodNormBakes() const { return lod_norm_bakes_; }   // #207 H14: counts the bakes of the LOD normal windows (part of the still-view key)
     // #207 PVT: the fine normal window (xyz = normal, w = height in m) is baked for the current fine height window
     SDL_GPUTexture* LodFineNormTex() const { return fine_norm_tex_; }
     bool  LodFineNormOk() const { return lod_normtex_ && lod_norm_ready_ && fine_norm_ok_ && !fine_norm_pending_ && !fine_job_active_; }
@@ -277,6 +278,7 @@ private:
     bool lod_init_failed_ = false;
     md::GpuTextureHandle fine_tex_ = nullptr;
     SDL_GPUSampler* fine_sampler_ = nullptr;
+    uint32_t lod_norm_bakes_ = 0;
     int fine_ox_ = -1000000, fine_oz_ = -1000000; // window origin in heightmap cells (1.8 m)
     // the fine window's file read + normalisation runs on a worker (it cost ~38 ms on the render thread at every recentre, ~every 970 m of flight)
     std::future<std::vector<uint16_t>> fine_job_;
