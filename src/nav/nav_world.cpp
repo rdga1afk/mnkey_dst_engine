@@ -45,7 +45,6 @@ void NavWorld::SetEnabled(bool on, const std::string& kenshi_dir) {
 
 void NavWorld::Shutdown() {
     if (worker_.joinable()) { { std::lock_guard<std::mutex> lk(mu_); stop_ = true; } cv_.notify_all(); worker_.join(); }
-    for (Built& b : results_) dtFree(b.data);
     results_.clear(); requests_.clear(); pending_.clear(); live_.clear();
     if (query_) { dtFreeNavMeshQuery(query_); query_ = nullptr; }
     if (nav_) { dtFreeNavMesh(nav_); nav_ = nullptr; }
@@ -62,7 +61,7 @@ void NavWorld::WorkerMain() {
             t = requests_.front(); requests_.pop_front();
         }
         const auto t0 = std::chrono::steady_clock::now();
-        Built b{t.first, t.second, nullptr, 0, false, 0.0};
+        Built b{t.first, t.second, 0, false, false, 0.0, 0.0}; unsigned char* data = nullptr; int dsz = 0;
         char name[96]; std::snprintf(name, sizeof name, "/data/newland/land/navtiles/tile%d.%d.hkt", t.first, t.second);
         const std::string src = dir_ + name; char cname[64]; std::snprintf(cname, sizeof cname, "/tile%d.%d.bin", t.first, t.second);
         const std::string cache = CacheDir() + cname;
@@ -73,7 +72,7 @@ void NavWorld::WorkerMain() {
             if (in && in.read((char*)&h, sizeof h) && h.magic == kCacheMagic && h.src_size == ssz && h.src_mtime == smt && h.size >= 0) {
                 if (h.size == 0) { b.from_cache = true; }
                 else if (unsigned char* d = (unsigned char*)dtAlloc((size_t)h.size, DT_ALLOC_PERM)) {
-                    if (in.read((char*)d, h.size)) { b.data = d; b.size = h.size; b.from_cache = true; } else dtFree(d);
+                    if (in.read((char*)d, h.size)) { data = d; dsz = h.size; b.from_cache = true; } else dtFree(d);
                 }
             }
             if (!b.from_cache) {
@@ -83,16 +82,25 @@ void NavWorld::WorkerMain() {
                     for (const navtile::Section& s : secs) {
                         if (s.building) continue;
                         int np = 0;
-                        if (!navtile::BuildTileData(s, t.first, t.second, &b.data, &b.size, &np, nullptr, err)) { MD_LOG(MD_LOG_WARNING, "[NavWorld] tile %d.%d build: %s", t.first, t.second, err.c_str()); b.data = nullptr; b.size = 0; }
+                        if (!navtile::BuildTileData(s, t.first, t.second, &data, &dsz, &np, nullptr, err)) { MD_LOG(MD_LOG_WARNING, "[NavWorld] tile %d.%d build: %s", t.first, t.second, err.c_str()); data = nullptr; dsz = 0; }
                         break;   // the ground section is the first
                     }
                     std::filesystem::create_directories(CacheDir(), ec);
-                    std::ofstream out(cache, std::ios::binary | std::ios::trunc); CacheHead hh{kCacheMagic, b.size, ssz, smt};
-                    out.write((const char*)&hh, sizeof hh); if (b.size) out.write((const char*)b.data, b.size);
+                    std::ofstream out(cache, std::ios::binary | std::ios::trunc); CacheHead hh{kCacheMagic, dsz, ssz, smt};
+                    out.write((const char*)&hh, sizeof hh); if (dsz) out.write((const char*)data, dsz);
                 }
             }
         }
         b.ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+        b.empty = data == nullptr;
+        if (data) {
+            const auto a0 = std::chrono::steady_clock::now();
+            std::lock_guard<std::mutex> nl(nav_mu_);
+            dtTileRef ref = 0;
+            if (dtStatusFailed(nav_->addTile(data, dsz, DT_TILE_FREE_DATA, 0, &ref))) { dtFree(data); b.empty = true; MD_LOG(MD_LOG_WARNING, "[NavWorld] addTile %d.%d failed", b.x, b.y); }
+            else b.ref = ref;
+            b.add_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - a0).count();
+        }
         std::lock_guard<std::mutex> lk(mu_);
         results_.push_back(b);
     }
@@ -101,6 +109,7 @@ void NavWorld::WorkerMain() {
 void NavWorld::Tick(float cam_x, float cam_z) {
     if (!enabled_) return;
     const double now = NowS();
+    struct TickTimer { double t0; double& mx; ~TickTimer() { mx = std::max(mx, (NowS() - t0) * 1000.0); } } tick_timer{now, stats_.max_tick_ms};
     const int cx = navtile::TileOf(cam_x), cz = navtile::TileOf(cam_z);
     for (int dz = -1; dz <= 1; ++dz) for (int dx = -1; dx <= 1; ++dx) {
         const int x = cx + dx, z = cz + dz;
@@ -118,21 +127,17 @@ void NavWorld::Tick(float cam_x, float cam_z) {
     { std::lock_guard<std::mutex> lk(mu_); if (!results_.empty()) { b = results_.front(); results_.erase(results_.begin()); have = true; } }
     if (have) {
         pending_.erase(std::remove(pending_.begin(), pending_.end(), std::make_pair(b.x, b.y)), pending_.end());
-        stats_.last_worker_ms = b.ms; if (b.from_cache) ++stats_.cache_hits;
-        const auto t0 = std::chrono::steady_clock::now();
-        Live l{b.x, b.y, 0, now, b.data == nullptr};
-        if (b.data) {
-            dtTileRef ref = 0;
-            if (dtStatusFailed(nav_->addTile(b.data, b.size, DT_TILE_FREE_DATA, 0, &ref))) { dtFree(b.data); l.empty = true; MD_LOG(MD_LOG_WARNING, "[NavWorld] addTile %d.%d failed", b.x, b.y); }
-            else l.ref = ref;
-        }
-        live_.push_back(l); ++stats_.loaded_total;
-        stats_.last_add_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
-        stats_.max_add_ms = std::max(stats_.max_add_ms, stats_.last_add_ms);
+        stats_.last_worker_ms = b.ms; stats_.max_worker_ms = std::max(stats_.max_worker_ms, b.ms); if (b.from_cache) ++stats_.cache_hits;
+        live_.push_back(Live{b.x, b.y, b.ref, now, b.empty}); ++stats_.loaded_total;
+        stats_.last_add_ms = b.add_ms; stats_.max_add_ms = std::max(stats_.max_add_ms, b.add_ms);
     }
     for (size_t i = 0; i < live_.size(); ++i) {
         if (now - live_[i].last_wanted_s <= kUnloadS) continue;
-        if (live_[i].ref) { unsigned char* d = nullptr; int sz = 0; nav_->removeTile(live_[i].ref, &d, &sz); if (d) dtFree(d); }
+        if (live_[i].ref) {
+            std::unique_lock<std::mutex> nl(nav_mu_, std::try_to_lock);
+            if (!nl.owns_lock()) break;   // the worker is adding a tile: next frame
+            unsigned char* d = nullptr; int sz = 0; nav_->removeTile(live_[i].ref, &d, &sz); if (d) dtFree(d);
+        }
         live_.erase(live_.begin() + (long)i); ++stats_.unloaded_total; break;
     }
     int n = 0; for (const Live& l : live_) if (l.ref) ++n;
@@ -142,6 +147,7 @@ void NavWorld::Tick(float cam_x, float cam_z) {
 bool NavWorld::FindPath(float ax, float az, float bx, float bz, float* out, int max_pts, int* n_pts, bool* complete) {
     *n_pts = 0; if (complete) *complete = false;
     if (!enabled_ || !query_ || max_pts < 2) return false;
+    std::lock_guard<std::mutex> nl(nav_mu_);
     dtQueryFilter f; f.setIncludeFlags(1); f.setExcludeFlags(0);
     const float a[3] = {ax, 0.f, az}, b[3] = {bx, 0.f, bz}, ext[3] = {20.f, 600.f, 20.f};
     dtPolyRef ra = 0, rb = 0; float pa[3], pb[3];

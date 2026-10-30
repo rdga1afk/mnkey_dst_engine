@@ -1,6 +1,6 @@
 // The ground navmesh of the Kenshi world: Detour tiles built from data/newland/land/navtiles/tile<x>.<y>.hkt (src/nav/navtile.cpp) for the 3x3 tiles
 // around the camera, built on a worker thread (the tile data is cached in ~/.cache/monkey_dust/navtiles-v1), added / removed on the calling thread
-// (one tile at most per Tick). Positions are engine world metres (origin at the world corner, the same as md.terrain_height).
+// (the worker adds a built tile to the navmesh under nav_mu_, Tick only does the bookkeeping and the removal). Positions are engine world metres (origin at the world corner, the same as md.terrain_height).
 #pragma once
 #include <condition_variable>
 #include <cstdint>
@@ -18,7 +18,7 @@ namespace md::nav {
 class NavWorld {
 public:
     static NavWorld& Get();
-    struct Stats { int tiles_live = 0, tiles_requested = 0; long loaded_total = 0, unloaded_total = 0, cache_hits = 0; double last_add_ms = 0, max_add_ms = 0, last_worker_ms = 0; };
+    struct Stats { int tiles_live = 0, tiles_requested = 0; long loaded_total = 0, unloaded_total = 0, cache_hits = 0; double last_add_ms = 0, max_add_ms = 0, last_worker_ms = 0, max_worker_ms = 0, max_tick_ms = 0; };   // add_ms = the worker's addTile under the lock; tick_ms = the calling thread's Tick
 
     void SetEnabled(bool on, const std::string& kenshi_dir);   // starts / stops the worker thread and drops every tile
     bool Enabled() const { return enabled_; }
@@ -28,7 +28,7 @@ public:
     const Stats& GetStats() const { return stats_; }
 
 private:
-    struct Built { int x, y; unsigned char* data; int size; bool from_cache; double ms; };
+    struct Built { int x, y; uint64_t ref; bool empty; bool from_cache; double ms, add_ms; };
     struct Live { int x, y; uint64_t ref; double last_wanted_s; bool empty; };
     void WorkerMain();
     void Shutdown();
@@ -36,6 +36,7 @@ private:
     std::string dir_;
     std::thread worker_;
     std::mutex mu_;
+    std::mutex nav_mu_;   // the navmesh: the worker adds tiles, FindPath queries, Tick removes (try_lock)
     std::condition_variable cv_;
     std::deque<std::pair<int, int>> requests_;
     std::vector<Built> results_;
