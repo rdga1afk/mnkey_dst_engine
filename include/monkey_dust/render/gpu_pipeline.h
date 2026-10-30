@@ -157,6 +157,7 @@ public:
         // pre-extension struct, so no existing caller (5 call sites as of
         // this comment) changes behavior by not setting them.
         bool                  color_dont_care     = false; // true overrides load_color -> LOADOP_DONT_CARE
+        bool                  depth_dont_care     = false; // measurement (#207 H13): true overrides load_depth -> LOADOP_DONT_CARE
         bool                  depth_discard_after = false; // true -> depth STOREOP_DONT_CARE (mirrors DepthDesc::discard_after)
         bool                  clear_stencil       = false; // #207: the depth texture has a stencil aspect: clear it to 0 on entry (otherwise DONT_CARE)
     };

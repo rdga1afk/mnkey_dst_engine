@@ -112,7 +112,7 @@ void GpuCommandBuffer::BeginColorPass(const ColorPassDesc& desc) {
         SDL_GPUDepthStencilTargetInfo depth_info = {};
         depth_info.texture          = desc.depth_tex;
         depth_info.clear_depth      = desc.clear_depth;
-        depth_info.load_op          = desc.load_depth ? SDL_GPU_LOADOP_LOAD : SDL_GPU_LOADOP_CLEAR;
+        depth_info.load_op          = desc.depth_dont_care ? SDL_GPU_LOADOP_DONT_CARE : desc.load_depth ? SDL_GPU_LOADOP_LOAD : SDL_GPU_LOADOP_CLEAR;
         depth_info.store_op         = desc.depth_discard_after ? SDL_GPU_STOREOP_DONT_CARE
                                                                  : SDL_GPU_STOREOP_STORE;
         depth_info.stencil_load_op  = desc.clear_stencil ? SDL_GPU_LOADOP_CLEAR : SDL_GPU_LOADOP_DONT_CARE;

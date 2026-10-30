@@ -102,6 +102,7 @@ public:
     bool PvtReady() const { return pvt_ready_; }
     bool PvtActive() const { return pvt_active_; }
     void SetPvtHeightFn(TerrainPvt::HeightFn f) { pvt_hf_ = f; }
+    void PvtFlush() { pvt_.Flush(); }   // measurement (#207 P4): forget every baked tile (md.pvt_flush)
     // Before the ground pass opens (no pass open on `cmd`): plans the tiles, uploads the page table, bakes the new tiles. Takes the arguments of DrawShadingResolve.
     void PvtFrame(md::GpuCommandBufferHandle cmd, const TerrainRenderer::SunParams& sun, float cam_x, float cam_y, float cam_z,
                   float world_origin_x, float world_origin_z, float world_to_uv, float fog_far, const float fog_color[3], float fog_near,
