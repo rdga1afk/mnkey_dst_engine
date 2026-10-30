@@ -21,6 +21,7 @@ struct PlacedPart {
     float y_off;            // instance position y / 10: the offset above the terrain, metres
     float scale;
     float quat[4];          // w x y z
+    float off[3];           // raw sum of the part chain's "offset X/Y/Z" (FCS units; NOT applied to x y z)
 };
 
 // Zone files that touch the circle (centre and radius in metres), one per zone, preferred folder first.

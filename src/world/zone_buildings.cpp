@@ -1,6 +1,7 @@
 #include <functional>
 #include <monkey_dust/world/zone_buildings.h>
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <filesystem>
 #include <unordered_map>
@@ -23,7 +24,7 @@ std::vector<std::string> ZoneFilesInCircle(const std::string& kenshi_dir, float 
 }
 
 namespace {
-struct BuildingDef { float scale = 1.0f; std::vector<std::string> meshes; };
+struct BuildingDef { float scale = 1.0f; std::vector<std::string> meshes; std::vector<std::array<float, 3>> offsets; };   // offsets: the sum of the "offset X/Y/Z" of the part and of its parents (raw FCS values, not applied by the loader)
 const float* FindFloat(const md::fcs::GameData& g, const char* key) { auto it = g.floats.find(key); return it == g.floats.end() ? nullptr : &it->second; }
 }
 
@@ -39,23 +40,27 @@ bool AppendZoneFile(const std::string& path, const md::fcs::GameDataContainer& d
         if (const md::fcs::GameData* b = data.Get(id); b && b->kind == 0) {
             if (const float* s = FindFloat(*b, "scale")) d.scale = *s;
             // a part may carry parts of its own (Storm_Shack_Exterior -> Storm_Shack_ExteriorROOF): walked to depth 8 like Okran render/zone.rs part_meshes_of
-            std::function<void(const md::fcs::GameData&, int)> walk = [&](const md::fcs::GameData& node, int depth) {
+            std::function<void(const md::fcs::GameData&, int, std::array<float, 3>)> walk = [&](const md::fcs::GameData& node, int depth, std::array<float, 3> acc) {
                 const auto* parts = node.Refs("parts");
                 if (!parts || depth > 8) return;
                 for (const auto& p : *parts) {
                     const md::fcs::GameData* part = data.Get(p.first);
                     if (!part || part->kind != 29) continue;
+                    std::array<float, 3> here = acc;
+                    if (const float* o = FindFloat(*part, "offset X")) here[0] += *o;
+                    if (const float* o = FindFloat(*part, "offset Y")) here[1] += *o;
+                    if (const float* o = FindFloat(*part, "offset Z")) here[2] += *o;
                     auto f = part->files.find("phs or mesh");
                     if (f != part->files.end() && !f->second.empty()) {
                         std::string m = f->second;
                         std::replace(m.begin(), m.end(), '\\', '/');
                         std::string low = m; std::transform(low.begin(), low.end(), low.begin(), [](unsigned char c) { return (char)std::tolower(c); });
-                        if (low.find("black") == std::string::npos) d.meshes.push_back(std::move(m));
+                        if (low.find("black") == std::string::npos) { d.meshes.push_back(std::move(m)); d.offsets.push_back(here); }
                     }
-                    walk(*part, depth + 1);
+                    walk(*part, depth + 1, here);
                 }
             };
-            walk(*b, 0);
+            walk(*b, 0, {0.f, 0.f, 0.f});
         }
         return defs.emplace(id, std::move(d)).first->second;
     };
@@ -81,9 +86,9 @@ bool AppendZoneFile(const std::string& path, const md::fcs::GameDataContainer& d
         for (const auto& f : zr->second->floats) if (f.first == "world Y pos") { wy = f.second; have = true; }
         if (!have) continue;
         const BuildingDef& d = def_of(in.target);
-        for (const std::string& m : d.meshes)
-            out.push_back({m, (float)(((double)in.position[0] + WORLD_ORIGIN_UNITS) / 10.0), (float)((double)wy / 10.0), (float)(((double)in.position[2] + WORLD_ORIGIN_UNITS) / 10.0),
-                           in.position[1] / 10.0f, d.scale, {in.rotation[0], in.rotation[1], in.rotation[2], in.rotation[3]}});
+        for (size_t mi = 0; mi < d.meshes.size(); ++mi)
+            out.push_back({d.meshes[mi], (float)(((double)in.position[0] + WORLD_ORIGIN_UNITS) / 10.0), (float)((double)wy / 10.0), (float)(((double)in.position[2] + WORLD_ORIGIN_UNITS) / 10.0),
+                           in.position[1] / 10.0f, d.scale, {in.rotation[0], in.rotation[1], in.rotation[2], in.rotation[3]}, {d.offsets[mi][0], d.offsets[mi][1], d.offsets[mi][2]}});
     }
     return true;
 }
