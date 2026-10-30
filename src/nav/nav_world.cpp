@@ -144,10 +144,11 @@ void NavWorld::Tick(float cam_x, float cam_z) {
     stats_.tiles_live = n; stats_.tiles_requested = (int)pending_.size();
 }
 
-bool NavWorld::FindPath(float ax, float az, float bx, float bz, float* out, int max_pts, int* n_pts, bool* complete) {
-    *n_pts = 0; if (complete) *complete = false;
+bool NavWorld::FindPath(float ax, float az, float bx, float bz, float* out, int max_pts, int* n_pts, bool* complete, bool* busy) {
+    *n_pts = 0; if (complete) *complete = false; if (busy) *busy = false;
     if (!enabled_ || !query_ || max_pts < 2) return false;
-    std::lock_guard<std::mutex> nl(nav_mu_);
+    std::unique_lock<std::mutex> nl(nav_mu_, std::try_to_lock);
+    if (!nl.owns_lock()) { if (busy) *busy = true; return false; }
     dtQueryFilter f; f.setIncludeFlags(1); f.setExcludeFlags(0);
     const float a[3] = {ax, 0.f, az}, b[3] = {bx, 0.f, bz}, ext[3] = {20.f, 600.f, 20.f};
     dtPolyRef ra = 0, rb = 0; float pa[3], pb[3];

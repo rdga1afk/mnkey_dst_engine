@@ -24,7 +24,7 @@ public:
     bool Enabled() const { return enabled_; }
     void Tick(float cam_x, float cam_z);                       // request the 3x3 tiles around the camera, add at most one built tile, drop the unwanted ones
     // Straight path of up to max_pts points (x, y, z triples into out) from (ax, az) to (bx, bz); false when a position has no polygon within 20 m in the live tiles. *complete is false when the goal is not reached.
-    bool FindPath(float ax, float az, float bx, float bz, float* out, int max_pts, int* n_pts, bool* complete);
+    bool FindPath(float ax, float az, float bx, float bz, float* out, int max_pts, int* n_pts, bool* complete, bool* busy = nullptr);   // never waits: while the worker adds a tile the call returns false with *busy = true (ask again next frame)
     const Stats& GetStats() const { return stats_; }
 
 private:
