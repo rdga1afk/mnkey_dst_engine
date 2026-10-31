@@ -216,8 +216,13 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
                         GpuPipeline::Desc pd = kd;
                         pd.color_format = f ? SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT : rd.color_format;
                         pd.depth_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT;
-                        pd.frag_uniform_bufs = 3; pd.frag_path = "shaders/terrain_shading_screenspace_kenshi_pvt_klight.frag"; pd.stencil_mode = getenv("MD_PVT_SEPMODE") ? atoi(getenv("MD_PVT_SEPMODE")) : 3;   // MD_PVT_SEPMODE: measurement only (2 = no stencil write: tests whether the stencil write + discard forces a late stencil test)
+                        pd.frag_uniform_bufs = 3; pd.frag_path = "shaders/terrain_shading_screenspace_kenshi_pvt_klight.frag"; pd.stencil_mode = getenv("MD_PVT_MARK") ? 2 : (getenv("MD_PVT_SEPMODE") ? atoi(getenv("MD_PVT_SEPMODE")) : 3);   // MD_PVT_SEPMODE: measurement only (2 = no stencil write: tests whether the stencil write + discard forces a late stencil test)
                         ok &= resolve_pvt_p_[f].Create(pd);
+                        if (getenv("MD_PVT_MARK")) {   // measurement (#207 marker pass): the shading pass above runs in stencil mode 2 (early reject, no write); this cheap pass marks the hits (stencil write, colour mask 0, discard on a miss) so pass B skips them
+                            GpuPipeline::Desc mk = pd; mk.stencil_mode = 3; mk.raster.color_write = false;
+                            mk.frag_path = "shaders/terrain_shading_screenspace_kenshi_pvt_mark_klight.frag";
+                            ok &= resolve_pvt_mark_p_[f].Create(mk);
+                        }
                         pd.frag_uniform_bufs = 4; pd.frag_path = "shaders/terrain_shading_screenspace_kenshi_pvt_a_klight.frag";   // PVT lookup inside pass A: no extra full-screen pass
                         pd.stencil_mode = 1;
                         ok &= resolve_pvt_a_p_[f].Create(pd);
@@ -284,6 +289,7 @@ void TerrainShadingProjected::Shutdown() {
     for (auto& sp : resolve_split_p_) for (GpuPipeline& q : sp) q.Destroy(); split_ready_ = false;
     for (auto& vp : resolve_var_p_) for (GpuPipeline& q : vp) q.Destroy(); var_count_ = 0;
     for (GpuPipeline& q : resolve_pvt_p_) q.Destroy();
+    for (GpuPipeline& q : resolve_pvt_mark_p_) q.Destroy();
     for (GpuPipeline& q : resolve_pvt_a_p_) q.Destroy();
     for (GpuPipeline& q : ubiome_probe_p_) q.Destroy();
     pvt_tile_p_.Destroy(); pvt_.Shutdown(md::GpuDevice::Get().SDLDevice()); pvt_ready_ = pvt_active_ = false;
@@ -536,6 +542,7 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
             else DrawFullscreen(rp, cmd, resolve_split_p_[float_target_ ? 1 : 0][0], c);
         }
         if (pvt_active_ && !pvt_in_a) { ResolveCtx pc = c; pc.pvt = 2; DrawFullscreen(rp, cmd, resolve_pvt_p_[float_target_ ? 1 : 0], pc); }   // #207 PVT: the pixels whose tile is resident (the others are left to the full pass)
+        if (pvt_active_ && !pvt_in_a && getenv("MD_PVT_MARK")) { ResolveCtx pc = c; pc.pvt = 2; DrawFullscreen(rp, cmd, resolve_pvt_mark_p_[float_target_ ? 1 : 0], pc); }   // measurement: mark the hits after the shading pass
         static const bool one_biome_pass = getenv("MD_ONEBIOME_PASS") && getenv("MD_ONEBIOME_PASS")[0] == '1';   // WIP: off until it is verified (0 px on the 17 views) and measured; MD_ONEBIOME_PASS=1 turns it on
         if (one_biome_pass) DrawFullscreen(rp, cmd, resolve_split_p_[float_target_ ? 1 : 0][2], c);
         if (g_ground_variant >= 0 && g_ground_variant < var_count_) DrawFullscreen(rp, cmd, resolve_var_p_[g_ground_variant][float_target_ ? 1 : 0], c);   // measurement: the pass-B variant of the frame block
