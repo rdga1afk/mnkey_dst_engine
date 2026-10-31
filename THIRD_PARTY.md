@@ -45,12 +45,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## AMD FidelityFX FSR 1 (MIT)
-
-- Source: <https://github.com/GPUOpen-Effects/FidelityFX-FSR>, tag `v1.0.2`, commit `a21ffb8f6c13233ba336352bdff293894c706575`.
-- Used for: the EASU (edge-adaptive spatial upsampling) and RCAS (robust contrast-adaptive sharpening) passes of the upscaler of #156 (`ffx_fsr1.h`, with `ffx_a.h` the portability layer). The copy in `third_party/fsr1/` is `ffx_a.h`, `ffx_fsr1.h` and the licence; nothing of it is built or run from there, the passes are ported to SDL_GPU compute (`shaders/fsr1/`).
-- Licence: `third_party/fsr1/LICENSE.txt` (MIT, Copyright (c) 2021 Advanced Micro Devices, Inc.).
-
 ## Qualcomm Snapdragon Game Super Resolution 1 (BSD-3-Clause)
 
 - Source: <https://github.com/SnapdragonStudios/snapdragon-gsr>, `sgsr/v1/include/glsl/sgsr1_shader_mobile.frag` (RGBA mode).
