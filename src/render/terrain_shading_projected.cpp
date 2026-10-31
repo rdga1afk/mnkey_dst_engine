@@ -216,7 +216,7 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
                         GpuPipeline::Desc pd = kd;
                         pd.color_format = f ? SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT : rd.color_format;
                         pd.depth_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT;
-                        pd.frag_uniform_bufs = 3; pd.frag_path = "shaders/terrain_shading_screenspace_kenshi_pvt_klight.frag"; pd.stencil_mode = 3;
+                        pd.frag_uniform_bufs = 3; pd.frag_path = "shaders/terrain_shading_screenspace_kenshi_pvt_klight.frag"; pd.stencil_mode = getenv("MD_PVT_SEPMODE") ? atoi(getenv("MD_PVT_SEPMODE")) : 3;   // MD_PVT_SEPMODE: measurement only (2 = no stencil write: tests whether the stencil write + discard forces a late stencil test)
                         ok &= resolve_pvt_p_[f].Create(pd);
                         pd.frag_uniform_bufs = 4; pd.frag_path = "shaders/terrain_shading_screenspace_kenshi_pvt_a_klight.frag";   // PVT lookup inside pass A: no extra full-screen pass
                         pd.stencil_mode = 1;
