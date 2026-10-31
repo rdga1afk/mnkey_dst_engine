@@ -1,1 +1,0 @@
-FidelityFX FSR 1 v1.0.2 (GPUOpen-Effects/FidelityFX-FSR, commit a21ffb8f6c13233ba336352bdff293894c706575): ffx-fsr/ffx_a.h, ffx_fsr1.h (EASU + RCAS). MIT: LICENSE.txt. Source for reading and porting only.
