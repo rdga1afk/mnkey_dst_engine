@@ -9,6 +9,8 @@
 // Divergence #7 prototype (md.set_terrain_ground_aniso, game/src/scripting/lua_scenario_api.cpp; read by npc_render_frame_prep.cpp for the
 // shader flag): 0 = off (the DDS arrays' own LINEAR samplers, textureLod in the shader); N >= 1 = textureGrad in the shader and a LINEAR sampler
 // with max_anisotropy = N for tex_ground / tex_ground_nml (N = 1: gradients without anisotropy, to separate the two costs).
+bool g_ground_pvt = false;        // #207 Settings «Ground cache (PVT)» (owner 01.11): Off (default) / On; MD_TERRAIN_PVT=1 sets it at start (tests)
+bool g_ground_hist_fast = false;  // #207 Settings «History filter while moving» (owner 01.11): Quality = Catmull-Rom (default) / Fast = one bilinear history tap in pass A
 int g_ground_variant = -1;   // measurement (#207 variant_eval): the active pass-B variant of $MD_SPV_VARIANTS, set by md.set_ground_variant
 int g_terrain_ground_aniso_level = 1;   // ground layers: 1 = mip from the pixel footprint (textureGrad, default), 2..16 = + anisotropy (owner decision 17.10, #180)
 int g_terrain_ground_min_lod = 0;   // sampler min_lod of the ground layers in the textureGrad path: 1 = what Kenshi's "texture resolution gimping 1" gives (the largest mip is never read)
@@ -209,32 +211,8 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
                 }
                 split_ready_ = all_ok;
                 MD_LOG(MD_LOG_INFO, "[TerrainShadingProjected] stencil split pipelines ok=%d", (int)all_ok);
-                if (all_ok) if (const char* pe = getenv("MD_TERRAIN_PVT"); pe && pe[0] == '1') {   // #207 PVT stage 1
-                    const char* me = getenv("MD_PVT_MB");
-                    bool ok = pvt_.Init(sdev, me ? atoi(me) : 64);
-                    for (int f = 0; f < 2; ++f) {
-                        GpuPipeline::Desc pd = kd;
-                        pd.color_format = f ? SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT : rd.color_format;
-                        pd.depth_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT;
-                        pd.frag_uniform_bufs = 3; pd.frag_path = "shaders/terrain_shading_screenspace_kenshi_pvt_klight.frag"; pd.stencil_mode = getenv("MD_PVT_MARK") ? 2 : (getenv("MD_PVT_SEPMODE") ? atoi(getenv("MD_PVT_SEPMODE")) : 3);   // MD_PVT_SEPMODE: measurement only (2 = no stencil write: tests whether the stencil write + discard forces a late stencil test)
-                        ok &= resolve_pvt_p_[f].Create(pd);
-                        if (getenv("MD_PVT_MARK")) {   // measurement (#207 marker pass): the shading pass above runs in stencil mode 2 (early reject, no write); this cheap pass marks the hits (stencil write, colour mask 0, discard on a miss) so pass B skips them
-                            GpuPipeline::Desc mk = pd; mk.stencil_mode = 3; mk.raster.color_write = false;
-                            mk.frag_path = "shaders/terrain_shading_screenspace_kenshi_pvt_mark_klight.frag";
-                            ok &= resolve_pvt_mark_p_[f].Create(mk);
-                        }
-                        pd.frag_uniform_bufs = 4; pd.frag_path = "shaders/terrain_shading_screenspace_kenshi_pvt_a_klight.frag";   // PVT lookup inside pass A: no extra full-screen pass
-                        pd.stencil_mode = 1;
-                        ok &= resolve_pvt_a_p_[f].Create(pd);
-                    }
-                    GpuPipeline::Desc td = kd;
-                    td.frag_path = "shaders/terrain_shading_screenspace_kenshi_pvt_tile.frag"; td.frag_uniform_bufs = 4;
-                    td.color_format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM_SRGB; td.color_format2 = SDL_GPU_TEXTUREFORMAT_R8G8_UNORM;
-                    td.has_depth_target = false; td.depth_format = SDL_GPU_TEXTUREFORMAT_INVALID; td.stencil_mode = 0;
-                    ok &= pvt_tile_p_.Create(td);
-                    pvt_ready_ = ok;
-                    MD_LOG(MD_LOG_INFO, "[TerrainShadingProjected] PVT pipelines ok=%d", (int)ok);
-                }
+                split_kd_ = kd; split_color_ = rd.color_format; split_depth_ok_ = all_ok;   // the pipelines of the two options below are created on demand (EnsureOptionPipelines)
+                if (all_ok) if (const char* pe = getenv("MD_TERRAIN_PVT"); pe && pe[0] == '1') g_ground_pvt = true;   // env override for tests
             } else MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] stencil split off: D32_FLOAT_S8_UINT is not a supported depth-stencil target");
         }
     }
@@ -291,6 +269,9 @@ void TerrainShadingProjected::Shutdown() {
     for (GpuPipeline& q : resolve_pvt_p_) q.Destroy();
     for (GpuPipeline& q : resolve_pvt_mark_p_) q.Destroy();
     for (GpuPipeline& q : resolve_pvt_a_p_) q.Destroy();
+    for (GpuPipeline& q : resolve_a_bil_p_) q.Destroy();
+    for (GpuPipeline& q : resolve_pvt_a_bil_p_) q.Destroy();
+    bil_ready_ = pvt_bil_ready_ = pvt_tried_ = bil_tried_ = pvt_bil_tried_ = false;
     for (GpuPipeline& q : ubiome_probe_p_) q.Destroy();
     pvt_tile_p_.Destroy(); pvt_.Shutdown(md::GpuDevice::Get().SDLDevice()); pvt_ready_ = pvt_active_ = false;
     resolve_klight_ready_ = resolve_reuse_klight_ready_ = false;
@@ -538,8 +519,9 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
         const bool h11_skip = g_ground_variant >= 0 && VariantEnvBit("MD_VARIANT_SKIPALL", g_ground_variant);   // H11d: begin / end the pass with no draw at all
         if (h11_skip) return;
         if (use_reuse) {   // pass A (lean): marks the accepted pixels; then the one-biome pass and the full pass run on the others only (stencil test)
-            if (pvt_in_a) { ResolveCtx pc = c; pc.pvt = 2; DrawFullscreen(rp, cmd, resolve_pvt_a_p_[float_target_ ? 1 : 0], pc); }
-            else DrawFullscreen(rp, cmd, resolve_split_p_[float_target_ ? 1 : 0][0], c);
+            const int ff = float_target_ ? 1 : 0;
+            if (pvt_in_a) { ResolveCtx pc = c; pc.pvt = 2; DrawFullscreen(rp, cmd, g_ground_hist_fast && pvt_bil_ready_ ? resolve_pvt_a_bil_p_[ff] : resolve_pvt_a_p_[ff], pc); }
+            else DrawFullscreen(rp, cmd, g_ground_hist_fast && bil_ready_ ? resolve_a_bil_p_[ff] : resolve_split_p_[ff][0], c);
         }
         if (pvt_active_ && !pvt_in_a) { ResolveCtx pc = c; pc.pvt = 2; DrawFullscreen(rp, cmd, resolve_pvt_p_[float_target_ ? 1 : 0], pc); }   // #207 PVT: the pixels whose tile is resident (the others are left to the full pass)
         if (pvt_active_ && !pvt_in_a && getenv("MD_PVT_MARK")) { ResolveCtx pc = c; pc.pvt = 2; DrawFullscreen(rp, cmd, resolve_pvt_mark_p_[float_target_ ? 1 : 0], pc); }   // measurement: mark the hits after the shading pass
@@ -552,11 +534,76 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
     DrawFullscreen(rp, cmd, *kp, c);
 }
 
+bool TerrainShadingProjected::OptionsWanted() { return g_ground_pvt || g_ground_hist_fast; }
+
+// #207 (owner 01.11): the pipelines of the two ground options are created the first time the option is on (the default look pays neither the compile nor the 64 MB atlas)
+void TerrainShadingProjected::EnsureOptionPipelines() {
+    if (!split_ready_ || !split_depth_ok_) return;
+    SDL_GPUDevice* sdev = md::GpuDevice::Get().SDLDevice();
+    if (g_ground_pvt && !pvt_tried_) {
+        pvt_tried_ = true;
+        GpuPipeline::Desc kd = split_kd_;
+        const char* me = getenv("MD_PVT_MB");
+        bool ok = pvt_.Init(sdev, me ? atoi(me) : 64);
+        for (int f = 0; f < 2; ++f) {
+            GpuPipeline::Desc pd = kd;
+            pd.color_format = f ? SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT : split_color_;
+            pd.depth_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT;
+            pd.frag_uniform_bufs = 3; pd.frag_path = "shaders/terrain_shading_screenspace_kenshi_pvt_klight.frag"; pd.stencil_mode = getenv("MD_PVT_MARK") ? 2 : (getenv("MD_PVT_SEPMODE") ? atoi(getenv("MD_PVT_SEPMODE")) : 3);   // MD_PVT_SEPMODE: measurement only (2 = no stencil write: tests whether the stencil write + discard forces a late stencil test)
+            ok &= resolve_pvt_p_[f].Create(pd);
+            if (getenv("MD_PVT_MARK")) {   // measurement (#207 marker pass): the shading pass above runs in stencil mode 2 (early reject, no write); this cheap pass marks the hits (stencil write, colour mask 0, discard on a miss) so pass B skips them
+                GpuPipeline::Desc mk = pd; mk.stencil_mode = 3; mk.raster.color_write = false;
+                mk.frag_path = "shaders/terrain_shading_screenspace_kenshi_pvt_mark_klight.frag";
+                ok &= resolve_pvt_mark_p_[f].Create(mk);
+            }
+            pd.frag_uniform_bufs = 4; pd.frag_path = "shaders/terrain_shading_screenspace_kenshi_pvt_a_klight.frag";   // PVT lookup inside pass A: no extra full-screen pass
+            pd.stencil_mode = 1;
+            ok &= resolve_pvt_a_p_[f].Create(pd);
+        }
+        GpuPipeline::Desc td = kd;
+        td.frag_path = "shaders/terrain_shading_screenspace_kenshi_pvt_tile.frag"; td.frag_uniform_bufs = 4;
+        td.color_format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM_SRGB; td.color_format2 = SDL_GPU_TEXTUREFORMAT_R8G8_UNORM;
+        td.has_depth_target = false; td.depth_format = SDL_GPU_TEXTUREFORMAT_INVALID; td.stencil_mode = 0;
+        ok &= pvt_tile_p_.Create(td);
+        pvt_ready_ = ok;
+        MD_LOG(MD_LOG_INFO, "[TerrainShadingProjected] PVT pipelines ok=%d", (int)ok);
+    }
+    if (g_ground_hist_fast && !bil_tried_) {   // pass A with one bilinear history tap (TS_PA 64), without and (when the cache exists) with the PVT lookup
+        bil_tried_ = true;
+        bool ok = true;
+        for (int f = 0; f < 2; ++f) {
+            GpuPipeline::Desc pd = split_kd_;
+            pd.color_format = f ? SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT : split_color_;
+            pd.depth_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT;
+            pd.frag_uniform_bufs = 4; pd.stencil_mode = 1;
+            pd.frag_path = "shaders/terrain_shading_screenspace_kenshi_reuse_only_bil_klight.frag";
+            ok &= resolve_a_bil_p_[f].Create(pd);
+        }
+        bil_ready_ = ok;
+        MD_LOG(MD_LOG_INFO, "[TerrainShadingProjected] bilinear-history pass A ok=%d", (int)ok);
+    }
+    if (g_ground_hist_fast && pvt_ready_ && !pvt_bil_tried_) {
+        pvt_bil_tried_ = true;
+        bool ok = true;
+        for (int f = 0; f < 2; ++f) {
+            GpuPipeline::Desc pd = split_kd_;
+            pd.color_format = f ? SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT : split_color_;
+            pd.depth_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT;
+            pd.frag_uniform_bufs = 4; pd.stencil_mode = 1;
+            pd.frag_path = "shaders/terrain_shading_screenspace_kenshi_pvt_a_bil_klight.frag";
+            ok &= resolve_pvt_a_bil_p_[f].Create(pd);
+        }
+        pvt_bil_ready_ = ok;
+        MD_LOG(MD_LOG_INFO, "[TerrainShadingProjected] bilinear-history PVT pass A ok=%d", (int)ok);
+    }
+}
+
 void TerrainShadingProjected::PvtFrame(md::GpuCommandBufferHandle cmd, const TerrainRenderer::SunParams& sun, float cam_x, float cam_y, float cam_z,
                                        float world_origin_x, float world_origin_z, float world_to_uv, float fog_far, const float fog_color[3], float fog_near,
                                        const TerrainRenderer& ground, const PvtFine& fine, uint32_t frame, bool float_target) {
     pvt_active_ = false;
-    if (!pvt_ready_ || !ready_ || !klight_ || !fine.ok || !fine.norm_tex || !pvt_hf_ || !ground.KenshiLightCubesReady() || h_ <= 0 || pix_scale_ <= 0.f) return;
+    EnsureOptionPipelines();
+    if (!g_ground_pvt || !pvt_ready_ || !ready_ || !klight_ || !fine.ok || !fine.norm_tex || !pvt_hf_ || !ground.KenshiLightCubesReady() || h_ <= 0 || pix_scale_ <= 0.f) return;
     pvt_fine_ = fine;
     const float cam[3] = { cam_x, cam_y, cam_z };
     const float margin = 2.f * fine.spacing;

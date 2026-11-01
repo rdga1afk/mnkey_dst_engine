@@ -95,6 +95,7 @@ public:
     // pass B = the heavy non-reuse shader with the stencil test NOT_EQUAL 1 (the hardware rejects the accepted pixels before the shader starts). Both in the ground pass, whose depth
     // attachment must then be a D32_FLOAT_S8_UINT texture (SetStencilSplitActive(true) by the caller that opened such a pass).
     bool StencilSplitReady() const { return split_ready_; }
+    static bool OptionsWanted();   // #207 Settings «Ground cache (PVT)» / «History filter while moving» on: PvtFrame must run (it creates the pipelines on demand)
     void SetStencilSplitActive(bool a) { split_active_ = a; }
 
     // #207 PVT stage 1 (MD_TERRAIN_PVT=1, default off; terrain_pvt.h): baked ground material tiles served by an extra stencil pass between pass A and the full pass.
@@ -186,6 +187,10 @@ private:
     TerrainPvt pvt_;
     GpuPipeline pvt_tile_p_, resolve_pvt_p_[2], resolve_pvt_a_p_[2], resolve_pvt_mark_p_[2], ubiome_probe_p_[2];   // the tile bake (two colour targets), the resolve pass [RGBA8 / RGBA16F target]
     bool pvt_ready_ = false, pvt_active_ = false;
+    GpuPipeline resolve_a_bil_p_[2], resolve_pvt_a_bil_p_[2];   // #207 pass A with one bilinear history tap [RGBA8 / RGBA16F target], without / with the PVT lookup
+    GpuPipeline::Desc split_kd_; SDL_GPUTextureFormat split_color_ = SDL_GPU_TEXTUREFORMAT_INVALID; bool split_depth_ok_ = false;   // what the on-demand pipelines are created from
+    bool pvt_tried_ = false, bil_tried_ = false, pvt_bil_tried_ = false, bil_ready_ = false, pvt_bil_ready_ = false;
+    void EnsureOptionPipelines();
     TerrainPvt::HeightFn pvt_hf_ = nullptr;
     PvtFine pvt_fine_;
     bool resolve_klight_f_ready_ = false, resolve_reuse_klight_f_ready_ = false;
