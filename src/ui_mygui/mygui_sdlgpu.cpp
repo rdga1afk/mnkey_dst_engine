@@ -10,6 +10,8 @@
 #include <SDL3/SDL.h>
 
 #include <algorithm>
+#include <sstream>
+#include <iterator>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -42,6 +44,8 @@ bool Glob(const char* p, const char* s) {
 }
 
 // ── data: <KENSHI_DIR>/data/gui, all subfolders, looked up by file name ───────────────────────────────────────
+float g_ui_scale = 1.f;   // Kenshi's MyGUI fork (ScaleManager, exe 1406e3c30): scale = min(W / 1920, H / 1080), the reference is the size of Kenshi_UI.png; ResourceTrueTypeFont multiplies `Size` by it (applyMin)
+
 class DataMgr : public MyGUI::DataManager {
 public:
     void Init(const std::string& root) {
@@ -56,6 +60,32 @@ public:
         if (path.empty()) return nullptr;
         auto* st = new std::ifstream(path.c_str(), std::ios_base::binary);
         if (!st->is_open()) { delete st; return nullptr; }
+        if (Lower(name) == "kenshi_fonts.xml" && g_ui_scale != 1.f) {   // the font sizes of the fork's ResourceTrueTypeFont::deserialization, done on the text
+            std::string t((std::istreambuf_iterator<char>(*st)), std::istreambuf_iterator<char>()); delete st;
+            std::string out; size_t pos = 0; const std::string key = "key=\"Size\" value=\"";
+            for (size_t k; (k = t.find(key, pos)) != std::string::npos; ) {
+                const size_t v = k + key.size(), e = t.find('"', v); if (e == std::string::npos) break;
+                char b[32]; std::snprintf(b, sizeof b, "%.4f", std::atof(t.substr(v, e - v).c_str()) * g_ui_scale);
+                out += t.substr(pos, v - pos) + b; pos = e;
+            }
+            out += t.substr(pos);
+            return new MyGUI::DataStream(new std::istringstream(out));
+        }
+        const std::string ln = Lower(name);
+        if (g_ui_scale != 1.f && (ln == "kenshi_templates.xml" || (ln.size() > 7 && ln.compare(ln.size() - 7, 7, ".layout") == 0))) {   // pixel coordinates of layouts and templates follow the UI scale (position_real stays as it is)
+            std::string t((std::istreambuf_iterator<char>(*st)), std::istreambuf_iterator<char>()); delete st;
+            std::string out; size_t pos = 0; const std::string key = " position=\"";
+            for (size_t k; (k = t.find(key, pos)) != std::string::npos; ) {
+                const size_t v = k + key.size(), e = t.find('"', v); if (e == std::string::npos) break;
+                std::istringstream is(t.substr(v, e - v)); int a[4]; int n = 0; while (n < 4 && (is >> a[n])) ++n;
+                out += t.substr(pos, v - pos);
+                if (n == 4) { char b[80]; std::snprintf(b, sizeof b, "%d %d %d %d", int(std::floor(a[0] * g_ui_scale)), int(std::floor(a[1] * g_ui_scale)), int(std::floor(a[2] * g_ui_scale)), int(std::floor(a[3] * g_ui_scale))); out += b; }
+                else out += t.substr(v, e - v);
+                pos = e;
+            }
+            out += t.substr(pos);
+            return new MyGUI::DataStream(new std::istringstream(out));
+        }
         return new MyGUI::DataFileStream(st);
     }
     void freeData(MyGUI::IDataStream* d) override { delete d; }
@@ -339,6 +369,7 @@ void DumpWidget(FILE* f, MyGUI::Widget* w, int depth) {
 
 bool MyGuiInit(int w, int h, const char* layout) {
     if (g.gui) return true;
+    g_ui_scale = std::min(float(w) / 1920.f, float(h) / 1080.f);
     const char* kd = std::getenv("KENSHI_DIR");
     if (!kd || !*kd) { std::fprintf(stderr, "[MyGUI] KENSHI_DIR is not set\n"); return false; }
     std::string root = std::string(kd) + "/data/gui";
@@ -376,6 +407,16 @@ void MyGuiShutdown() {
 bool MyGuiActive() { return g.gui != nullptr; }
 
 void MyGuiResize(int w, int h) { if (g.render) g.render->SetViewSize(w, h); }
+
+// Kenshi builds its GUI at the current resolution: position_real is resolved to pixels when a layout is loaded and the font sizes get the UI scale when the fonts are loaded, so a new
+// window size starts MyGUI again at that size (the caller binds its handlers again).
+float MyGuiUiScale() { return g_ui_scale; }
+
+void MyGuiReload(int w, int h, const char* layout) {
+    MyGuiShutdown();
+    g.roots.clear();
+    MyGuiInit(w, h, layout);
+}
 
 void MyGuiMouse(float x, float y, bool left) {
     if (!g.gui) return;

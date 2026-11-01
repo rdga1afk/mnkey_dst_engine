@@ -12,6 +12,8 @@ bool MyGuiInit(int view_w, int view_h, const char* layout_name);
 void MyGuiShutdown();
 bool MyGuiActive();
 void MyGuiResize(int w, int h);
+float MyGuiUiScale();   // min(W / 1920, H / 1080) of the last MyGuiInit (the exe's ScaleManager scale)
+void MyGuiReload(int w, int h, const char* layout);   // shuts MyGUI down and starts it again at the size: layout (position_real) and font sizes (UI scale min(W / 1920, H / 1080)) follow the window
 void MyGuiMouse(float x, float y, bool left_down);
 // keyboard / text events from the SDL event pump; returns true while a widget has keyboard focus (edit box)
 bool MyGuiEvent(const SDL_Event& e);
