@@ -32,7 +32,7 @@ summary: "Public engine README (EN + UA): native Linux engine that renders Kensh
 - **Not a Kenshi replacement or a remake.** Kenshi is © Lo-Fi Games. This is an independent, unofficial engine.
 - **There is nothing to download and play.** The game executable lives in a separate private repository; this repository is the engine library.
 
-### Status (2026-10-27)
+### Status (2026-11-01)
 
 | Area | State |
 |---|---|
@@ -50,13 +50,15 @@ summary: "Public engine README (EN + UA): native Linux engine that renders Kensh
 | Known issues (27.10) | Rocks fixed (27.10): Kenshi's triplanar materials without UVs were drawn black; now drawn like Kenshi. Open: a rare line on the ground and pixelation on some cliffs, waiting for a reproducible camera position |
 | Workshop mods | Code path exists, **not yet tested on real Workshop data** |
 | **Performance, 1920×1080, HD 520** | Fixed flight route **p99 ≈ 15.0 ms** (19.10.2026; 19 ms on 17.10, 30–31 ms on 13.10) — **the 60 FPS goal (≤ 16.7 ms) is met on the route**. **New (22.10):** «Ground quality» setting — *Fast motion* (default: normal ground filtering, 0.75 resolution only while moving, switch without hitches), anisotropic ×16 + dynamic resolution, or ×16 + softer ground reuse; frame cap **«auto»: 30 FPS when idle, 60 when moving** (fan almost silent when idle). Helped by: GPU occlusion culling (HZB), **ground shading reused across frames** (refreshed every 16 frames by default; Settings: 4 / 8 / 16), the terrain resolve no longer writing depth, and dynamic resolution only while the camera moves (0.75, native when still). Known tail: continuous flight at 50 m/s, p99 ≈ 18.9 ms. Long-term target: 99 FPS on the landscape. **27.10:** with towns and foliage **on**, route p99 ≤ 16.2 ms (foliage textures now load on a worker; no frame over 33 ms); the hardest town scenes are still 21–27 ms (work in progress). Power: ground pass split by stencil (−5 % energy per frame, same picture), longer reuse of the previous frame (≈ −20 %), 10 FPS when paused or unfocused; frame cap Auto / 30 / 60 / Unlimited. **Main goal since 24.10: lower GPU load, heat and fan noise**, not only frame time — target: in normal play at 1080p with the default frame cap the laptop fan stays off. Low frame rates only by game state (pause, menus, unfocused window), not by missing input |
+| **Power while moving** (01.11) | **Done.** New setting «Sharpening while moving» Full / Light / Off: Light uses 7.2 % less energy per frame at the same fps. Still-view reuse and LOD sorting are on by default. FSR 1 / 2 and the fixed low-resolution modes were removed: not faster on the HD 520. Fixed route p99 14.8 ms (A4 method) |
+| **Character editor** (01.11) | **In progress.** Behaviour now comes from Kenshi's own code: face-tab camera framing, RANDOMISE per tab and RANDOMISE ALL (random head; idle stance on the body tab), slider limits. Tested with real clicks at 1366×768 and 1920×1080 |
 | **Code clean-up** (Oct 2026) | **Done (19.10):** ≈ 85 000 lines of own code removed across the three repositories (old prototype game layer, OpenGL leftovers, effects for stronger GPUs that never ran on the HD 520, an unused 200 MB ground cache), plus 2 × 131 000 lines of font arrays and the 8 700-line GL loader. Audit: clang-tidy, cppcheck, ASan / UBSan, code coverage; every change checked against pixel-exact reference frames. The engine and tools libraries are now built on GitHub (laptop build 19 → 7 min) |
 
 ### Goals
-**By ~2026-11-08: Kenshi's world on Linux at a stable 60 FPS on an HD 520**, native 1920×1080: terrain, sky, water, towns and foliage read from the Kenshi folder, looking like Kenshi (most of it is in place, see Status; what remains is getting towns and foliage within budget).
+**World acceptance on 2026-11-09 (moved from ~11-08): Kenshi's world on Linux at a stable 60 FPS on an HD 520 — the fixed route already measures p99 14.8 ms**, native 1920×1080: terrain, sky, water, towns and foliage read from the Kenshi folder, looking like Kenshi (most of it is in place, see Status; what remains is getting towns and foliage within budget).
 - **"Stable"** = frame-interval p99 ≤ 16.7 ms on a fixed flight route over the world (town, canyon, desert, horizon; loading hitches count), plus a mean ≤ 16.7 ms at three fixed points and near the Hub.
 
-**By ~2026-11-20:** **a minimal playable core** on top of it: a character in the world with Kenshi's mesh, skeleton and animations, click-to-move on Kenshi's own navigation mesh, a squad, a few NPCs from town data, the simplest melee combat. Partial and rough on purpose; a full Kenshi replacement is a multi-year effort.
+**By ~2026-11-27 (one week later than planned: reverse-engineering Kenshi's code now comes before writing ours):** **a minimal playable core** on top of it: a character in the world with Kenshi's mesh, skeleton and animations, click-to-move on Kenshi's own navigation mesh, a squad, a few NPCs from town data, the simplest melee combat. Partial and rough on purpose; a full Kenshi replacement is a multi-year effort.
 
 **By 2026-12-31 (preliminary):** game shell (launcher with mods, main menu on Kenshi's own UI layouts), new game with the character editor, deeper combat and medicine, NPC behaviour and factions, minimal inventory and trade, saves.
 
@@ -99,7 +101,10 @@ An honest log of what went wrong, what we tried and what the numbers said is on 
 - **A loud laptop fan** → we now measure watts, not only milliseconds. Lesson: on a fully loaded GPU, savings turn into extra frames, not fewer watts, so we compare at a frame cap both variants hold.
   - Kept: a restructured early exit in the ground shader, a stencil split (−5 % energy per frame, same picture), longer reuse of the previous frame (≈ −20 %), 10 FPS when paused.
   - Dropped, with numbers: a far-ground shortcut, tile lists, a one-biome variant.
-- **Next:** SIMD16 terrain shaders and a terrain virtual texture.
+- **Can the ground cost half as much? (28.10–01.11)** → we studied the published Total War terrain design and timed equivalent shaders on the HD 520: their per-pixel cost is only 1.2–1.6× below ours, the gap is architecture. Per-cell shaders, a per-frame material / light split and a separate cache pass all lost; a cache inside our reuse pass gave −8 % but blurs the near ground. «Half» was not reached; the cheap sharpening setting gave −7.2 % energy.
+- **Bugs found by the owner, not by tests** → behaviour is now taken from Kenshi's code, and tests click like a user at two resolutions; deterministic replays hash the game state every tick.
+- **How much of the original must we understand?** → about 15 900 functions to describe (≈ 8 000 non-trivial). Library code is recognised with signatures built by the same 2010 compiler; machine-drafted notes are checked by hand.
+- **Next:** a character in the world (A5); world acceptance on 09.11.
 
 ### Architecture
 
@@ -167,7 +172,7 @@ index.html             documentation site (GitHub Pages)
 - **Це не заміна і не ремейк Kenshi.** Kenshi © Lo-Fi Games. Це незалежний неофіційний рушій.
 - **Завантажити й зіграти поки нічого.** Виконуваний файл гри — в окремому приватному репозиторії; тут бібліотека рушія.
 
-### Стан (27.10.2026)
+### Стан (01.11.2026)
 
 | Напрям | Стан |
 |---|---|
@@ -185,13 +190,15 @@ index.html             documentation site (GitHub Pages)
 | Відомі проблеми (27.10) | Камені виправлено (27.10): трипланарні матеріали Kenshi без UV малювались чорними; тепер — як у Kenshi. Відкрито: рідкісна лінія на ґрунті й пікселізація на деяких кручах, чекають відтворюваної позиції камери |
 | Моди з Workshop | Код є, **на справжніх даних Workshop ще не перевірено** |
 | **Продуктивність, 1920×1080, HD 520** | Фіксований маршрут польоту **p99 ≈ 15,0 мс** (19.10.2026; 17.10 — 19 мс, 13.10 — 30–31 мс) — **мету 60 FPS (≤ 16,7 мс) на маршруті досягнуто**. Допомогли: відсікання невидимого на GPU (HZB), **перевикористання освітленого ґрунту між кадрами** (оновлення раз на 16 кадрів за замовчуванням; Settings: 4 / 8 / 16), resolve ґрунту більше не пише глибину, динамічна роздільність лише в русі (0,75, нативна, коли камера стоїть). Відомий хвіст: безперервний політ 50 м/с, p99 ≈ 18,9 мс. Довгострокова мета — 99 FPS на ландшафті. **27.10:** з увімкненими містами й рослинами p99 маршруту ≤ 16,2 мс (текстури рослин тепер вантажаться у фоновому потоці; жодного кадру понад 33 мс); найважчі сцени міст поки 21–27 мс (у роботі). Енергія: прохід ґрунту розділено трафаретом (−5 % енергії на кадр, та сама картинка), довше повторне використання минулого кадру (≈ −20 %), 10 FPS на паузі чи в неактивному вікні; стеля кадрів Auto / 30 / 60 / Unlimited. **Нове (22.10):** налаштування «Ground quality» — *Fast motion* (за замовчуванням: звичайна фільтрація ґрунту, роздільність 0,75 лише в русі, перемикання без ривків), анізотропна ×16 + динамічна роздільність або ×16 + м'якше перевикористання ґрунту; стеля кадрів **«авто»: 30 FPS у спокої, 60 у русі** (у спокої вентилятор майже не чути). **Головна ціль з 24.10 — менше навантаження на GPU, нагрів і шум вентилятора**, а не лише час кадру: у звичайній грі при 1080p зі стандартною стелею кадрів вентилятор ноутбука не вмикається. Низька частота кадрів — лише за станом гри (пауза, меню, вікно без фокуса), не за відсутністю вводу |
+| **Енергія в русі** (01.11) | **Зроблено.** Нове налаштування «Sharpening while moving» Full / Light / Off: Light витрачає на 7,2 % менше енергії на кадр при тих самих FPS. Повторне використання нерухомого кадру й сортування LOD увімкнено за замовчуванням. FSR 1 / 2 і постійні режими зниженої роздільності прибрано: на HD 520 не швидші. Маршрут p99 14,8 мс (метод A4) |
+| **Редактор персонажа** (01.11) | **У роботі.** Поведінка тепер береться з коду самої Kenshi: кадрування камери вкладки обличчя, RANDOMISE для вкладки й RANDOMISE ALL (випадкова голова; стійка на вкладці тіла), межі повзунків. Перевірено справжніми кліками при 1366×768 і 1920×1080 |
 | **Чистка коду** (жовтень 2026) | **Завершено (19.10):** ≈ 85 000 рядків власного коду прибрано в трьох репозиторіях (старий ігровий прототип, залишки OpenGL, ефекти для сильніших GPU, що на HD 520 не вмикались, невикористаний кеш ґрунту на 200 МБ), плюс 2 × 131 000 рядків масивів шрифтів і завантажувач GL на 8 700. Аудит: clang-tidy, cppcheck, ASan / UBSan, покриття коду; кожна зміна звірена з еталонними кадрами до пікселя. Рушій і бібліотеки tools тепер збираються на GitHub (збірка на ноутбуці 19 → 7 хв) |
 
 ### Мета
-**До ~08.11.2026: світ Kenshi під Linux зі стабільними 60 FPS на HD 520**, нативні 1920×1080: земля, небо, вода, міста й рослини з теки Kenshi, на вигляд як у Kenshi (більшість уже є, див. «Стан»; лишилося вкласти міста й рослини в бюджет).
+**Прийом світу 09.11.2026 (перенесено з ~08.11): світ Kenshi під Linux зі стабільними 60 FPS на HD 520 — маршрут уже дає p99 14,8 мс**, нативні 1920×1080: земля, небо, вода, міста й рослини з теки Kenshi, на вигляд як у Kenshi (більшість уже є, див. «Стан»; лишилося вкласти міста й рослини в бюджет).
 - **«Стабільні»** — p99 інтервалу кадру ≤ 16,7 мс на фіксованому маршруті польоту над світом (місто, каньйон, пустеля, обрій; ривки підвантаження теж рахуються), плюс середнє ≤ 16,7 мс у трьох фіксованих точках і біля Хабу.
 
-**До ~20.11.2026:** **найменше граюче ядро** поверх світу: персонаж у світі з мешем, скелетом і анімаціями Kenshi, рух кліком по власній навігаційній сітці Kenshi, загін, кілька NPC з даних міст, найпростіший ближній бій. Свідомо частково й сиро; повна заміна Kenshi — робота на кілька років.
+**До ~27.11.2026 (на тиждень пізніше: спершу розбираємо код Kenshi, потім пишемо свій):** **найменше граюче ядро** поверх світу: персонаж у світі з мешем, скелетом і анімаціями Kenshi, рух кліком по власній навігаційній сітці Kenshi, загін, кілька NPC з даних міст, найпростіший ближній бій. Свідомо частково й сиро; повна заміна Kenshi — робота на кілька років.
 
 **До 31.12.2026 (попередньо):** оболонка гри (запуск із модами, головне меню на оригінальних макетах UI Kenshi), нова гра з редактором персонажа, глибший бій і медицина, поведінка NPC і фракції, мінімальні інвентар і торгівля, збереження.
 
@@ -232,7 +239,10 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"   # тек�
 - **Гучний вентилятор ноутбука** → тепер міряємо вати, а не лише мілісекунди. Урок: на повністю завантаженому GPU економія йде в додаткові кадри, а не в менші вати, тож порівнюємо на стелі кадрів, яку тримають обидва варіанти.
   - Лишили: іншу форму раннього виходу в шейдері ґрунту, розділення трафаретом (−5 % енергії на кадр, та сама картинка), довше повторне використання минулого кадру (≈ −20 %), 10 FPS на паузі.
   - Відкинули з цифрами: спрощення далекої землі, списки плиток, варіант на один біом.
-- **Далі:** SIMD16 для шейдерів землі й віртуальна текстура землі.
+- **Чи може ґрунт коштувати вдвічі менше? (28.10–01.11)** → вивчили опублікований дизайн ландшафту Total War і виміряли аналогічні шейдери на HD 520: їхня вартість на піксель лише в 1,2–1,6 раза нижча, розрив в архітектурі. Шейдери на клітинку, розділення матеріалу й світла щокадру та окремий прохід кешу програли; кеш усередині нашого повторного використання дав −8 %, але розмиває ґрунт поблизу. «Вдвічі» не досягнуто; дешевша різкість дала −7,2 % енергії.
+- **Вади знаходив власник, а не тести** → поведінку тепер беремо з коду Kenshi, а тести клацають як користувач при двох роздільностях; детерміновані повтори хешують стан гри на кожному такті.
+- **Скільки оригіналу треба зрозуміти?** → близько 15 900 функцій до опису (≈ 8 000 нетривіальних). Код бібліотек розпізнаємо сигнатурами, зібраними тим самим компілятором 2010 року; машинні чернетки перевіряємо вручну.
+- **Далі:** персонаж у світі (A5); прийом світу 09.11.
 
 ### Архітектура
 
