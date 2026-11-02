@@ -23,6 +23,10 @@ struct PlacedPart {
     float quat[4];          // w x y z
     float off[3];           // raw sum of the part chain's "offset X/Y/Z" (FCS units; NOT applied to x y z)
     std::string tex;        // diffuse of the part's MATERIAL_SPEC (BUILDING_PART `material` -> `texture map`), as stored with '\\' -> '/'; empty: the part has no material spec
+    std::string nrm;        // `normal map` of the same spec (alpha = the TRANSPARENCY cut-out mask in Kenshi's object shader)
+    int material_type = 0;  // spec `material type` (1 / 2: TRANSPARENCY, 2 also DOUBLESIDED, exe 140848950)
+    int alpha_threshold = 128;   // spec `alpha threshold` (0..255, default 0x80)
+    float tile[2] = {1.f, 1.f};  // spec `tile X` / `tile Y` (either 0: 1, 1)
     std::string tex2;       // `texture map 2` of the same record (second layer blended by vertex alpha, Building_Dual); not drawn yet
 };
 

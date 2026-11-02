@@ -88,7 +88,7 @@ bool PropRenderer::FinishInit() {
 
     GpuPipeline::Desc pd;
     pd.vert_path = "shaders/prop.vert";
-    pd.frag_path = triplanar_ ? "shaders/prop_tri.frag" : "shaders/prop.frag";
+    pd.frag_path = triplanar_ ? "shaders/prop_tri.frag" : (cut_nrm_ ? "shaders/prop_cut.frag" : "shaders/prop.frag");
 
     // PropVertex: pos(loc=0,off=0,F3) + normal(loc=1,off=12,F3) + uv(loc=2,off=24,F2)
     // + layer(loc=3,off=32,F1), stride=36.
@@ -106,7 +106,7 @@ bool PropRenderer::FinishInit() {
 
     pd.vert_uniform_bufs = 1;  // slot 0: PropVert UBO (80 bytes: mat4 vp + vec4 model_pos_scale)
     pd.frag_uniform_bufs = 1;  // slot 0: PropFrag UBO (32 bytes: sun_dir_str + ambient)
-    pd.frag_samplers     = triplanar_ ? 2 : 3;  // triplanar: 0=diffuse, 1=normal; else 0=tex_rock, 1=tex_veg (PropTexShared), 2=tex_custom (per-instance)
+    pd.frag_samplers     = triplanar_ ? 2 : (cut_nrm_ ? 4 : 3);  // triplanar: 0=diffuse, 1=normal; else 0=tex_rock, 1=tex_veg (PropTexShared), 2=tex_custom (per-instance)
 
     if (!pipeline_.Create(pd)) {
         fprintf(stderr, "[PropRenderer] Pipeline creation failed\n");
@@ -182,12 +182,13 @@ void PropRenderer::DrawRaw(
         SDL_GPUTextureSamplerBinding sb[2] = { { CustomTex().SDLTexture(), CustomTex().SDLSampler() }, { nm.SDLTexture(), nm.SDLSampler() } };
         pv.BindFragmentSamplers(0, sb, 2);
     } else if (pt.ready) {
-        SDL_GPUTextureSamplerBinding sb[3] = {
+        SDL_GPUTextureSamplerBinding sb[4] = {
             { pt.tex_rock->SDLTexture(),   pt.tex_rock->SDLSampler()   },
             { pt.tex_veg->SDLTexture(),    pt.tex_veg->SDLSampler()    },
             { CustomTex().SDLTexture(),    CustomTex().SDLSampler()    },
+            { cut_nrm_ ? cut_nrm_->SDLTexture() : nullptr, cut_nrm_ ? cut_nrm_->SDLSampler() : nullptr },
         };
-        pv.BindFragmentSamplers(0, sb, 3);
+        pv.BindFragmentSamplers(0, sb, cut_nrm_ ? 4 : 3);
     }
 
     // Push fragment UBO once (sun params are shared for all props).

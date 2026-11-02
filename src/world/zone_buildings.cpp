@@ -24,7 +24,7 @@ std::vector<std::string> ZoneFilesInCircle(const std::string& kenshi_dir, float 
 }
 
 namespace {
-struct BuildingDef { float scale = 1.0f; std::vector<std::string> meshes; std::vector<std::array<float, 3>> offsets; std::vector<std::string> tex, tex2; };   // offsets: the sum of the "offset X/Y/Z" of the part and of its parents (raw FCS values, not applied by the loader)
+struct BuildingDef { float scale = 1.0f; std::vector<std::string> meshes; std::vector<std::array<float, 3>> offsets; std::vector<std::string> tex, tex2, nrm; std::vector<int> mtype, athr; std::vector<std::array<float, 2>> tile; };   // offsets: the sum of the "offset X/Y/Z" of the part and of its parents (raw FCS values, not applied by the loader)
 const float* FindFloat(const md::fcs::GameData& g, const char* key) { auto it = g.floats.find(key); return it == g.floats.end() ? nullptr : &it->second; }
 }
 
@@ -72,13 +72,19 @@ bool AppendZoneFile(const std::string& path, const md::fcs::GameDataContainer& d
                         std::replace(m.begin(), m.end(), '\\', '/');
                         std::string low = m; std::transform(low.begin(), low.end(), low.begin(), [](unsigned char c) { return (char)std::tolower(c); });
                         if (low.find("black") == std::string::npos) {
-                            std::string t1, t2;   // the part's first MATERIAL_SPEC: `texture map` (+ `texture map 2`)
+                            std::string t1, t2, nm; int mt = 0, at = 128; std::array<float, 2> tl = {1.f, 1.f};   // the part's MATERIAL_SPEC: `texture map` (+ `texture map 2`), `normal map`, type, threshold, tiling
                             if (const md::fcs::GameData* ms = mat) {
                                 auto a = ms->files.find("texture map"); if (a != ms->files.end()) t1 = a->second;
                                 auto b = ms->files.find("texture map 2"); if (b != ms->files.end()) t2 = b->second;
+                                auto c = ms->files.find("normal map"); if (c != ms->files.end()) nm = c->second;
+                                std::replace(nm.begin(), nm.end(), '\\', '/');
+                                auto im = ms->ints.find("material type"); if (im != ms->ints.end()) mt = im->second;
+                                auto ia = ms->ints.find("alpha threshold"); if (ia != ms->ints.end()) at = ia->second;
+                                auto fx = ms->floats.find("tile X"), fy = ms->floats.find("tile Y");
+                                if (fx != ms->floats.end() && fy != ms->floats.end() && fx->second != 0.f && fy->second != 0.f) tl = {fx->second, fy->second};   // exe 140841a50: either 0 -> (1, 1)
                                 std::replace(t1.begin(), t1.end(), '\\', '/'); std::replace(t2.begin(), t2.end(), '\\', '/');
                             }
-                            d.meshes.push_back(std::move(m)); d.offsets.push_back(here); d.tex.push_back(std::move(t1)); d.tex2.push_back(std::move(t2));
+                            d.meshes.push_back(std::move(m)); d.offsets.push_back(here); d.tex.push_back(std::move(t1)); d.tex2.push_back(std::move(t2)); d.nrm.push_back(std::move(nm)); d.mtype.push_back(mt); d.athr.push_back(at); d.tile.push_back(tl);
                         }
                     }
                     walk(*part, depth + 1, here, inherited);
@@ -118,7 +124,7 @@ bool AppendZoneFile(const std::string& path, const md::fcs::GameDataContainer& d
         for (size_t mi = 0; mi < d.meshes.size(); ++mi) {
             const std::array<float, 3> ow = OffsetWorld(in.rotation, d.scale, d.offsets[mi]);
             out.push_back({d.meshes[mi], (float)(((double)in.position[0] + WORLD_ORIGIN_UNITS) / 10.0) + ow[0], (float)((double)wy / 10.0) + ow[1], (float)(((double)in.position[2] + WORLD_ORIGIN_UNITS) / 10.0) + ow[2],
-                           in.position[1] / 10.0f, d.scale, {in.rotation[0], in.rotation[1], in.rotation[2], in.rotation[3]}, {d.offsets[mi][0], d.offsets[mi][1], d.offsets[mi][2]}, d.tex[mi], d.tex2[mi]});
+                           in.position[1] / 10.0f, d.scale, {in.rotation[0], in.rotation[1], in.rotation[2], in.rotation[3]}, {d.offsets[mi][0], d.offsets[mi][1], d.offsets[mi][2]}, d.tex[mi], d.nrm[mi], d.mtype[mi], d.athr[mi], {d.tile[mi][0], d.tile[mi][1]}, d.tex2[mi]});
         }
     }
     return true;

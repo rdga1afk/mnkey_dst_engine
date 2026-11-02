@@ -28,6 +28,7 @@ public:
     void SetSharedTexture(const GpuTexture* t) { shared_tex_ = t; }   // bind a texture the caller keeps alive (texture cache)
     void SetTriplanar(bool on) { triplanar_ = on; }   // before Init: texture mode 1 feature (prop_tri.frag: diffuse + normal map from the world position, layer = 4 + tile / 1000)
     void SetNormalTexture(const GpuTexture* t) { shared_normal_ = t; }   // triplanar normal map (cache-owned); flat when unset
+    void SetNormalAlphaCut(const GpuTexture* nrm) { cut_nrm_ = nrm; }   // before InitFromArrays: TRANSPARENCY batch (prop_cut.frag: discard where the normal map alpha < the threshold carried in the vertex layer, 2 + t); non-instanced draws only
     void SetCullBack(bool on) { cull_back_ = on; }   // before InitFromArrays: single-sided mesh (default off: both sides)
     // A Kenshi static .mesh from the install (see LoadOgreStaticMesh): the same geometry the converted .glb held.
     bool InitFromOgreMesh(const std::string& stored_path, float scale, float layer = 0.0f);
@@ -75,6 +76,7 @@ private:
     PropMesh    mesh_;
     GpuPipeline pipeline_;
     bool cull_back_ = false;
+    const GpuTexture* cut_nrm_ = nullptr;
     // Real per-mesh texture (PropMesh::has_custom_tex) — separate GPU
     // resource per PropRenderer instance, unlike the two PropTexShared
     // textures shared across all instances. Bound at set=2 binding=2,
