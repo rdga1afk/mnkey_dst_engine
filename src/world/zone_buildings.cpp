@@ -40,13 +40,16 @@ bool AppendZoneFile(const std::string& path, const md::fcs::GameDataContainer& d
         if (const md::fcs::GameData* b = data.Get(id); b && b->kind == 0) {
             if (const float* s = FindFloat(*b, "scale")) d.scale = *s;
             // a part may carry parts of its own (Storm_Shack_Exterior -> Storm_Shack_ExteriorROOF): walked to depth 8 like Okran render/zone.rs part_meshes_of
-            std::function<void(const md::fcs::GameData&, int, std::array<float, 3>)> walk = [&](const md::fcs::GameData& node, int depth, std::array<float, 3> acc) {
+            std::function<void(const md::fcs::GameData&, int, std::array<float, 3>, const md::fcs::GameData*)> walk = [&](const md::fcs::GameData& node, int depth, std::array<float, 3> acc, const md::fcs::GameData* inherited) {
                 const auto* parts = node.Refs("parts");
                 if (!parts || depth > 8) return;
                 for (const auto& p : *parts) {
                     const md::fcs::GameData* part = data.Get(p.first);
                     if (!part || part->kind != 29) continue;
                     std::array<float, 3> here = acc;
+                    // the part's own MATERIAL_SPEC, else the one of its parent part / the BUILDING (Okran render/zone.rs part_meshes_placed, port of the exe's building builder)
+                    const md::fcs::GameData* mat = inherited;
+                    if (const auto* mats = part->Refs("material")) if (!mats->empty()) if (const md::fcs::GameData* ms = data.Get(mats->front().first)) mat = ms;
                     if (const float* o = FindFloat(*part, "offset X")) here[0] += *o;
                     if (const float* o = FindFloat(*part, "offset Y")) here[1] += *o;
                     if (const float* o = FindFloat(*part, "offset Z")) here[2] += *o;
@@ -57,7 +60,7 @@ bool AppendZoneFile(const std::string& path, const md::fcs::GameDataContainer& d
                         std::string low = m; std::transform(low.begin(), low.end(), low.begin(), [](unsigned char c) { return (char)std::tolower(c); });
                         if (low.find("black") == std::string::npos) {
                             std::string t1, t2;   // the part's first MATERIAL_SPEC: `texture map` (+ `texture map 2`)
-                            if (const auto* mats = part->Refs("material")) if (!mats->empty()) if (const md::fcs::GameData* ms = data.Get(mats->front().first)) {
+                            if (const md::fcs::GameData* ms = mat) {
                                 auto a = ms->files.find("texture map"); if (a != ms->files.end()) t1 = a->second;
                                 auto b = ms->files.find("texture map 2"); if (b != ms->files.end()) t2 = b->second;
                                 std::replace(t1.begin(), t1.end(), '\\', '/'); std::replace(t2.begin(), t2.end(), '\\', '/');
@@ -65,10 +68,14 @@ bool AppendZoneFile(const std::string& path, const md::fcs::GameDataContainer& d
                             d.meshes.push_back(std::move(m)); d.offsets.push_back(here); d.tex.push_back(std::move(t1)); d.tex2.push_back(std::move(t2));
                         }
                     }
-                    walk(*part, depth + 1, here);
+                    walk(*part, depth + 1, here, mat);
                 }
             };
-            walk(*b, 0, {0.f, 0.f, 0.f});
+            {
+                const md::fcs::GameData* bmat = nullptr;
+                if (const auto* mats = b->Refs("material")) if (!mats->empty()) bmat = data.Get(mats->front().first);
+                walk(*b, 0, {0.f, 0.f, 0.f}, bmat);
+            }
         }
         return defs.emplace(id, std::move(d)).first->second;
     };
