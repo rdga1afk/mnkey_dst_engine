@@ -28,6 +28,19 @@ struct BuildingDef { float scale = 1.0f; std::vector<std::string> meshes; std::v
 const float* FindFloat(const md::fcs::GameData& g, const char* key) { auto it = g.floats.find(key); return it == g.floats.end() ? nullptr : &it->second; }
 }
 
+// The part's offset chain moves its scene node: a child node at translation (offset X, Y, Z) of its parent, no own rotation or scale (exe 140848950, Ghidra 02.11: createChildSceneNode(offset, identity) when the
+// part is not a position marker and the offset is non-zero; chains add). Under the instance node that is offset x instance scale, rotated by the instance rotation (w x y z); FCS units are 0.1 m.
+static std::array<float, 3> OffsetWorld(const float* q_wxyz, float scale, const std::array<float, 3>& off) {
+    const float n = std::sqrt(q_wxyz[0] * q_wxyz[0] + q_wxyz[1] * q_wxyz[1] + q_wxyz[2] * q_wxyz[2] + q_wxyz[3] * q_wxyz[3]);
+    if (n < 1e-6f || (off[0] == 0.f && off[1] == 0.f && off[2] == 0.f)) return {off[0] * 0.1f * scale, off[1] * 0.1f * scale, off[2] * 0.1f * scale};
+    const float w = q_wxyz[0] / n, x = q_wxyz[1] / n, y = q_wxyz[2] / n, z = q_wxyz[3] / n;
+    const float vx = off[0] * 0.1f * scale, vy = off[1] * 0.1f * scale, vz = off[2] * 0.1f * scale;
+    // v' = v + 2w (u x v) + 2 u x (u x v), u = (x, y, z)
+    const float cx = y * vz - z * vy, cy = z * vx - x * vz, cz = x * vy - y * vx;
+    const float dx = y * cz - z * cy, dy = z * cx - x * cz, dz = x * cy - y * cx;
+    return {vx + 2.f * (w * cx + dx), vy + 2.f * (w * cy + dy), vz + 2.f * (w * cz + dz)};
+}
+
 namespace {
 struct Circle { float cx, cz, r; };   // game units (0.1 m), origin-shifted
 
@@ -47,7 +60,7 @@ bool AppendZoneFile(const std::string& path, const md::fcs::GameDataContainer& d
                     const md::fcs::GameData* part = data.Get(p.first);
                     if (!part || part->kind != 29) continue;
                     std::array<float, 3> here = acc;
-                    // the part's own MATERIAL_SPEC, else the one of its parent part / the BUILDING (Okran render/zone.rs part_meshes_placed, port of the exe's building builder)
+                    // the part's own MATERIAL_SPEC, else the building's default: the BUILDING's first `material`, else the record 742-gamedata.base (exe 140848950, read in Ghidra 02.11)
                     const md::fcs::GameData* mat = inherited;
                     if (const auto* mats = part->Refs("material")) if (!mats->empty()) if (const md::fcs::GameData* ms = data.Get(mats->front().first)) mat = ms;
                     if (const float* o = FindFloat(*part, "offset X")) here[0] += *o;
@@ -68,12 +81,13 @@ bool AppendZoneFile(const std::string& path, const md::fcs::GameDataContainer& d
                             d.meshes.push_back(std::move(m)); d.offsets.push_back(here); d.tex.push_back(std::move(t1)); d.tex2.push_back(std::move(t2));
                         }
                     }
-                    walk(*part, depth + 1, here, mat);
+                    walk(*part, depth + 1, here, inherited);
                 }
             };
             {
                 const md::fcs::GameData* bmat = nullptr;
                 if (const auto* mats = b->Refs("material")) if (!mats->empty()) bmat = data.Get(mats->front().first);
+                if (!bmat) bmat = data.Get("742-gamedata.base");   // the exe's default MATERIAL_SPEC for a building without one
                 walk(*b, 0, {0.f, 0.f, 0.f}, bmat);
             }
         }
@@ -101,9 +115,11 @@ bool AppendZoneFile(const std::string& path, const md::fcs::GameDataContainer& d
         for (const auto& f : zr->second->floats) if (f.first == "world Y pos") { wy = f.second; have = true; }
         if (!have) continue;
         const BuildingDef& d = def_of(in.target);
-        for (size_t mi = 0; mi < d.meshes.size(); ++mi)
-            out.push_back({d.meshes[mi], (float)(((double)in.position[0] + WORLD_ORIGIN_UNITS) / 10.0), (float)((double)wy / 10.0), (float)(((double)in.position[2] + WORLD_ORIGIN_UNITS) / 10.0),
+        for (size_t mi = 0; mi < d.meshes.size(); ++mi) {
+            const std::array<float, 3> ow = OffsetWorld(in.rotation, d.scale, d.offsets[mi]);
+            out.push_back({d.meshes[mi], (float)(((double)in.position[0] + WORLD_ORIGIN_UNITS) / 10.0) + ow[0], (float)((double)wy / 10.0) + ow[1], (float)(((double)in.position[2] + WORLD_ORIGIN_UNITS) / 10.0) + ow[2],
                            in.position[1] / 10.0f, d.scale, {in.rotation[0], in.rotation[1], in.rotation[2], in.rotation[3]}, {d.offsets[mi][0], d.offsets[mi][1], d.offsets[mi][2]}, d.tex[mi], d.tex2[mi]});
+        }
     }
     return true;
 }
