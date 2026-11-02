@@ -11,7 +11,7 @@ summary: "Public engine README (EN + UA): native Linux engine that renders Kensh
 
 # monkey_dust Engine
 
-**A native Linux C++17 engine that renders the world of [Kenshi](https://lofigames.com/) from your own installed copy of the game, aimed at weak integrated GPUs (test platform: Intel HD 520).**
+**A native Linux C++17 engine for [Kenshi](https://lofigames.com/) — not a mod, no Wine/Proton. It renders the game's world from your own installed copy of Kenshi and is aimed at weak integrated GPUs (test platform: Intel HD 520).**
 
 [English](#english) · [Українською](#українською) · [Docs site](https://rdga1afk.github.io/mnkey_dst_engine/)
 
