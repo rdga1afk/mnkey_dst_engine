@@ -24,7 +24,7 @@ std::vector<std::string> ZoneFilesInCircle(const std::string& kenshi_dir, float 
 }
 
 namespace {
-struct BuildingDef { float scale = 1.0f; std::vector<std::string> meshes; std::vector<std::array<float, 3>> offsets; };   // offsets: the sum of the "offset X/Y/Z" of the part and of its parents (raw FCS values, not applied by the loader)
+struct BuildingDef { float scale = 1.0f; std::vector<std::string> meshes; std::vector<std::array<float, 3>> offsets; std::vector<std::string> tex, tex2; };   // offsets: the sum of the "offset X/Y/Z" of the part and of its parents (raw FCS values, not applied by the loader)
 const float* FindFloat(const md::fcs::GameData& g, const char* key) { auto it = g.floats.find(key); return it == g.floats.end() ? nullptr : &it->second; }
 }
 
@@ -55,7 +55,15 @@ bool AppendZoneFile(const std::string& path, const md::fcs::GameDataContainer& d
                         std::string m = f->second;
                         std::replace(m.begin(), m.end(), '\\', '/');
                         std::string low = m; std::transform(low.begin(), low.end(), low.begin(), [](unsigned char c) { return (char)std::tolower(c); });
-                        if (low.find("black") == std::string::npos) { d.meshes.push_back(std::move(m)); d.offsets.push_back(here); }
+                        if (low.find("black") == std::string::npos) {
+                            std::string t1, t2;   // the part's first MATERIAL_SPEC: `texture map` (+ `texture map 2`)
+                            if (const auto* mats = part->Refs("material")) if (!mats->empty()) if (const md::fcs::GameData* ms = data.Get(mats->front().first)) {
+                                auto a = ms->files.find("texture map"); if (a != ms->files.end()) t1 = a->second;
+                                auto b = ms->files.find("texture map 2"); if (b != ms->files.end()) t2 = b->second;
+                                std::replace(t1.begin(), t1.end(), '\\', '/'); std::replace(t2.begin(), t2.end(), '\\', '/');
+                            }
+                            d.meshes.push_back(std::move(m)); d.offsets.push_back(here); d.tex.push_back(std::move(t1)); d.tex2.push_back(std::move(t2));
+                        }
                     }
                     walk(*part, depth + 1, here);
                 }
@@ -88,7 +96,7 @@ bool AppendZoneFile(const std::string& path, const md::fcs::GameDataContainer& d
         const BuildingDef& d = def_of(in.target);
         for (size_t mi = 0; mi < d.meshes.size(); ++mi)
             out.push_back({d.meshes[mi], (float)(((double)in.position[0] + WORLD_ORIGIN_UNITS) / 10.0), (float)((double)wy / 10.0), (float)(((double)in.position[2] + WORLD_ORIGIN_UNITS) / 10.0),
-                           in.position[1] / 10.0f, d.scale, {in.rotation[0], in.rotation[1], in.rotation[2], in.rotation[3]}, {d.offsets[mi][0], d.offsets[mi][1], d.offsets[mi][2]}});
+                           in.position[1] / 10.0f, d.scale, {in.rotation[0], in.rotation[1], in.rotation[2], in.rotation[3]}, {d.offsets[mi][0], d.offsets[mi][1], d.offsets[mi][2]}, d.tex[mi], d.tex2[mi]});
     }
     return true;
 }
