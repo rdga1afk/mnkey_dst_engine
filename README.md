@@ -6,7 +6,7 @@ date: 2026-05-14
 updated: 2026-10-27
 repo: engine
 tags: [engine, readme, kenshi, sdl-gpu, terrain, public-repo]
-summary: "Public engine README (EN + UA): native Linux engine that renders Kenshi's world from the player's own install; status, goal to 2026-12-31, build, KENSHI_DIR, mods, architecture, module map, legal"
+summary: "Public engine README (EN + UA): native Linux engine that renders Kenshi's world from the player's own install; status, goals 2026–2028, build, KENSHI_DIR, mods, architecture, module map, legal"
 ---
 
 # monkey_dust Engine
@@ -60,9 +60,11 @@ Not related to the Dust rendering mod for Kenshi on Windows.
 **World acceptance on 2026-11-09 (moved from ~11-08): Kenshi's world on Linux at a stable 60 FPS on an HD 520 — the fixed route already measures p99 14.8 ms**, native 1920×1080: terrain, sky, water, towns and foliage read from the Kenshi folder, looking like Kenshi (most of it is in place, see Status; what remains is getting towns and foliage within budget).
 - **"Stable"** = frame-interval p99 ≤ 16.7 ms on a fixed flight route over the world (town, canyon, desert, horizon; loading hitches count), plus a mean ≤ 16.7 ms at three fixed points and near the Hub.
 
-**By ~2026-11-27 (one week later than planned: reverse-engineering Kenshi's code now comes before writing ours):** **a minimal playable core** on top of it: a character in the world with Kenshi's mesh, skeleton and animations, click-to-move on Kenshi's own navigation mesh, a squad, a few NPCs from town data, the simplest melee combat. Partial and rough on purpose; a full Kenshi replacement is a multi-year effort.
+**By 2026-12-31: the study of the original game is complete.** Every function of Kenshi's executable gets a written description checked against the code, and the structure of the whole game is written down (objects and data, update order, mechanics). Notes are in our own words; no Kenshi code or data goes into the repositories. The first prototype pieces are built from these notes: the character editor, squad selection, orders, movement and animation.
 
-**By 2026-12-31 (preliminary):** game shell (launcher with mods, main menu on Kenshi's own UI layouts), new game with the character editor, deeper combat and medicine, NPC behaviour and factions, minimal inventory and trade, saves.
+**2027 (goal): a full replacement for vanilla Kenshi.** All systems behave as in the original, the game can be played from a new start to the late game, with own saves. **2028:** mods with their own scripts, importing saves from the original game.
+
+**How we work:** parity with the original first, new features later; the original game's behaviour is the reference, checked by automated tests; every deliberate difference is listed and, where possible, switchable back to the original.
 
 ### Requirements
 | | Minimum (target) |
@@ -106,7 +108,7 @@ An honest log of what went wrong, what we tried and what the numbers said is on 
 - **Can the ground cost half as much? (28.10–01.11)** → we studied the published Total War terrain design and timed equivalent shaders on the HD 520: their per-pixel cost is only 1.2–1.6× below ours, the gap is architecture. Per-cell shaders, a per-frame material / light split and a separate cache pass all lost; a cache inside our reuse pass gave −8 % but blurs the near ground. «Half» was not reached; the cheap sharpening setting gave −7.2 % energy.
 - **Bugs found by the owner, not by tests** → behaviour is now taken from Kenshi's code, and tests click like a user at two resolutions; deterministic replays hash the game state every tick.
 - **How much of the original must we understand?** → about 15 900 functions to describe (≈ 8 000 non-trivial). Library code is recognised with signatures built by the same 2010 compiler; machine-drafted notes are checked by hand.
-- **Next:** a character in the world (A5); world acceptance on 09.11.
+- **Next:** world acceptance on 09.11; finishing the study of selection, orders, movement and animation; then the rest of the game's code by 31.12.
 
 ### Architecture
 
@@ -200,9 +202,11 @@ index.html             documentation site (GitHub Pages)
 **Прийом світу 09.11.2026 (перенесено з ~08.11): світ Kenshi під Linux зі стабільними 60 FPS на HD 520 — маршрут уже дає p99 14,8 мс**, нативні 1920×1080: земля, небо, вода, міста й рослини з теки Kenshi, на вигляд як у Kenshi (більшість уже є, див. «Стан»; лишилося вкласти міста й рослини в бюджет).
 - **«Стабільні»** — p99 інтервалу кадру ≤ 16,7 мс на фіксованому маршруті польоту над світом (місто, каньйон, пустеля, обрій; ривки підвантаження теж рахуються), плюс середнє ≤ 16,7 мс у трьох фіксованих точках і біля Хабу.
 
-**До ~27.11.2026 (на тиждень пізніше: спершу розбираємо код Kenshi, потім пишемо свій):** **найменше граюче ядро** поверх світу: персонаж у світі з мешем, скелетом і анімаціями Kenshi, рух кліком по власній навігаційній сітці Kenshi, загін, кілька NPC з даних міст, найпростіший ближній бій. Свідомо частково й сиро; повна заміна Kenshi — робота на кілька років.
+**До 31.12.2026: вивчення оригінальної гри завершено.** Кожна функція виконуваного файлу Kenshi отримує опис, звірений з кодом, а структура всієї гри записана: об'єкти й дані, порядок оновлення, механіки. Записи — нашими словами; коду й даних Kenshi в репозиторіях немає. Перші частини прототипу будуються за цими записами: редактор персонажа, виділення загону, накази, рух і анімація.
 
-**До 31.12.2026 (попередньо):** оболонка гри (запуск із модами, головне меню на оригінальних макетах UI Kenshi), нова гра з редактором персонажа, глибший бій і медицина, поведінка NPC і фракції, мінімальні інвентар і торгівля, збереження.
+**2027 (мета): повна заміна ванільної Kenshi.** Усі системи поводяться як в оригіналі, гру можна пройти від нового старту до пізньої гри, з власними збереженнями. **2028:** моди з власними скриптами, імпорт збережень оригінальної гри.
+
+**Як ми працюємо:** спершу відповідність оригіналу, нові можливості — потім; еталон — поведінка оригінальної гри, її перевіряють автоматичні тести; кожна свідома відмінність записана й, де можливо, перемикається назад на оригінальну.
 
 ### Вимоги
 | | Мінімум (ціль) |
@@ -244,7 +248,7 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"   # тек�
 - **Чи може ґрунт коштувати вдвічі менше? (28.10–01.11)** → вивчили опублікований дизайн ландшафту Total War і виміряли аналогічні шейдери на HD 520: їхня вартість на піксель лише в 1,2–1,6 раза нижча, розрив в архітектурі. Шейдери на клітинку, розділення матеріалу й світла щокадру та окремий прохід кешу програли; кеш усередині нашого повторного використання дав −8 %, але розмиває ґрунт поблизу. «Вдвічі» не досягнуто; дешевша різкість дала −7,2 % енергії.
 - **Вади знаходив власник, а не тести** → поведінку тепер беремо з коду Kenshi, а тести клацають як користувач при двох роздільностях; детерміновані повтори хешують стан гри на кожному такті.
 - **Скільки оригіналу треба зрозуміти?** → близько 15 900 функцій до опису (≈ 8 000 нетривіальних). Код бібліотек розпізнаємо сигнатурами, зібраними тим самим компілятором 2010 року; машинні чернетки перевіряємо вручну.
-- **Далі:** персонаж у світі (A5); прийом світу 09.11.
+- **Далі:** прийом світу 09.11; завершення вивчення виділення, наказів, руху й анімації; далі — решта коду гри до 31.12.
 
 ### Архітектура
 
