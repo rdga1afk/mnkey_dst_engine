@@ -25,6 +25,13 @@ WeatherDef MakeWeather(const md::fcs::GameData& r, const std::array<int32_t, 3>&
     return w;
 }
 
+WeatherDef DefaultWeather(const md::fcs::GameDataContainer& g, float weight, int dmin, int dmax) {
+    const md::fcs::GameData* def = g.Get("5460-weather.mod");
+    WeatherDef wd = def ? MakeWeather(*def, { 0, 0, 0 }) : WeatherDef();
+    wd.weight = weight; wd.dur_min = dmin; wd.dur_max = dmax;
+    return wd;
+}
+
 float Saturate(float v) { return v < 0.f ? 0.f : (v > 1.f ? 1.f : v); }
 
 }   // namespace
@@ -39,28 +46,47 @@ bool LoadData(const md::fcs::GameDataContainer& g, const unsigned char* areas, i
     const auto groups = g.OfType(95);
     if (groups.empty() || !areas || w <= 0 || h <= 0) return false;
     constexpr const char* kNone = "18003-gamedata.base";
+    int days_per_year = 100;
+    if (const md::fcs::GameData* gc = g.Get("110-gamedata.quack")) days_per_year = I(*gc, "days per year", 100);
     for (const md::fcs::GameData* gr : groups) {
         GroupDef gd; gd.name = gr->name; gd.index = (uint32_t)I(*gr, "index") & 0xFFFFFFu;
+        gd.mult_min = F(*gr, "weather strength multiplier min", 1.f); gd.mult_max = F(*gr, "weather strength multiplier max", 1.f);
+        struct Ref { int order; int share; const md::fcs::GameData* rec; };
+        std::vector<Ref> refs_sorted;
         if (const auto* refs = gr->Refs("seasons")) {
-            for (const auto& ref : *refs) {
-                const md::fcs::GameData* s = g.Get(ref.first);
-                if (!s) continue;
-                SeasonDef sd; sd.id = s->string_id; sd.days = ref.second[1] > 0 ? ref.second[1] : 1;
-                if (const auto* wr = s->Refs("weathers")) {
-                    for (const auto& wref : *wr) {
-                        const md::fcs::GameData* wd = g.Get(wref.first);
-                        if (!wd) continue;
-                        sd.weathers.push_back(MakeWeather(*wd, wref.second));
-                        if (sd.weathers.back().start_hour != sd.weathers.back().end_hour) sd.windowed = true;
-                    }
+            for (const auto& ref : *refs) if (const md::fcs::GameData* s = g.Get(ref.first)) refs_sorted.push_back({ ref.second[0], ref.second[1], s });
+        }
+        // the seasons are created in the order of the 1st triple value; the 2nd value is a share of the year (below 1: equal shares)
+        std::stable_sort(refs_sorted.begin(), refs_sorted.end(), [](const Ref& a, const Ref& b) { return a.order < b.order; });
+        const int n_seasons = (int)refs_sorted.size();
+        float share_total = 0.f; std::vector<float> shares;
+        for (const Ref& r : refs_sorted) { const float sh = r.share >= 1 ? (float)r.share : (float)(int)((float)days_per_year / (float)n_seasons); shares.push_back(sh); share_total += sh; }
+        int remaining = days_per_year;
+        for (int si = 0; si < n_seasons; ++si) {
+            const md::fcs::GameData* s = refs_sorted[si].rec;
+            SeasonDef sd; sd.id = s->string_id;
+            int len = (int)std::floor(shares[si] / share_total * (float)days_per_year + 0.5f);
+            if (len > remaining) len = remaining;
+            remaining -= len;
+            if (si == n_seasons - 1 && remaining > 0) { len += remaining; remaining = 0; }
+            sd.days = len > 0 ? len : 1;
+            sd.limit_min = F(*s, "weather strength limit min"); sd.limit_max = F(*s, "weather strength limit max", 1.f);
+            if (const auto* wr = s->Refs("weathers")) {
+                for (const auto& wref : *wr) {
+                    const md::fcs::GameData* wd = g.Get(wref.first);
+                    if (!wd) continue;
+                    sd.weathers.push_back(MakeWeather(*wd, wref.second));
+                    if (sd.weathers.back().start_hour != sd.weathers.back().end_hour) sd.windowed = true;
                 }
-                if (sd.windowed || sd.weathers.empty()) {   // the original appends the default weather record with weight 0 (the fallback of an empty pick)
-                    const md::fcs::GameData* def = g.Get("5460-weather.mod");
-                    WeatherDef wd = def ? MakeWeather(*def, { 0, 0, 0 }) : WeatherDef();
-                    wd.weight = 0.f; sd.weathers.push_back(wd);
-                }
-                gd.seasons.push_back(std::move(sd));
             }
+            if (sd.weathers.empty()) { sd.limit_min = 0.f; sd.limit_max = 1.f; sd.weathers.push_back(DefaultWeather(g, 1.f, 1440, 2880)); }   // a season without weathers: one default weather of 1 to 2 days
+            else if (sd.windowed) sd.weathers.push_back(DefaultWeather(g, 0.f, 5, 60));   // fallback of an empty pick: weight 0, 5 to 60 minutes
+            gd.seasons.push_back(std::move(sd));
+        }
+        if (gd.seasons.empty()) {   // no seasons: one default season over the whole year, strength limits 0..1, multiplier 1..1
+            SeasonDef sd; sd.days = days_per_year; sd.limit_min = 0.f; sd.limit_max = 1.f;
+            sd.weathers.push_back(DefaultWeather(g, 1.f, 1440, 2880));
+            gd.seasons.push_back(std::move(sd)); gd.mult_min = gd.mult_max = 1.f;
         }
         if (gr->string_id == kNone) out.groups.insert(out.groups.begin(), std::move(gd)); else out.groups.push_back(std::move(gd));
     }
@@ -116,9 +142,14 @@ void World::PickWeather(int g, double minutes) {
     if (n == 1) pick = only;
     else if (n > 1) { const float r = rng_.Unit() * total; pick = walk[wn - 1].second; for (int k = 0; k < wn; ++k) if (walk[k].first > r) { pick = walk[k].second; break; } }
     const WeatherDef& w = s.weathers[pick];
-    // the setter: strength draw, duration draw (the original also draws two wind-direction values here; not reproduced)
-    st.strength = rng_.Range(w.strength_min, w.strength_max);
+    // the setter's draws in the original order: effect strength (min, min: always the min), season limit, group multiplier, duration, then the wind
+    // direction (2 draws for the first weather of a group, 1 afterwards); only the strength and the duration are used here
+    const SeasonDef& ss = d_->groups[g].seasons[st.season];
+    rng_.Range(w.strength_min, w.strength_min);
+    const float f1 = rng_.Range(ss.limit_min, ss.limit_max), f2 = rng_.Range(d_->groups[g].mult_min, d_->groups[g].mult_max);
+    st.strength = std::min(std::max(f1 * f2, 0.f), 1.f);
     const int dur = rng_.RangeInt(w.dur_min, w.dur_max < w.dur_min ? w.dur_min : w.dur_max);
+    rng_.Next(); if (st.weather < 0) rng_.Next();
     st.weather = pick; st.changed = true;
     st.end_minute = minutes + (double)dur;
     if (w.start_hour != w.end_hour) {
@@ -172,7 +203,7 @@ void World::Update(double minutes, float dt, float x, float z) {
     out_.cloud_offset = out_.clouds_w * 1.4f - 0.8f;
     out_.darkness = std::pow(Saturate(out_.clouds_w - 0.5f), 0.3f);
     out_.group = g;
-    if (w) { out_.rain = w->rain; out_.wind = w->wind; out_.wetness = w->wetness; out_.dust = w->dust; out_.haze = w->haze; }
+    if (w) { const float k = Strength(g); out_.rain = w->rain * k; out_.wind = w->wind; out_.wetness = w->wetness; out_.dust = w->dust * k; out_.haze = w->haze * k; }
     last_x_ = x; last_z_ = z; started_ = true;
 }
 

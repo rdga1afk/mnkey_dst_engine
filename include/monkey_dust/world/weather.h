@@ -39,12 +39,14 @@ struct WeatherDef {
 };
 struct SeasonDef {
     std::string id;
-    int days = 1;                        // 2nd value of the group's reference triple
+    int days = 1;                        // the group's year (days per year) shared out by the 2nd values of the reference triples
+    float limit_min = 0.f, limit_max = 1.f;   // weather strength limit min / max
     bool windowed = false;               // some weather has start hour != end hour
     std::vector<WeatherDef> weathers;    // last entry = the default weather (weight 0) when windowed or empty
 };
 struct GroupDef {
     std::string name; uint32_t index = 0;
+    float mult_min = 1.f, mult_max = 1.f;   // weather strength multiplier min / max
     std::vector<SeasonDef> seasons;
 };
 struct Data {
@@ -60,7 +62,7 @@ struct SkyOutput {
     float clouds_w = 0.25f;              // the controller's coverage value
     KsVec3 sky_mult = { 1.f, 1.f, 1.f };
     float cloud_offset = -0.8f, darkness = 0.f;
-    float rain = 0.f, wind = 0.f, wetness = 0.f, dust = 0.f, haze = 0.f;   // raw values of the current weather (the original also scales them by a state strength, not read)
+    float rain = 0.f, wind = 0.f, wetness = 0.f, dust = 0.f, haze = 0.f;   // current weather; rain, dust and haze are scaled by the state strength like the original (wind is the raw record value: the original multiplies by a wind speed it draws, not reproduced)
     int group = -1;
 };
 
@@ -73,6 +75,7 @@ public:
     uint64_t Checksum() const;           // current weather per group, time left, the controller (determinism check)
     int GroupAt(float x, float z) const;
     const WeatherDef* CurrentWeather(int group) const;
+    float Strength(int group) const { return (group >= 0 && group < (int)st_.size()) ? st_[group].strength : 1.f; }
 private:
     struct State { int season = -1, season_end_day = 0, weather = -1; double end_minute = 0.0; float strength = 1.f; bool changed = false; };
     void PickWeather(int g, double minutes);
