@@ -1,6 +1,7 @@
 #pragma once
-// Kenshi's sky light on the CPU (#140 L1): the sun's path (SkyXController::update, Okran sky.rs F040798), the sun colour and strength (F040805), SkyX's atmospheric colour
-// (getColorAt, HDR branch, SkyX_x64.dll 0x1800038e0, _scale 0x180003860), horizonClouds, zenithLight, pFogParams and MIN_LUMINANCE. Port of Project-Okran src/render/sky.rs (MIT).
+// Kenshi's sky light on the CPU (#140 L1): the sun's path (exe SkyXController::update), the sun colour and strength (F040805), the sky's atmospheric colour
+// (single scattering after O'Neil, "Accurate Atmospheric Scattering", GPU Gems 2 ch. 16, with Kenshi's Options as the exe sets them; the HDR night glow follows the SkyX atmosphere colour function),
+// horizonClouds, zenithLight, pFogParams and MIN_LUMINANCE. The scattering and the sun path are rewritten from the published method and our own reads (no SkyX code); the remaining parts are a port of Project-Okran src/render/sky.rs (MIT).
 // Constants of the GLOBAL CONSTANTS record 110-gamedata.quack (sunrise 5, sunset 23, latitude 54, exposure min 0.8 / max 1.2, night darkness 0.35: read from the install, same values).
 #include <algorithm>
 #include <cmath>
@@ -32,79 +33,71 @@ struct KenshiSkySettings {
 
     struct MainLight { KsVec3 dir; KsVec3 colour; float w = 0.f; float min_lum = 0.f; };
 
+    // optical-depth fit of GPU Gems 2 ch. 16 (O'Neil, listing "scale"); equals the shader-side fit of the SkyX dome
     static float Scale(float cos_a, float scale_depth) {
-        const double x = (double)(1.0f - cos_a);
-        const double e = (((x * 5.25 - 6.8) * x + 3.83) * x + 0.459) * x - 0.00287;
-        return std::exp((float)e) * scale_depth;
+        const float x = 1.0f - cos_a;
+        return scale_depth * std::exp(x * (0.459f + x * (3.83f + x * (-6.80f + x * 5.25f))) - 0.00287f);
     }
     static float Dot(KsVec3 a, KsVec3 b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
     static KsVec3 Norm(KsVec3 a) { const float l = std::sqrt(Dot(a, a)); return l > 0.f ? KsVec3{a.x / l, a.y / l, a.z / l} : KsVec3{}; }
 
-    // getColorAt, HDR lighting mode: the sky colour toward `direction` with the sun toward `sun` (both from the ground; RGB)
-    KsVec3 ColorAt(KsVec3 direction, KsVec3 sun) const {
+    // Sky colour toward `direction` (unit, from the ground) with the sun toward `sun` (unit): single scattering after O'Neil, GPU Gems 2 ch. 16,
+    // with the Kenshi parameters (the exe's Options) plus the HDR night glow of the SkyX atmosphere colour function.
+    KsVec3 ColorAt(KsVec3 dir, KsVec3 sun) const {
+        dir = Norm(dir);
         const KenshiAtmosphere& A = atmosphere;
-        const float inner = A.inner_radius, outer = A.outer_radius;
-        const float scale_depth = (outer - inner) * 0.5f, scale_f = 1.f / (outer - inner), scale_over_depth = scale_f / scale_depth;
-        const float pi = 3.14159265358979f;
-        const float kr4pi = A.rayleigh * 4.f * pi, kr_esun = A.sun_intensity * A.rayleigh, km4pi = A.mie * 4.f * pi, km_esun = A.mie * A.sun_intensity;
-        const KsVec3 dir = Norm(direction);
-        const float cam_height = (outer - inner) * A.height_position + inner;
-        const KsVec3 inv_wl = {1.f / std::pow(A.wavelength.x, 4.f), 1.f / std::pow(A.wavelength.y, 4.f), 1.f / std::pow(A.wavelength.z, 4.f)};
-        const KsVec3 pos = {dir.x, dir.y + inner, dir.z};
-        const KsVec3 start = {0.f, cam_height, 0.f};
-        KsVec3 ray = {pos.x - start.x, pos.y - start.y, pos.z - start.z};
-        const float far_d = std::sqrt(Dot(ray, ray));
-        ray = {ray.x / far_d, ray.y / far_d, ray.z / far_d};
-        const float depth0 = std::exp(scale_over_depth * (inner - cam_height));
-        const float start_angle = Dot(ray, start) / cam_height;
-        const float start_offset = depth0 * Scale(start_angle, scale_depth);
-        const float sample_length = far_d / (float)A.samples, scaled_length = sample_length * scale_f;
-        const KsVec3 sample_ray = {ray.x * sample_length, ray.y * sample_length, ray.z * sample_length};
-        KsVec3 point = {start.x + sample_ray.x * 0.5f, start.y + sample_ray.y * 0.5f, start.z + sample_ray.z * 0.5f};
-        KsVec3 front;
-        for (int i = 0; i < std::max(A.samples, 0); ++i) {
-            const float height = std::sqrt(Dot(point, point));
-            const float depth = std::exp(scale_over_depth * (inner - height));
-            const float light_angle = Dot(sun, point) / height, camera_angle = Dot(ray, point) / height;
-            const float scatter = start_offset + depth * (Scale(light_angle, scale_depth) - Scale(camera_angle, scale_depth));
-            const float k = depth * scaled_length;
-            front.x += std::exp(-scatter * (inv_wl.x * kr4pi + km4pi)) * k;
-            front.y += std::exp(-scatter * (inv_wl.y * kr4pi + km4pi)) * k;
-            front.z += std::exp(-scatter * (inv_wl.z * kr4pi + km4pi)) * k;
-            point = {point.x + sample_ray.x, point.y + sample_ray.y, point.z + sample_ray.z};
+        const float PI = 3.14159265358979f;
+        const float thick = A.outer_radius - A.inner_radius, scale = 1.0f / thick, depth_scale = thick * 0.5f, sod = scale / depth_scale;
+        const float cam_y = A.inner_radius + thick * A.height_position;
+        // the dome point of the direction in atmosphere space and the view ray from the camera to it
+        const KsVec3 p = {dir.x, dir.y + A.inner_radius, dir.z};
+        KsVec3 ray = {p.x, p.y - cam_y, p.z};
+        const float far_len = std::sqrt(Dot(ray, ray));
+        ray = {ray.x / far_len, ray.y / far_len, ray.z / far_len};
+        const float start_offset = std::exp(sod * (A.inner_radius - cam_y)) * Scale(ray.y, depth_scale);
+        const float step_len = far_len / (float)A.samples, scaled = step_len * scale;
+        const KsVec3 step = {ray.x * step_len, ray.y * step_len, ray.z * step_len};
+        KsVec3 s = {step.x * 0.5f, cam_y + step.y * 0.5f, step.z * 0.5f};
+        const float iw[3] = {1.f / std::pow(A.wavelength.x, 4.f), 1.f / std::pow(A.wavelength.y, 4.f), 1.f / std::pow(A.wavelength.z, 4.f)};
+        float acc[3] = {0.f, 0.f, 0.f};
+        for (int i = 0; i < A.samples; ++i) {
+            const float h = std::sqrt(Dot(s, s));
+            const float d = std::exp(sod * (A.inner_radius - h));
+            const float out = start_offset + d * (Scale(Dot(sun, s) / h, depth_scale) - Scale(Dot(ray, s) / h, depth_scale));
+            for (int c = 0; c < 3; ++c) acc[c] += std::exp(-out * (iw[c] * A.rayleigh * 4.f * PI + A.mie * 4.f * PI)) * (d * scaled);
+            s = {s.x + step.x, s.y + step.y, s.z + step.z};
         }
-        const KsVec3 rayleigh = {front.x * inv_wl.x * kr_esun, front.y * inv_wl.y * kr_esun, front.z * inv_wl.z * kr_esun};
-        const KsVec3 mie = {front.x * km_esun, front.y * km_esun, front.z * km_esun};
-        const KsVec3 to_cam = {start.x - pos.x, start.y - pos.y, start.z - pos.z};
-        const float cs = Dot(sun, to_cam) / std::sqrt(Dot(to_cam, to_cam));
-        const float g2 = A.g * A.g;
-        const float ray_phase = (cs * cs * 0.5f + 1.f) * 0.75f;
-        const float mie_phase = ((1.f - g2) / (g2 + 2.f)) * 1.5f * (cs * cs + 1.f) / std::pow(g2 + 1.f - 2.f * A.g * cs, 1.5f);
-        KsVec3 c = {(rayleigh.x * ray_phase + mie.x * mie_phase) * A.exposure, (rayleigh.y * ray_phase + mie.y * mie_phase) * A.exposure, (rayleigh.z * ray_phase + mie.z * mie_phase) * A.exposure};
-        // the night sky's glow toward the horizon
-        const float m = std::max(c.x, std::max(c.y, c.z));
-        const float fade = std::min(std::max(1.f - m * 10.f, 0.f), 1.f);
-        const float below = std::min(std::max(-sun.y, 0.f), 1.f);
-        const float k = 2.f - below * 0.75f;
-        const float p = std::pow(1.f - dir.y, 3.f);
-        c.x += fade * std::pow(k * 0.05f * p, 2.2f);
-        c.y += fade * std::pow(k * 0.05f * p, 2.2f);
-        c.z += fade * std::pow(k * 0.1f * p, 2.2f);
-        return c;
+        // phase functions, theta = angle between the sun and the direction from the dome point back to the camera
+        const KsVec3 back = {-p.x, cam_y - p.y, -p.z};
+        const float cs = Dot(sun, back) / std::sqrt(Dot(back, back)), cs2 = cs * cs, g2 = A.g * A.g;
+        const float ph_r = 0.75f * (1.0f + 0.5f * cs2);
+        const float ph_m = 1.5f * ((1.0f - g2) / (2.0f + g2)) * (1.0f + cs2) / std::pow(1.0f + g2 - 2.0f * A.g * cs, 1.5f);
+        KsVec3 col;
+        float* o[3] = {&col.x, &col.y, &col.z};
+        for (int c = 0; c < 3; ++c) *o[c] = A.exposure * (ph_r * acc[c] * iw[c] * A.rayleigh * A.sun_intensity + ph_m * acc[c] * A.mie * A.sun_intensity);
+        // night glow: fades out when the sky is bright, bluer and stronger toward the horizon, weaker with the sun far below it
+        const float mx = std::max(col.x, std::max(col.y, col.z));
+        const float night = std::min(std::max(1.0f - mx * 10.0f, 0.0f), 1.0f);
+        const float k = 2.0f - std::min(std::max(-sun.y, 0.0f), 1.0f) * 0.75f;
+        const float hz = std::pow(1.0f - dir.y, 3.0f);
+        col.x += night * std::pow(k * 0.05f * hz, 2.2f);
+        col.y += night * std::pow(k * 0.05f * hz, 2.2f);
+        col.z += night * std::pow(k * 0.10f * hz, 2.2f);
+        return col;
     }
 
-    // F040798: the sun's direction at an hour (0..24)
+    // The sun's unit direction at an hour (0..24): exe SkyXController::update:
+    // fraction f of the way through the day (0 at sunrise, 1 at sunset) or through the night (1..2); direction = (cos f*PI, cos(tilt) sin f*PI, sin(tilt) sin f*PI).
     KsVec3 SunDirection(float hour) const {
-        float t = std::fmod(std::fmod(hour, 24.f) + 24.f, 24.f);
+        const float PI = 3.14159265358979f;
         float f;
-        if (t < sunrise || sunset < t) {
-            if (t < sunrise) t += 24.f;
+        if (hour < sunrise || hour > sunset) {
+            const float t = hour < sunrise ? hour + 24.f : hour;
             f = (t - sunset) / (24.f - (sunset - sunrise)) + 1.f;
         } else {
-            f = (t - sunrise) / (sunset - sunrise);
+            f = (hour - sunrise) / (sunset - sunrise);
         }
-        const float a = f * 3.14159265358979f;
-        return {std::cos(a), std::sin(a) * std::cos(tilt), std::sin(a) * std::sin(tilt)};
+        return {std::cos(f * PI), std::cos(tilt) * std::sin(f * PI), std::sin(tilt) * std::sin(f * PI)};
     }
 
     // F040805: sunDirection (the sun with y clamped to 0), sunColour rgb, its strength w, MIN_LUMINANCE
