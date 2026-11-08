@@ -31,4 +31,8 @@ bool IsKenshiFolder(const std::string& dir);
 // "<KenshiDir()>/data/newland/land/<name>" if that file exists, else `fallback`. Logs the choice once per name.
 std::string KenshiLandFile(const char* name, const char* fallback);
 
+// The one supported version of the original is 1.0.68. Reads <dir>/currentVersion.txt (the install's own version line, e.g. "Kenshi 1.0.68 - x64 (Newland)").
+// Returns "" when the line names 1.0.68, else a one-line warning for the player (file missing: the version is unknown). Never blocks the start.
+std::string KenshiVersionWarning(const std::string& dir);
+
 } // namespace md

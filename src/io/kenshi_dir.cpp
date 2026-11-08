@@ -74,6 +74,15 @@ std::string SavedKenshiDir(const std::string& home) {
 
 bool IsKenshiFolder(const std::string& dir) { return IsKenshi(dir); }
 
+std::string KenshiVersionWarning(const std::string& dir) {
+    const char* kSupported = "1.0.68";
+    std::string v = ReadAll(dir + "/currentVersion.txt");
+    while (!v.empty() && (v.back() == '\n' || v.back() == '\r' || v.back() == ' ')) v.pop_back();
+    if (v.find(kSupported) != std::string::npos) return "";
+    if (v.empty()) return std::string("The version of the Kenshi install is unknown (no currentVersion.txt); only Kenshi ") + kSupported + " is supported.";
+    return "This Kenshi install is \"" + v + "\"; only Kenshi " + kSupported + " is supported. The game starts anyway, but data and shaders may not match.";
+}
+
 static std::string& Override() { static std::string o; return o; }
 void SetKenshiDir(const std::string& dir) { Override() = dir; }
 
