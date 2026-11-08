@@ -269,7 +269,7 @@
     <div class="hero-meta">
       <div class="hero-meta-item"><span class="dot">●</span><span class="l-en">Kenshi install required</span><span class="l-uk">Потрібна інсталяція Kenshi</span></div>
       <div class="hero-meta-item"><span class="dot">●</span><span class="l-en">Test platform:</span><span class="l-uk">Тестова платформа:</span> Intel HD 520</div>
-      <div class="hero-meta-item"><span class="dot">●</span>Engine: MIT · Tools: GPL-3.0 · Game: <span class="l-en">proprietary</span><span class="l-uk">власницька</span></div>
+      <div class="hero-meta-item"><span class="dot">●</span>Engine: MIT · Tools: MIT · Game: <span class="l-en">proprietary</span><span class="l-uk">власницька</span></div>
     </div>
   </div>
 
@@ -431,7 +431,7 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"   # optiona
   <table>
     <tr><th><span class="l-en">Repository</span><span class="l-uk">Репозиторій</span></th><th><span class="l-en">Access</span><span class="l-uk">Доступ</span></th><th><span class="l-en">Licence</span><span class="l-uk">Ліцензія</span></th><th><span class="l-en">Contents</span><span class="l-uk">Вміст</span></th></tr>
     <tr><td><a href="https://github.com/rdga1afk/mnkey_dst_engine">mnkey_dst_engine</a></td><td><span class="l-en">public</span><span class="l-uk">публічний</span></td><td>MIT</td><td><span class="l-en">engine library: Kenshi data readers, renderer, world, ECS, physics</span><span class="l-uk">бібліотека рушія: читачі даних Kenshi, рендер, світ, ECS, фізика</span></td></tr>
-    <tr><td><a href="https://github.com/rdga1afk/mnkey_dst_tools">mnkey_dst_tools</a></td><td><span class="l-en">public</span><span class="l-uk">публічний</span></td><td>GPL-3.0</td><td><span class="l-en">editor, measurement/QA scripts, offline converters</span><span class="l-uk">редактор, скрипти замірів і QA, офлайн-конвертери</span></td></tr>
+    <tr><td><a href="https://github.com/rdga1afk/mnkey_dst_tools">mnkey_dst_tools</a></td><td><span class="l-en">public</span><span class="l-uk">публічний</span></td><td>MIT</td><td><span class="l-en">editor, measurement/QA scripts, offline converters</span><span class="l-uk">редактор, скрипти замірів і QA, офлайн-конвертери</span></td></tr>
     <tr><td>mnkey_dst</td><td><span class="l-en">private</span><span class="l-uk">приватний</span></td><td><span class="l-en">proprietary</span><span class="l-uk">власницька</span></td><td><span class="l-en">game executable, shaders, test suite, research; the two above are its submodules (<code>engine/</code>, <code>tools/</code>)</span><span class="l-uk">виконуваний файл гри, шейдери, тести, дослідження; два репо вище — його підмодулі (<code>engine/</code>, <code>tools/</code>)</span></td></tr>
   </table>
   <p class="l-en">Dependency direction: <code>game → tools → engine</code>. The engine never includes from <code>game/</code> or <code>tools/</code>; <code>tools/</code> never includes from <code>game/</code>.</p>
@@ -571,8 +571,8 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"   # optiona
 <!-- ═══ TOOLS ═══ -->
 <section class="doc-section" id="tools">
   <h2><span class="l-en">Editor &amp; tools</span><span class="l-uk">Редактор та інструменти</span></h2>
-  <p class="l-en">The <a href="https://github.com/rdga1afk/mnkey_dst_tools">tools repository</a> (GPL-3.0) holds the standalone <code>monkey_dust_editor</code> (Dear ImGui): a Kenshi-style character editor (body sliders scale bones, as Kenshi does), a Settings tab (upscaling mode, <code>resolution_scale</code>, terrain chunk size), a 3D world view and inspectors. It also holds shader hot-reload, the live game command driver used for all measurements, offline converters, and two small local MCP servers for development (read-only Ghidra project access, headless RenderDoc capture reading; no network code).</p>
-  <p class="l-uk"><a href="https://github.com/rdga1afk/mnkey_dst_tools">Репозиторій інструментів</a> (GPL-3.0) містить окремий <code>monkey_dust_editor</code> (Dear ImGui): редактор персонажів у стилі Kenshi (слайдери тіла масштабують кістки, як у Kenshi), вкладку Settings (режим масштабування, <code>resolution_scale</code>, розмір патча ландшафту), 3D-перегляд світу й інспектори. Також гаряче перезавантаження шейдерів, драйвер гри для всіх замірів, офлайн-конвертери і два невеликі локальні MCP-сервери для розробки (лише читання проєкту Ghidra, читання захоплень RenderDoc без інтерфейсу; без мережевого коду).</p>
+  <p class="l-en">The <a href="https://github.com/rdga1afk/mnkey_dst_tools">tools repository</a> (MIT) holds the standalone <code>monkey_dust_editor</code> (Dear ImGui): a Kenshi-style character editor (body sliders scale bones, as Kenshi does), a Settings tab (upscaling mode, <code>resolution_scale</code>, terrain chunk size), a 3D world view and inspectors. It also holds shader hot-reload, the live game command driver used for all measurements, offline converters, and two small local MCP servers for development (read-only Ghidra project access, headless RenderDoc capture reading; no network code).</p>
+  <p class="l-uk"><a href="https://github.com/rdga1afk/mnkey_dst_tools">Репозиторій інструментів</a> (MIT) містить окремий <code>monkey_dust_editor</code> (Dear ImGui): редактор персонажів у стилі Kenshi (слайдери тіла масштабують кістки, як у Kenshi), вкладку Settings (режим масштабування, <code>resolution_scale</code>, розмір патча ландшафту), 3D-перегляд світу й інспектори. Також гаряче перезавантаження шейдерів, драйвер гри для всіх замірів, офлайн-конвертери і два невеликі локальні MCP-сервери для розробки (лише читання проєкту Ghidra, читання захоплень RenderDoc без інтерфейсу; без мережевого коду).</p>
 </section>
 
 <!-- ═══ RULES ═══ -->
@@ -665,7 +665,7 @@ pipeline.Create(d);   // checked by gpu_pipeline_safety_check.h first</code></pr
   <table>
     <tr><th><span class="l-en">Component</span><span class="l-uk">Компонент</span></th><th><span class="l-en">Licence</span><span class="l-uk">Ліцензія</span></th><th><span class="l-en">Use</span><span class="l-uk">Використання</span></th></tr>
     <tr><td><code>engine/</code></td><td>MIT</td><td><span class="l-en">public</span><span class="l-uk">публічний</span></td></tr>
-    <tr><td><code>tools/</code></td><td>GPL-3.0</td><td><span class="l-en">public</span><span class="l-uk">публічний</span></td></tr>
+    <tr><td><code>tools/</code></td><td>MIT</td><td><span class="l-en">public</span><span class="l-uk">публічний</span></td></tr>
     <tr><td><span class="l-en">game</span><span class="l-uk">гра</span></td><td><span class="l-en">proprietary</span><span class="l-uk">власницька</span></td><td><span class="l-en">private</span><span class="l-uk">приватний</span></td></tr>
     <tr><td>SDL3 + SDL_GPU</td><td>zlib</td><td><span class="l-en">window, input, rendering</span><span class="l-uk">вікно, ввід, рендер</span></td></tr>
     <tr><td>gaia-ecs 1.0.0</td><td>MIT</td><td>ECS</td></tr>
