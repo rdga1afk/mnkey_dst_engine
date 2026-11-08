@@ -284,7 +284,7 @@
     <ul>
       <li><b>Not a playable game yet.</b> No NPCs, combat, trade or UI from Kenshi. The early prototype game layer was removed on 2026-10-17; new game logic will be written from facts about Kenshi's systems.</li>
       <li><b>Not a Kenshi remake.</b> Kenshi is © Lo-Fi Games; this is an independent, unofficial project.</li>
-      <li><b>Nothing to download yet.</b> The engine library is public; the game executable is in a private repository.</li>
+      <li><b>Nothing to download yet.</b> The engine library is public; the game's source is in a private repository. Early Linux builds of the game will be published in the <a href="https://github.com/rdga1afk/mnkey_dst_tools/releases">Releases of the tools repository</a> (planned, date not set yet).</li>
     </ul>
   </div>
   <div class="l-uk">
@@ -298,7 +298,7 @@
     <ul>
       <li><b>Це не гра, в яку можна грати.</b> NPC, бою, торгівлі й інтерфейсу з Kenshi ще немає.</li>
       <li><b>Це не ремейк Kenshi.</b> Kenshi © Lo-Fi Games; це незалежний неофіційний проєкт.</li>
-      <li><b>Завантажити поки нічого.</b> Бібліотека рушія публічна; виконуваний файл гри — у приватному репозиторії.</li>
+      <li><b>Завантажити поки нічого.</b> Бібліотека рушія публічна; код гри — у приватному репозиторії. Ранні збірки гри для Linux публікуватимуться в <a href="https://github.com/rdga1afk/mnkey_dst_tools/releases">релізах репозиторію інструментів</a> (заплановано, дату ще не визначено).</li>
     </ul>
   </div>
 </section>
@@ -431,7 +431,7 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"   # optiona
   <table>
     <tr><th><span class="l-en">Repository</span><span class="l-uk">Репозиторій</span></th><th><span class="l-en">Access</span><span class="l-uk">Доступ</span></th><th><span class="l-en">Licence</span><span class="l-uk">Ліцензія</span></th><th><span class="l-en">Contents</span><span class="l-uk">Вміст</span></th></tr>
     <tr><td><a href="https://github.com/rdga1afk/mnkey_dst_engine">mnkey_dst_engine</a></td><td><span class="l-en">public</span><span class="l-uk">публічний</span></td><td>MIT</td><td><span class="l-en">engine library: Kenshi data readers, renderer, world, ECS, physics</span><span class="l-uk">бібліотека рушія: читачі даних Kenshi, рендер, світ, ECS, фізика</span></td></tr>
-    <tr><td><a href="https://github.com/rdga1afk/mnkey_dst_tools">mnkey_dst_tools</a></td><td><span class="l-en">public</span><span class="l-uk">публічний</span></td><td>MIT</td><td><span class="l-en">editor, measurement/QA scripts, offline converters</span><span class="l-uk">редактор, скрипти замірів і QA, офлайн-конвертери</span></td></tr>
+    <tr><td><a href="https://github.com/rdga1afk/mnkey_dst_tools">mnkey_dst_tools</a></td><td><span class="l-en">public</span><span class="l-uk">публічний</span></td><td>MIT</td><td><span class="l-en">editor, measurement/QA scripts, offline converters; Releases: early Linux builds of the game (planned)</span><span class="l-uk">редактор, скрипти замірів і QA, офлайн-конвертери; релізи: ранні збірки гри для Linux (заплановано)</span></td></tr>
     <tr><td>mnkey_dst</td><td><span class="l-en">private</span><span class="l-uk">приватний</span></td><td><span class="l-en">proprietary</span><span class="l-uk">власницька</span></td><td><span class="l-en">game executable, shaders, test suite, research; the two above are its submodules (<code>engine/</code>, <code>tools/</code>)</span><span class="l-uk">виконуваний файл гри, шейдери, тести, дослідження; два репо вище — його підмодулі (<code>engine/</code>, <code>tools/</code>)</span></td></tr>
   </table>
   <p class="l-en">Dependency direction: <code>game → tools → engine</code>. The engine never includes from <code>game/</code> or <code>tools/</code>; <code>tools/</code> never includes from <code>game/</code>.</p>
