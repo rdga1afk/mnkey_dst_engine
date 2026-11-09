@@ -41,6 +41,22 @@ int Data::FindGroup(const std::string& name) const {
     return -1;
 }
 
+std::vector<int> SplitYear(const std::vector<float>& shares, int days_per_year, bool walk_reverse) {
+    const int n = (int)shares.size();
+    std::vector<int> out(n, 0);
+    float total = 0.f; for (float v : shares) total += v;
+    int remaining = days_per_year;
+    for (int k = 0; k < n; ++k) {
+        const int i = walk_reverse ? n - 1 - k : k;
+        int len = (int)std::floor(shares[i] / total * (float)days_per_year + 0.5f);
+        if (len > remaining) len = remaining;
+        remaining -= len;
+        if (k == n - 1 && remaining > 0) { len += remaining; remaining = 0; }
+        out[i] = len;
+    }
+    return out;
+}
+
 bool LoadData(const md::fcs::GameDataContainer& g, const unsigned char* areas, int w, int h, Data& out) {
     out = Data();
     const auto groups = g.OfType(95);
@@ -59,17 +75,13 @@ bool LoadData(const md::fcs::GameDataContainer& g, const unsigned char* areas, i
         // the seasons are created in the order of the 1st triple value; the 2nd value is a share of the year (below 1: equal shares)
         std::stable_sort(refs_sorted.begin(), refs_sorted.end(), [](const Ref& a, const Ref& b) { return a.order < b.order; });
         const int n_seasons = (int)refs_sorted.size();
-        float share_total = 0.f; std::vector<float> shares;
-        for (const Ref& r : refs_sorted) { const float sh = r.share >= 1 ? (float)r.share : (float)(int)((float)days_per_year / (float)n_seasons); shares.push_back(sh); share_total += sh; }
-        int remaining = days_per_year;
+        std::vector<float> shares;
+        for (const Ref& r : refs_sorted) shares.push_back(r.share >= 1 ? (float)r.share : (float)(int)((float)days_per_year / (float)n_seasons));
+        const std::vector<int> split = SplitYear(shares, days_per_year);
         for (int si = 0; si < n_seasons; ++si) {
             const md::fcs::GameData* s = refs_sorted[si].rec;
             SeasonDef sd; sd.id = s->string_id;
-            int len = (int)std::floor(shares[si] / share_total * (float)days_per_year + 0.5f);
-            if (len > remaining) len = remaining;
-            remaining -= len;
-            if (si == n_seasons - 1 && remaining > 0) { len += remaining; remaining = 0; }
-            sd.days = len > 0 ? len : 1;
+            sd.share = shares[si]; sd.days = split[si] > 0 ? split[si] : 1;   // DEVIATION: the remainder walk follows the sorted reference order (the original: record-pointer order)
             sd.limit_min = F(*s, "weather strength limit min"); sd.limit_max = F(*s, "weather strength limit max", 1.f);
             if (const auto* wr = s->Refs("weathers")) {
                 for (const auto& wref : *wr) {

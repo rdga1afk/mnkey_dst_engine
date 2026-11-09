@@ -39,6 +39,7 @@ struct WeatherDef {
 };
 struct SeasonDef {
     std::string id;
+    float share = 1.f;                   // the 2nd triple value, or the equal share
     int days = 1;                        // the group's year (days per year) shared out by the 2nd values of the reference triples
     float limit_min = 0.f, limit_max = 1.f;   // weather strength limit min / max
     bool windowed = false;               // some weather has start hour != end hour
@@ -54,6 +55,10 @@ struct Data {
     std::vector<int> zone_group;         // kZones * kZones, index = zx * kZones + zz, into groups
     int FindGroup(const std::string& name) const;
 };
+
+// The year (days per year) shared out by the seasons' shares: round(share / sum * year), limited to what is left, the last one walked takes the remainder.
+// walk_reverse walks from the last season (the original walks a map keyed by record pointer; see docs/DEVIATIONS.md).
+std::vector<int> SplitYear(const std::vector<float>& shares, int days_per_year, bool walk_reverse = false);
 
 // areas: RGB, w * h * 3, top row first (the areasmap as decoded by stb_image); returns false when the install has no weather records.
 bool LoadData(const md::fcs::GameDataContainer& g, const unsigned char* areas, int w, int h, Data& out);
