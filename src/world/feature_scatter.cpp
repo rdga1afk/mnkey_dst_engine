@@ -3,6 +3,7 @@
 #include <monkey_dust/platform/md_log.h>
 #include <monkey_dust/io/fcs_gamedata.h>
 #include <monkey_dust/io/kenshi_dir.h>
+#include <monkey_dust/io/kenshi_resources.h>
 #include <monkey_dust/render/asset_cache.h>
 #include <monkey_dust/render/gpu_sampler_texture.h>
 #include <fstream>
