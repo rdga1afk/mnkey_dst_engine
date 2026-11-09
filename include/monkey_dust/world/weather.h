@@ -68,6 +68,7 @@ struct SkyOutput {
     KsVec3 sky_mult = { 1.f, 1.f, 1.f };
     float cloud_offset = -0.8f, darkness = 0.f;
     float rain = 0.f, wind = 0.f, wetness = 0.f, dust = 0.f, haze = 0.f;   // current weather; rain, dust and haze are scaled by the state strength like the original (wind is the raw record value: the original multiplies by a wind speed it draws, not reproduced)
+    float ground_wetness = 0.f;          // what the terrain's "wetness" uniform gets (the exe clamps it at 0 when it applies it)
     int group = -1;
 };
 
