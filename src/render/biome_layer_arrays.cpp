@@ -1,5 +1,6 @@
 #include <monkey_dust/render/biome_layer_arrays.h>
 #include <monkey_dust/world/biome_def.h>
+#include <chrono>
 #include <cstdio>
 #include <filesystem>
 
@@ -32,5 +33,41 @@ static BiomeLayerCache::Built BuildBiome(int key) {
 
 BiomeLayerArrays::BiomeLayerArrays()
     : cache_(BuildBiome, [](void* h) { delete static_cast<BiomeLayerSet*>(h); }) {}
+
+BiomeLayerArrays::~BiomeLayerArrays() {
+    { std::lock_guard<std::mutex> l(mu_); stop_ = true; }
+    cv_.notify_all();
+    if (worker_.joinable()) worker_.join();
+    for (Done& d : done_) delete d.set;
+}
+
+void BiomeLayerArrays::Request(int biome, int tier) {
+    const int key = biome * 8 + tier;
+    std::lock_guard<std::mutex> l(mu_);
+    for (int k : known_) if (k == key) return;
+    known_.push_back(key); queue_.push_back(key);
+    if (!running_) { running_ = true; worker_ = std::thread([this] { Worker(); }); }
+    cv_.notify_one();
+}
+
+void BiomeLayerArrays::Worker() {
+    SetDdsArrayNoJobsThisThread(true);
+    for (;;) {
+        int key;
+        { std::unique_lock<std::mutex> l(mu_); cv_.wait(l, [&] { return stop_ || !queue_.empty(); }); if (stop_) return; key = queue_.front(); queue_.pop_front(); ++in_flight_; }
+        const BiomeLayerCache::Built b = BuildBiome(key);   // the whole synchronous build, off the render thread
+        { std::lock_guard<std::mutex> l(mu_); --in_flight_; if (b.handle) done_.push_back({ key, static_cast<BiomeLayerSet*>(b.handle), b.bytes }); }
+        if (gap_ms_ > 0) std::this_thread::sleep_for(std::chrono::milliseconds(gap_ms_));   // spread the uploads: the integrated GPU shares the memory bus with the copy
+    }
+}
+
+void BiomeLayerArrays::Poll(uint64_t frame) {
+    std::vector<Done> d;
+    { std::lock_guard<std::mutex> l(mu_); d.swap(done_); }
+    for (Done& x : d) cache_.Insert(x.key, x.set, x.bytes, frame);
+    if (!d.empty()) { std::lock_guard<std::mutex> l(mu_); for (Done& x : d) for (size_t i = 0; i < known_.size(); ++i) if (known_[i] == x.key) { known_.erase(known_.begin() + (long)i); break; } }   // resident now; a failed key stays known
+}
+
+int BiomeLayerArrays::Pending() const { std::lock_guard<std::mutex> l(mu_); return (int)queue_.size() + in_flight_; }
 
 }   // namespace md

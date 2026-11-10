@@ -40,6 +40,9 @@ static bool s_is_bc2(const char* buf, uint32_t len) {
     return (pf_flags & 4u) && fourcc == 0x33545844u; // 'DXT3'
 }
 
+static thread_local bool t_no_jobs = false;
+void md::SetDdsArrayNoJobsThisThread(bool b) { t_no_jobs = b; }
+
 bool GpuTexture::InitFromDDSArray(const char* const* paths, int count,
                                    const GpuSamplerDesc& /*s*/, int skip_mips)
 {
@@ -80,7 +83,7 @@ bool GpuTexture::InitFromDDSArray(const char* const* paths, int count,
         }
         l->buf = md::fs_read_alloc(l->path, &l->len);
     };
-    if (JobSystem::Get().NumWorkers() > 0) {
+    if (!t_no_jobs && JobSystem::Get().NumWorkers() > 0) {
         for (int i = 0; i < count; ++i) JobSystem::Get().Submit(read_one, &layers[i]);
         JobSystem::Get().Flush();
     } else {
@@ -205,7 +208,7 @@ bool GpuTexture::InitFromDDSArray(const char* const* paths, int count,
             }
             memcpy(j.dst + j.mip0, j.src, j.layer_stride - j.mip0);
         };
-        if (JobSystem::Get().NumWorkers() > 0 && count > 1) {   // layers are disjoint ranges of the mapped buffer
+        if (!t_no_jobs && JobSystem::Get().NumWorkers() > 0 && count > 1) {   // layers are disjoint ranges of the mapped buffer
             for (int i = 0; i < count; ++i) JobSystem::Get().Submit(copy_one, &jobs[(size_t)i]);
             JobSystem::Get().Flush();
         } else {

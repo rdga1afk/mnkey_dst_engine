@@ -20,6 +20,9 @@ public:
     // The arrays of `biome` (built when absent), marked used in `frame`. Biomes used in this frame are never evicted; others are evicted oldest first
     // while the resident size is over the budget. nullptr when the biome cannot be built.
     void* Acquire(int biome, uint64_t frame);
+    // Asynchronous use: Peek returns the resident handle (marked used in `frame`) or nullptr; Insert adds a handle built elsewhere (same eviction as Acquire).
+    void* Peek(int biome, uint64_t frame);
+    void Insert(int biome, void* handle, uint64_t bytes, uint64_t frame);
     void Clear();
 
     int Resident() const { return (int)items_.size(); }
@@ -29,6 +32,7 @@ public:
     bool Has(int biome) const;
 
 private:
+    void Evict(uint64_t frame);
     struct Item { int biome; void* handle; uint64_t bytes, last_use; };
     std::vector<Item> items_;
     BuildFn build_; FreeFn free_;

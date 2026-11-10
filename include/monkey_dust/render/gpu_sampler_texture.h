@@ -182,3 +182,8 @@ private:
     SDL_GPUTexture* sdl_tex_     = nullptr;
     SDL_GPUSampler* sdl_sampler_ = nullptr;
 };
+
+namespace md {
+// The calling thread loads DDS arrays without the JobSystem (whose Submit/Flush are main-thread only): for background loader threads.
+void SetDdsArrayNoJobsThisThread(bool no_jobs);
+}   // namespace md
