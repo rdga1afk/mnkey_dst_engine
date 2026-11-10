@@ -210,6 +210,17 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
                     sd.frag_path = md::GroundLiveLightOn() ? "shaders/terrain_shading_screenspace_kenshi_onebiome_klight_live.frag" : "shaders/terrain_shading_screenspace_kenshi_onebiome_klight.frag"; sd.stencil_mode = 3;   // the pixels with exactly one biome evaluation (the others are discarded here and shaded by the pass above)
                     all_ok &= resolve_split_p_[f][2].Create(sd);
                 }
+                static const bool tiny_on = md::GroundLiveLightOn() && getenv("MD_GROUND_LIVE_TINY") && getenv("MD_GROUND_LIVE_TINY")[0] == '1';
+                if (tiny_on) {   // the consumer of the lit live pixels without the port's reuse / decode / ambient / footprint code (its register allocation and SIMD width are those of a tiny shader)
+                    live_tiny_ready_ = true;
+                    for (int f = 0; f < 2; ++f) {
+                        GpuPipeline::Desc td = kd;
+                        td.color_format = f ? SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT : rd.color_format;
+                        td.depth_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT;
+                        td.frag_uniform_bufs = 3; td.frag_path = "shaders/terrain_shading_screenspace_kenshi_klight_live_tiny.frag"; td.stencil_mode = 3;   // skips the pixels pass A accepted and marks the ones it shades, for the full pass
+                        live_tiny_ready_ &= resolve_live_tiny_p_[f].Create(td);
+                    }
+                }
                 split_ready_ = all_ok;
                 MD_LOG(MD_LOG_INFO, "[TerrainShadingProjected] stencil split pipelines ok=%d", (int)all_ok);
                 split_kd_ = kd; split_color_ = rd.color_format; split_depth_ok_ = all_ok;   // the pipelines of the two options below are created on demand (EnsureOptionPipelines)
@@ -265,7 +276,7 @@ void TerrainShadingProjected::Shutdown() {
     resolve_kenshi_reuse_ready_ = false;
     resolve_kenshi_klight_pipeline_.Destroy(); resolve_kenshi_reuse_klight_pipeline_.Destroy();
     resolve_klight_f_pipeline_.Destroy(); resolve_reuse_klight_f_pipeline_.Destroy();
-    for (auto& sp : resolve_split_p_) for (GpuPipeline& q : sp) q.Destroy(); split_ready_ = false;
+    for (auto& sp : resolve_split_p_) for (GpuPipeline& q : sp) q.Destroy(); for (GpuPipeline& q : resolve_live_tiny_p_) q.Destroy(); live_tiny_ready_ = false; split_ready_ = false;
     for (auto& vp : resolve_var_p_) for (GpuPipeline& q : vp) q.Destroy(); var_count_ = 0;
     for (GpuPipeline& q : resolve_pvt_p_) q.Destroy();
     for (GpuPipeline& q : resolve_pvt_mark_p_) q.Destroy();
@@ -388,7 +399,7 @@ void TerrainShadingProjected::DrawFullscreen(SDL_GPURenderPass* rp, md::GpuComma
         if (!ground_bindings[i].texture || !ground_bindings[i].sampler) return;
     }
     const bool reuse_draw = (&pipeline == &resolve_kenshi_reuse_pipeline_ || &pipeline == &resolve_kenshi_reuse_klight_pipeline_ || &pipeline == &resolve_reuse_klight_f_pipeline_ || &pipeline == &resolve_split_p_[0][0] || &pipeline == &resolve_split_p_[1][0] || &pipeline == &resolve_pvt_a_p_[0] || &pipeline == &resolve_pvt_a_p_[1]) && reuse_;
-    const bool klight_draw = (&pipeline == &resolve_kenshi_klight_pipeline_ || &pipeline == &resolve_kenshi_reuse_klight_pipeline_ || &pipeline == &resolve_klight_f_pipeline_ || &pipeline == &resolve_reuse_klight_f_pipeline_ || (&pipeline >= &resolve_split_p_[0][0] && &pipeline <= &resolve_split_p_[1][2]) || (&pipeline >= &resolve_var_p_[0][0] && &pipeline <= &resolve_var_p_[7][1]) || &pipeline == &pvt_tile_p_ || &pipeline == &resolve_pvt_p_[0] || &pipeline == &resolve_pvt_p_[1] || &pipeline == &resolve_pvt_a_p_[0] || &pipeline == &resolve_pvt_a_p_[1]) && klight_;
+    const bool klight_draw = (&pipeline == &resolve_kenshi_klight_pipeline_ || &pipeline == &resolve_kenshi_reuse_klight_pipeline_ || &pipeline == &resolve_klight_f_pipeline_ || &pipeline == &resolve_reuse_klight_f_pipeline_ || (&pipeline >= &resolve_split_p_[0][0] && &pipeline <= &resolve_split_p_[1][2]) || (&pipeline >= &resolve_var_p_[0][0] && &pipeline <= &resolve_var_p_[7][1]) || &pipeline == &resolve_live_tiny_p_[0] || &pipeline == &resolve_live_tiny_p_[1] || &pipeline == &pvt_tile_p_ || &pipeline == &resolve_pvt_p_[0] || &pipeline == &resolve_pvt_p_[1] || &pipeline == &resolve_pvt_a_p_[0] || &pipeline == &resolve_pvt_a_p_[1]) && klight_;
     if (klight_draw) {   // slots 5 / 6: the Kenshi cube maps
         ground_bindings[5] = { ground.KenshiIrradianceCube(), ground.KenshiIrradianceSampler() };
         ground_bindings[6] = { ground.KenshiSpecularityCube(), ground.KenshiSpecularitySampler() };
@@ -541,6 +552,7 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
         if (pvt_active_ && !pvt_in_a) { ResolveCtx pc = c; pc.pvt = 2; DrawFullscreen(rp, cmd, resolve_pvt_p_[float_target_ ? 1 : 0], pc); }   // #207 PVT: the pixels whose tile is resident (the others are left to the full pass)
         if (pvt_active_ && !pvt_in_a && getenv("MD_PVT_MARK")) { ResolveCtx pc = c; pc.pvt = 2; DrawFullscreen(rp, cmd, resolve_pvt_mark_p_[float_target_ ? 1 : 0], pc); }   // measurement: mark the hits after the shading pass
         static const bool one_biome_pass = getenv("MD_ONEBIOME_PASS") && getenv("MD_ONEBIOME_PASS")[0] == '1';   // WIP: off until it is verified (0 px on the 17 views) and measured; MD_ONEBIOME_PASS=1 turns it on
+        if (live_tiny_ready_ && klight_->sun_real[3] > 0.5f && live_a_ && live_b_) DrawFullscreen(rp, cmd, resolve_live_tiny_p_[float_target_ ? 1 : 0], c);   // the pixels with a lit live colour; they carry stencil 1 (pass A's accepted pixels already do), the full pass below skips them
         if (one_biome_pass) DrawFullscreen(rp, cmd, resolve_split_p_[float_target_ ? 1 : 0][2], c);
         if (g_ground_variant >= 0 && g_ground_variant < var_count_) DrawFullscreen(rp, cmd, resolve_var_p_[g_ground_variant][float_target_ ? 1 : 0], c);   // measurement: the pass-B variant of the frame block
         else DrawFullscreen(rp, cmd, resolve_split_p_[float_target_ ? 1 : 0][1], c);

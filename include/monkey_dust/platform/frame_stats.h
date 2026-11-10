@@ -4,6 +4,9 @@
 #include <cstring>
 #ifdef __linux__
 #include <unistd.h>
+#ifdef MD_TRACY
+#include <tracy/TracyC.h>   // profiling preset only (MD_TRACY=ON); the release binary has none of it
+#endif
 #include <time.h>
 #endif
 
@@ -92,6 +95,9 @@ struct FrameSlot {
     float last_ms;  // this frame's raw value (not averaged) -- spike dump
     int   frames;
     double begin_s;
+#ifdef MD_TRACY
+    TracyCZoneCtx tracy_ctx;
+#endif
 };
 
 class FrameStats {
@@ -101,6 +107,12 @@ public:
     void Begin(const char* name) {
         int i = FindOrCreate(name);
         if (i >= 0) slots_[i].begin_s = Now();
+#ifdef MD_TRACY
+        if (i >= 0) {
+            uint64_t loc = ___tracy_alloc_srcloc_name(0, __FILE__, sizeof(__FILE__) - 1, "FrameStats", 10, name, strlen(name), 0);
+            slots_[i].tracy_ctx = ___tracy_emit_zone_begin_alloc(loc, 1);
+        }
+#endif
         // render-audit-2026: RenderTotal's Begin() is the one call site that
         // fires exactly once per frame, before any other section -- use it
         // to zero every slot's last_ms so End() below can safely ACCUMULATE
@@ -123,6 +135,10 @@ public:
     void End(const char* name) {
         int i = Find(name);
         if (i < 0) return;
+#ifdef MD_TRACY
+        ___tracy_emit_zone_end(slots_[i].tracy_ctx);
+        if (strncmp(name, "RenderTotal", 23) == 0) ___tracy_emit_frame_mark(nullptr);
+#endif
         float ms = (float)((Now() - slots_[i].begin_s) * 1000.0);
         slots_[i].sum_ms += ms;
         if (ms > slots_[i].max_ms) slots_[i].max_ms = ms;

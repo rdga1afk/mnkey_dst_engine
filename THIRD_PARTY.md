@@ -58,3 +58,6 @@ SOFTWARE.
 ## AlexeyShirshov/skills — pdca (MIT, #204)
 Process skill only, no code in the binaries. `.claude/skills/pdca/UPSTREAM.md` is the upstream `skills/pdca/SKILL.md` kept verbatim for reference (fetched 24.10.2026), `.claude/skills/pdca/SKILL.md` is our adaptation, `.claude/skills/pdca/LICENSE-UPSTREAM` the licence text. Copyright (c) 2026 Alexey Shirshov, MIT License.
 
+
+## Tracy profiler client (BSD-3-Clause, profiling preset only)
+- Tracy v0.14.1 (https://github.com/wolfpld/tracy, commit `30997d5ca6bb632cc10807a1da8a6d3de0aeeb3c`), fetched by CMake into `third_party/tracy_src` only with `-DMD_TRACY=ON`. Not in the release binary. Captures are never committed or uploaded.

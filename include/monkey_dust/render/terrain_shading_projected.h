@@ -186,6 +186,8 @@ private:
     GpuPipeline resolve_klight_f_pipeline_, resolve_reuse_klight_f_pipeline_;
     SDL_GPUTexture *live_a_ = nullptr, *live_b_ = nullptr;
     GpuPipeline resolve_split_p_[2][3];   // #207 [RGBA8 / RGBA16F target][A lean reuse-only, B full shader with stencil test, one-biome pass (stencil test + write)]
+    GpuPipeline resolve_live_tiny_p_[2];   // MD_GROUND_LIVE_TINY: [RGBA8 / RGBA16F] the lit live pixels only (liveA + distance + fog / exposure), stencil REPLACE; the full pass B then runs on the rest
+    bool live_tiny_ready_ = false;
     GpuPipeline resolve_var_p_[8][2];   // measurement (#207 variant_eval): pass B variants from $MD_SPV_VARIANTS (comma list of dirs), [variant][RGBA8 / RGBA16F]; g_ground_variant picks one (-1 = the shipped pass B)
     std::string var_names_[8]; int var_count_ = 0;
     bool split_ready_ = false, split_active_ = false;
