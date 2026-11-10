@@ -41,7 +41,7 @@ static bool s_is_bc2(const char* buf, uint32_t len) {
 }
 
 bool GpuTexture::InitFromDDSArray(const char* const* paths, int count,
-                                   const GpuSamplerDesc& /*s*/)
+                                   const GpuSamplerDesc& /*s*/, int skip_mips)
 {
     // Note: the passed sampler desc's mip fields are intentionally not used
     // here (unlike CreateSDLSampler(), which gates max_lod on gen_mipmap) —
@@ -129,6 +129,13 @@ bool GpuTexture::InitFromDDSArray(const char* const* paths, int count,
         free(layers); return false;
     }
 
+    // Distance tiers: the array keeps only the tail of the chain (the first skip_mips levels dropped). The tail is the same bytes, so it samples identically wherever the LOD is
+    // at least skip_mips (scripts/tail_mip_summary.py).
+    const int full_w = ref_w, full_h = ref_h, full_mips = ref_mips;
+    if (skip_mips > 0) {
+        if (skip_mips >= full_mips) { MD_LOG(MD_LOG_WARNING, "[GpuTexture] DDS array: skip_mips %d >= %d mips", skip_mips, full_mips); for (int i=0;i<count;++i) md::fs_free(layers[i].buf); free(layers); return false; }
+        ref_w = ref_w >> skip_mips > 0 ? ref_w >> skip_mips : 1; ref_h = ref_h >> skip_mips > 0 ? ref_h >> skip_mips : 1; ref_mips -= skip_mips;
+    }
     // Compute per-mip byte sizes and total transfer size
     const int block_bytes = (ref_bc3 || ref_bc2) ? 16 : 8;  // BC3 / BC2 = 16B/block, BC1=8B/block
     size_t mip_sz[32] = {};
@@ -181,7 +188,11 @@ bool GpuTexture::InitFromDDSArray(const char* const* paths, int count,
         std::vector<CopyJob> jobs((size_t)count);
         for (int i=0;i<count;++i) {
             const size_t bw = (size_t)((ref_w / 2 + 3) / 4), bh = (size_t)((ref_h / 2 + 3) / 4); // source level-0 size in blocks of a half-size layer
-            jobs[(size_t)i] = { mapped + (size_t)i * layer_stride, (const uint8_t*)layers[i].buf + ref_doff, layer_stride, mip_sz[0], bw, bh, bw * (size_t)block_bytes, shifted[i] != 0 };
+            // source offset of the first kept level: the file's mip chain is the layer's own (a half-size layer's file level k is array level k + 1)
+            size_t src_off = 0;
+            { const int first_file_level = shifted[i] ? skip_mips - 1 : skip_mips; int lw = shifted[i] ? full_w / 2 : full_w, lh = shifted[i] ? full_h / 2 : full_h;
+              for (int l = 0; l < first_file_level; ++l) { src_off += s_bc_mip_bytes(lw, lh, block_bytes); lw = lw > 1 ? lw / 2 : 1; lh = lh > 1 ? lh / 2 : 1; } }
+            jobs[(size_t)i] = { mapped + (size_t)i * layer_stride, (const uint8_t*)layers[i].buf + ref_doff + src_off, layer_stride, mip_sz[0], bw, bh, bw * (size_t)block_bytes, shifted[i] != 0 && skip_mips == 0 };
         }
         auto copy_one = [](void* p) {
             CopyJob& j = *(CopyJob*)p;

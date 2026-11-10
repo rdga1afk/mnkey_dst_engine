@@ -14,7 +14,8 @@ public:
     BiomeLayerArrays();
     void SetBudgetBytes(uint64_t b) { cache_.SetBudgetBytes(b); }
     // The six-layer arrays of `biome` (index of BiomeRegistry), built on first use; nullptr when a file is missing. Valid until a later Acquire evicts the biome.
-    const BiomeLayerSet* Acquire(int biome, uint64_t frame) { return static_cast<const BiomeLayerSet*>(cache_.Acquire(biome, frame)); }
+    // tier 0..3 = the first 0 / 2 / 4 / 6 mip levels dropped (distance tiers: a far group only reads the tail of the chain); each (biome, tier) is its own entry.
+    const BiomeLayerSet* Acquire(int biome, uint64_t frame, int tier = 0) { return static_cast<const BiomeLayerSet*>(cache_.Acquire(biome * 8 + tier, frame)); }
     const BiomeLayerCache& Cache() const { return cache_; }
     void Clear() { cache_.Clear(); }
 private:
