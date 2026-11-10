@@ -32,6 +32,7 @@ struct TerrainLodNode {
     float skirt_depth;        // metres the border skirt hangs (covers the crack against a neighbour of another level)
     int   level;
     float y_min, y_max;
+    int   list_slot = 0;      // ground live pass: 1.. = the slot of the node's biome list (set by the caller before the upload), 0 = none
 };
 
 class TerrainLodTree {

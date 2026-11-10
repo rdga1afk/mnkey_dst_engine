@@ -1,3 +1,4 @@
+#include <monkey_dust/render/ground_slot.h>
 #include <chrono>
 #include <monkey_dust/render/terrain_quadtree_renderer.h>
 #include <monkey_dust/render/gpu_copy_pass.h>
@@ -49,6 +50,7 @@ bool TerrainQuadtreeRenderer::Init(md::GpuDeviceHandle /*dev*/) {
     pd.frag_samplers     = 0;
     pd.frag_storage_bufs = 0;
     pd.color_format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_UINT; // #142 phase 1b: 8 B/px G-buffer (terrain_gbuf_pack.glsl)
+    if (md::GroundSlotTargetOn()) { pd.color_format2 = SDL_GPU_TEXTUREFORMAT_R8_UINT; pd.frag_path = "shaders/terrain_gbuffer_mini_slot0.frag"; }
     if (!gbuffer_pipeline_.Create(pd)) {
         MD_LOG(MD_LOG_WARNING, "[TerrainQuadtreeRenderer] pipeline create failed");
         return false;
@@ -101,6 +103,7 @@ bool TerrainQuadtreeRenderer::InitBatched(md::GpuDeviceHandle dev) {
     pd.frag_samplers     = 0; // category dead (see .frag's doc comment) -- no samplers needed
     pd.frag_storage_bufs = 0;
     pd.color_format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_UINT; // #142 phase 1b: 8 B/px G-buffer (terrain_gbuf_pack.glsl)
+    if (md::GroundSlotTargetOn()) { pd.color_format2 = SDL_GPU_TEXTUREFORMAT_R8_UINT; pd.frag_path = "shaders/terrain_gbuffer_mini_slot0.frag"; }
     if (!batched_pipeline_.Create(pd)) {
         MD_LOG(MD_LOG_WARNING, "[TerrainQuadtreeRenderer] batched pipeline create failed");
         return false;
@@ -421,6 +424,7 @@ bool TerrainQuadtreeRenderer::InitLod(md::GpuDeviceHandle dev, const TerrainWorl
     pd.frag_path = "shaders/terrain_gbuffer_mini.frag";
     pd.frag_uniform_bufs = 0; pd.frag_samplers = 0; pd.frag_storage_bufs = 0;
     pd.color_format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_UINT;
+    if (md::GroundSlotTargetOn()) { pd.color_format2 = SDL_GPU_TEXTUREFORMAT_R8_UINT; pd.vert_path = "shaders/terrain_quadtree_batched_lod_slot.vert"; pd.frag_path = "shaders/terrain_gbuffer_mini_slot.frag"; }
     if (!lod_pipeline_.Create(pd)) { MD_LOG(MD_LOG_WARNING, "[TerrainQuadtreeRenderer] lod pipeline create failed"); return false; }
     lod_ready_ = true;
     // the tables (a read of the whole fullmap.tif, ~3 s) are built from here, in parallel with the rest of the start-up: the first frame then already draws the LOD, not the flat tiling
@@ -506,7 +510,7 @@ void TerrainQuadtreeRenderer::UploadLodNodes(md::GpuDeviceHandle dev, SDL_GPUCop
         const float wx0 = (float)fine_ox_ * kCellM, wz0 = (float)fine_oz_ * kCellM, wx1 = wx0 + (kFineW - 1) * kCellM, wz1 = wz0 + (kFineW - 1) * kCellM;
         const bool fine = spacing < 3.5f && fine_ox_ >= 0 && nodes[i].origin_x - m >= wx0 && nodes[i].origin_z - m >= wz0 &&
                           nodes[i].origin_x + nodes[i].size + m <= wx1 && nodes[i].origin_z + nodes[i].size + m <= wz1;
-        b[0] = (float)nodes[i].level; b[1] = nodes[i].skirt_depth; b[2] = fine ? 1.f : 0.f; b[3] = 0.f;
+        b[0] = (float)nodes[i].level; b[1] = nodes[i].skirt_depth; b[2] = (fine ? 1.f : 0.f) + 2.f * (float)nodes[i].list_slot; b[3] = 0.f;   // list_slot: ground live pass (0 = none)
         if (lod_norm_ready_ && spacing > 3.5f) {   // same lattice rule as the vertex shader: stride = round(spacing / 3.6), the node's cells are multiples of the stride
             const int stride = (int)(spacing / 3.6f + 0.5f);
             int k = 0; while ((1 << k) < stride && k < kWLevels) ++k;

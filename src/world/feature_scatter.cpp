@@ -1,3 +1,4 @@
+#include <monkey_dust/render/ground_slot.h>
 #include <monkey_dust/world/feature_scatter.h>
 #include <monkey_dust/io/data_files.h>
 #include <monkey_dust/platform/md_log.h>
@@ -190,6 +191,7 @@ bool FeatureScatterSystem::Init(const char* scatter_path, const char* mesh_dir) 
         pd.has_depth_target = true;
         pd.vert_uniform_bufs = 1; pd.frag_uniform_bufs = 0; pd.frag_samplers = 0; pd.frag_storage_bufs = 0;
         pd.color_format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_UINT;
+        if (md::GroundSlotTargetOn()) { pd.color_format2 = SDL_GPU_TEXTUREFORMAT_R8_UINT; pd.frag_path = "shaders/terrain_gbuffer_mini_slot0.frag"; }
         if (!gbuf_pipeline_.Create(pd)) MD_LOG(MD_LOG_WARNING, "[FeatureScatter] G-buffer pipeline create failed");
     }
     MD_LOG(MD_LOG_INFO, "[FeatureScatter] loaded %d real placements across %d unique meshes from %s",

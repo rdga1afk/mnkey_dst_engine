@@ -1,3 +1,4 @@
+#include <monkey_dust/render/ground_slot.h>
 #include <monkey_dust/render/terrain_shading_projected.h>
 #include <monkey_dust/render/gpu_device.h>
 #include <monkey_dust/render/gpu_hal_free_functions.h>
@@ -278,6 +279,7 @@ void TerrainShadingProjected::Shutdown() {
     gd_alt_.Shutdown();
     gbuf_depth_.Shutdown();
     gbuf_color_.Shutdown();
+    if (slot_tex_) { SDL_ReleaseGPUTexture(md::GpuDevice::Get().SDLDevice(), slot_tex_); slot_tex_ = nullptr; }
     alt_hist_.Shutdown(); alt_depth_.Shutdown(); alt_color_.Shutdown(); alt_w_ = alt_h_ = 0;
     ready_ = false;
 }
@@ -293,6 +295,16 @@ SDL_GPURenderPass* TerrainShadingProjected::BeginGBufferPass(md::GpuCommandBuffe
     GpuCommandBuffer::ColorPassDesc cpd;
     cpd.cmd            = cmd;
     cpd.color_tex[0]      = gbuf_color_.SDLTexture();
+    if (md::GroundSlotTargetOn()) {   // second target: the patch's biome-list slot (R8_UINT), cleared to 0 = no list
+        if (!slot_tex_ || slot_w_ != w_ || slot_h_ != h_) {
+            SDL_GPUDevice* sdev = md::GpuDevice::Get().SDLDevice();
+            if (slot_tex_) SDL_ReleaseGPUTexture(sdev, slot_tex_);
+            SDL_GPUTextureCreateInfo ti = {}; ti.type = SDL_GPU_TEXTURETYPE_2D; ti.format = SDL_GPU_TEXTUREFORMAT_R8_UINT; ti.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
+            ti.width = (Uint32)w_; ti.height = (Uint32)h_; ti.layer_count_or_depth = 1; ti.num_levels = 1;
+            slot_tex_ = SDL_CreateGPUTexture(sdev, &ti); slot_w_ = w_; slot_h_ = h_;
+        }
+        if (slot_tex_) { cpd.color_tex[1] = slot_tex_; cpd.num_color_targets = 2; }
+    }
     cpd.depth_tex      = gd_cur_->SDLTexture();
     cpd.clear_color[0] = 0.f; cpd.clear_color[1] = 0.f;
     cpd.clear_color[2] = 0.f; cpd.clear_color[3] = 0.f;

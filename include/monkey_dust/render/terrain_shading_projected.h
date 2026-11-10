@@ -71,6 +71,7 @@ public:
     bool Cached(int w, int h) const { return w == w_ && h == h_ ? true : (alt_color_.SDLTexture() && alt_depth_.SDLTexture() && alt_w_ == w && alt_h_ == h); }
 
     GpuTexture&      GBufferColor() { return gbuf_color_; }
+    SDL_GPUTexture*  GBufferSlot() const { return slot_tex_; }   // ground live pass (MD_GROUND_LIVE=1): R8_UINT second target of the G-buffer pass, the biome-list slot of each patch
     GpuDepthTexture&  GBufferDepth() { return *gd_cur_; }
     // #163 5b-2b: ground shading reuse needs the previous frame's G-buffer depth. History on: a second depth texture is made (EnsureHistory, outside a frame) and BeginFrame()
     // swaps the two once per rendered frame, before the G-buffer pass; GBufferDepth() is always this frame's, PrevGBufferDepth() the last one's. History off: one texture, no swap.
@@ -167,6 +168,7 @@ private:
     bool CreateTextures(int w, int h);
 
     GpuTexture       gbuf_color_;
+    SDL_GPUTexture*  slot_tex_ = nullptr; int slot_w_ = 0, slot_h_ = 0;
     GpuDepthTexture   gbuf_depth_;
     GpuDepthTexture   gd_alt_;                    // the other depth texture of the history ping-pong (made by EnsureHistory)
     GpuTexture        alt_color_;
