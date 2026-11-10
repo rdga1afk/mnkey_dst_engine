@@ -533,11 +533,12 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
         const bool pvt_in_a = use_reuse && pvt_active_ && !pvt_sep;   // #207 PVT: with reuse the cache lookup is part of pass A (accepted pixel, else resident tile, else discard to pass B)
         const bool h11_skip = g_ground_variant >= 0 && VariantEnvBit("MD_VARIANT_SKIPALL", g_ground_variant);   // H11d: begin / end the pass with no draw at all
         if (h11_skip) return;
-        if (use_reuse) {   // pass A (lean): marks the accepted pixels; then the one-biome pass and the full pass run on the others only (stencil test)
+        if (use_reuse && resolve_phase_ != 2) {   // pass A (lean): marks the accepted pixels; then the one-biome pass and the full pass run on the others only (stencil test)
             const int ff = float_target_ ? 1 : 0;
             if (pvt_in_a) { ResolveCtx pc = c; pc.pvt = 2; DrawFullscreen(rp, cmd, g_ground_hist_fast && pvt_bil_ready_ ? resolve_pvt_a_bil_p_[ff] : resolve_pvt_a_p_[ff], pc); }
             else DrawFullscreen(rp, cmd, g_ground_hist_fast && bil_ready_ ? resolve_a_bil_p_[ff] : resolve_split_p_[ff][0], c);
         }
+        if (resolve_phase_ == 1) return;   // pass A only (the live pass runs before the rest)
         if (pvt_active_ && !pvt_in_a) { ResolveCtx pc = c; pc.pvt = 2; DrawFullscreen(rp, cmd, resolve_pvt_p_[float_target_ ? 1 : 0], pc); }   // #207 PVT: the pixels whose tile is resident (the others are left to the full pass)
         if (pvt_active_ && !pvt_in_a && getenv("MD_PVT_MARK")) { ResolveCtx pc = c; pc.pvt = 2; DrawFullscreen(rp, cmd, resolve_pvt_mark_p_[float_target_ ? 1 : 0], pc); }   // measurement: mark the hits after the shading pass
         static const bool one_biome_pass = getenv("MD_ONEBIOME_PASS") && getenv("MD_ONEBIOME_PASS")[0] == '1';   // WIP: off until it is verified (0 px on the 17 views) and measured; MD_ONEBIOME_PASS=1 turns it on

@@ -161,6 +161,8 @@ public:
         bool                  depth_dont_care     = false; // measurement (#207 H13): true overrides load_depth -> LOADOP_DONT_CARE
         bool                  depth_discard_after = false; // true -> depth STOREOP_DONT_CARE (mirrors DepthDesc::discard_after)
         bool                  clear_stencil       = false; // #207: the depth texture has a stencil aspect: clear it to 0 on entry (otherwise DONT_CARE)
+        bool                  load_stencil        = false; // the ground pass split in two (MD_GROUND_LIVE_LIGHT): the second pass loads the stencil the first stored (wins over clear_stencil)
+        bool                  store_stencil       = false; // keep the stencil at the end of the pass (otherwise DONT_CARE)
     };
     void BeginColorPass(const ColorPassDesc& desc);
 
