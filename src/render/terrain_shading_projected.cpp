@@ -210,8 +210,7 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
                     sd.frag_path = md::GroundLiveLightOn() ? "shaders/terrain_shading_screenspace_kenshi_onebiome_klight_live.frag" : "shaders/terrain_shading_screenspace_kenshi_onebiome_klight.frag"; sd.stencil_mode = 3;   // the pixels with exactly one biome evaluation (the others are discarded here and shaded by the pass above)
                     all_ok &= resolve_split_p_[f][2].Create(sd);
                 }
-                static const bool tiny_on = md::GroundLiveLightOn() && getenv("MD_GROUND_LIVE_TINY") && getenv("MD_GROUND_LIVE_TINY")[0] == '1';
-                if (tiny_on) {   // the consumer of the lit live pixels without the port's reuse / decode / ambient / footprint code (its register allocation and SIMD width are those of a tiny shader)
+                if (md::GroundLiveLightOn()) {   // always built with the live light, so md.set_ground_live_switch("tiny", 1) works at run time; MD_GROUND_LIVE_TINY only sets the initial value   // the consumer of the lit live pixels without the port's reuse / decode / ambient / footprint code (its register allocation and SIMD width are those of a tiny shader)
                     live_tiny_ready_ = true;
                     for (int f = 0; f < 2; ++f) {
                         GpuPipeline::Desc td = kd;
@@ -552,7 +551,7 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
         if (pvt_active_ && !pvt_in_a) { ResolveCtx pc = c; pc.pvt = 2; DrawFullscreen(rp, cmd, resolve_pvt_p_[float_target_ ? 1 : 0], pc); }   // #207 PVT: the pixels whose tile is resident (the others are left to the full pass)
         if (pvt_active_ && !pvt_in_a && getenv("MD_PVT_MARK")) { ResolveCtx pc = c; pc.pvt = 2; DrawFullscreen(rp, cmd, resolve_pvt_mark_p_[float_target_ ? 1 : 0], pc); }   // measurement: mark the hits after the shading pass
         static const bool one_biome_pass = getenv("MD_ONEBIOME_PASS") && getenv("MD_ONEBIOME_PASS")[0] == '1';   // WIP: off until it is verified (0 px on the 17 views) and measured; MD_ONEBIOME_PASS=1 turns it on
-        if (live_tiny_ready_ && klight_->sun_real[3] > 0.5f && live_a_ && live_b_) DrawFullscreen(rp, cmd, resolve_live_tiny_p_[float_target_ ? 1 : 0], c);   // the pixels with a lit live colour; they carry stencil 1 (pass A's accepted pixels already do), the full pass below skips them
+        if (live_tiny_ready_ && md::GroundLiveTinyOn() && klight_->sun_real[3] > 0.5f && live_a_ && live_b_) DrawFullscreen(rp, cmd, resolve_live_tiny_p_[float_target_ ? 1 : 0], c);   // the pixels with a lit live colour; they carry stencil 1 (pass A's accepted pixels already do), the full pass below skips them
         if (one_biome_pass) DrawFullscreen(rp, cmd, resolve_split_p_[float_target_ ? 1 : 0][2], c);
         if (g_ground_variant >= 0 && g_ground_variant < var_count_) DrawFullscreen(rp, cmd, resolve_var_p_[g_ground_variant][float_target_ ? 1 : 0], c);   // measurement: the pass-B variant of the frame block
         else DrawFullscreen(rp, cmd, resolve_split_p_[float_target_ ? 1 : 0][1], c);
