@@ -89,6 +89,8 @@ public:
     void SetReuse(const ReuseParams* r) { reuse_ = r; }
     // #140 L2: the Kenshi main light variant: sun direction (to the sun), sun colour + strength, (envColour.w, ambientParams.w, exposure); null = the current lighting.
     struct KLightParams { float sun_dir[4], sun_colour[4], params[4], sun_real[4], horizon[4], fog[4]; };
+    // MD_GROUND_LIVE_LIGHT=1: the live ground material (A: albedo rgb + gloss, B: world normal as stored + distance, 0 = not written), read by the non-reuse klight variants in slots 2 and 15
+    void SetLiveTargets(SDL_GPUTexture* a, SDL_GPUTexture* b) { live_a_ = a; live_b_ = b; }
     void SetKLight(const KLightParams* k) { klight_ = k; }
     // #140 L4: the ground target is RGBA16F and holds the colour before the exposure (klight variants with a float colour target)
     void SetFloatTarget(bool f) { float_target_ = f; }
@@ -182,6 +184,7 @@ private:
     const KLightParams* klight_ = nullptr;
     bool float_target_ = false;
     GpuPipeline resolve_klight_f_pipeline_, resolve_reuse_klight_f_pipeline_;
+    SDL_GPUTexture *live_a_ = nullptr, *live_b_ = nullptr;
     GpuPipeline resolve_split_p_[2][3];   // #207 [RGBA8 / RGBA16F target][A lean reuse-only, B full shader with stencil test, one-biome pass (stencil test + write)]
     GpuPipeline resolve_var_p_[8][2];   // measurement (#207 variant_eval): pass B variants from $MD_SPV_VARIANTS (comma list of dirs), [variant][RGBA8 / RGBA16F]; g_ground_variant picks one (-1 = the shipped pass B)
     std::string var_names_[8]; int var_count_ = 0;

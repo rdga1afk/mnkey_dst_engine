@@ -175,7 +175,7 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
     // #140 L2: the Kenshi main light variants (cube maps in slots 5 / 6, KLightUBO at binding 2); non-fatal
     {
         GpuPipeline::Desc kd = rd;
-        kd.frag_path = "shaders/terrain_shading_screenspace_kenshi_klight.frag";
+        kd.frag_path = md::GroundLiveLightOn() ? "shaders/terrain_shading_screenspace_kenshi_klight_live.frag" : "shaders/terrain_shading_screenspace_kenshi_klight.frag";
         resolve_klight_ready_ = resolve_kenshi_klight_pipeline_.Create(kd);
         kd.frag_path = "shaders/terrain_shading_screenspace_kenshi_klight.frag";
         kd.frag_uniform_bufs = 4;   // + the reuse UBO at 3
@@ -184,7 +184,7 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
         // #140 L4: the same two with the RGBA16F colour target (the ground target before the exposure)
         kd.color_format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
         resolve_reuse_klight_f_ready_ = resolve_reuse_klight_f_pipeline_.Create(kd);
-        kd.frag_uniform_bufs = 3; kd.frag_path = "shaders/terrain_shading_screenspace_kenshi_klight.frag";
+        kd.frag_uniform_bufs = 3; kd.frag_path = md::GroundLiveLightOn() ? "shaders/terrain_shading_screenspace_kenshi_klight_live.frag" : "shaders/terrain_shading_screenspace_kenshi_klight.frag";
         resolve_klight_f_ready_ = resolve_klight_f_pipeline_.Create(kd);
         if (!resolve_klight_f_ready_ || !resolve_reuse_klight_f_ready_) MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] float-target klight variants failed (L4 unavailable)");
         if (getenv("MD_UBIOME_PROBE")) {   // measurement only (#207 H1): create the per-draw-biome variants so the compiler dump (INTEL_DEBUG=fs) shows them; they are never drawn
@@ -205,9 +205,9 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
                     sd.frag_uniform_bufs = 4; sd.frag_path = "shaders/terrain_shading_screenspace_kenshi_reuse_only_klight.frag"; sd.stencil_mode = 1;
                     all_ok &= resolve_split_p_[f][0].Create(sd);
                     static const int ub_bid = getenv("MD_UBIOME_BID") ? atoi(getenv("MD_UBIOME_BID")) : -1;   // measurement (#207 H1 step 3): the heavy passes get a 4th uniform block with this biome's 9 parameter vec4s (needs the TS_UNIFORM_BIOME SPIR-V through MD_SPV_OVERRIDE)
-                    sd.frag_uniform_bufs = ub_bid >= 0 ? 4 : 3; sd.frag_path = "shaders/terrain_shading_screenspace_kenshi_klight.frag"; sd.stencil_mode = 2;
+                    sd.frag_uniform_bufs = ub_bid >= 0 ? 4 : 3; sd.frag_path = md::GroundLiveLightOn() ? "shaders/terrain_shading_screenspace_kenshi_klight_live.frag" : "shaders/terrain_shading_screenspace_kenshi_klight.frag"; sd.stencil_mode = 2;
                     all_ok &= resolve_split_p_[f][1].Create(sd);
-                    sd.frag_path = "shaders/terrain_shading_screenspace_kenshi_onebiome_klight.frag"; sd.stencil_mode = 3;   // the pixels with exactly one biome evaluation (the others are discarded here and shaded by the pass above)
+                    sd.frag_path = md::GroundLiveLightOn() ? "shaders/terrain_shading_screenspace_kenshi_onebiome_klight_live.frag" : "shaders/terrain_shading_screenspace_kenshi_onebiome_klight.frag"; sd.stencil_mode = 3;   // the pixels with exactly one biome evaluation (the others are discarded here and shaded by the pass above)
                     all_ok &= resolve_split_p_[f][2].Create(sd);
                 }
                 split_ready_ = all_ok;
@@ -395,6 +395,8 @@ void TerrainShadingProjected::DrawFullscreen(SDL_GPURenderPass* rp, md::GpuComma
         pv.PushFragmentUniforms(2, klight_->sun_dir, sizeof(KLightParams));
     }
     if (reuse_draw) ground_bindings[2] = xs_tex_ ? SDL_GPUTextureSamplerBinding{ xs_tex_, xs_samp_ } : SDL_GPUTextureSamplerBinding{ gd_prev_->SDLTexture(), gd_prev_->SDLSampler() };   // slot 2 of the reuse variant: the previous G-buffer depth
+    const bool live_draw = md::GroundLiveLightOn() && !reuse_draw && klight_draw && live_a_ && live_b_;
+    if (live_draw) ground_bindings[2] = { live_a_, gbuf_color_.SDLSampler() };
     if (c.pvt == 2) {   // the atlas stands in for the ground arrays (slots 1 / 4); the page table takes the biome-layers slot below
         ground_bindings[1] = { pvt_.Albedo(), pvt_.Linear() };
         ground_bindings[4] = { pvt_.Normal(), pvt_.Linear() };
@@ -475,6 +477,7 @@ void TerrainShadingProjected::DrawFullscreen(SDL_GPURenderPass* rp, md::GpuComma
             pv.PushFragmentUniforms(3, bl.data() + (size_t)ub_bid * 36, 36 * sizeof(uint32_t));
     }
     if (reuse_draw) { slot15[0] = { reuse_->hist_colour, reuse_->hist_sampler }; pv.PushFragmentUniforms(3, reuse_->p_old, 224); }   // p_old, p_new, t (3 x 64 B) + params (16 B), in the order of ReuseParams
+    if (live_draw) slot15[0] = { live_b_, gbuf_color_.SDLSampler() };
     pv.BindFragmentSamplers(15, slot15, 1);
 
     // 2026-09-19 (docs/RESOLVE_OPT.md session finding): directional
