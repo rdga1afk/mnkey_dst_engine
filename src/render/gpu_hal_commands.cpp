@@ -115,9 +115,9 @@ void GpuCommandBuffer::BeginColorPass(const ColorPassDesc& desc) {
         depth_info.load_op          = desc.depth_dont_care ? SDL_GPU_LOADOP_DONT_CARE : desc.load_depth ? SDL_GPU_LOADOP_LOAD : SDL_GPU_LOADOP_CLEAR;
         depth_info.store_op         = desc.depth_discard_after ? SDL_GPU_STOREOP_DONT_CARE
                                                                  : SDL_GPU_STOREOP_STORE;
-        depth_info.stencil_load_op  = desc.load_stencil ? SDL_GPU_LOADOP_LOAD : desc.clear_stencil ? SDL_GPU_LOADOP_CLEAR : SDL_GPU_LOADOP_DONT_CARE;
+        depth_info.stencil_load_op  = desc.clear_stencil ? SDL_GPU_LOADOP_CLEAR : SDL_GPU_LOADOP_DONT_CARE;
         depth_info.clear_stencil    = 0;
-        depth_info.stencil_store_op = desc.store_stencil ? SDL_GPU_STOREOP_STORE : SDL_GPU_STOREOP_DONT_CARE;
+        depth_info.stencil_store_op = SDL_GPU_STOREOP_DONT_CARE;
         depth_info.cycle            = false;
         sdl_pass_ = SDL_BeginGPURenderPass(sdl_cmd_, color_info, num_targets, &depth_info);
     } else {

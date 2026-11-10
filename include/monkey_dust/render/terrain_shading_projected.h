@@ -100,8 +100,6 @@ public:
     bool StencilSplitReady() const { return split_ready_; }
     static bool OptionsWanted();   // #207 Settings «Ground cache (PVT)» / «History filter while moving» on: PvtFrame must run (it creates the pipelines on demand)
     void SetStencilSplitActive(bool a) { split_active_ = a; }
-    // MD_GROUND_LIVE_LIGHT: the ground pass in two render passes so the live pass can see which pixels pass A accepted: 1 = pass A only, 2 = everything but pass A, 0 = all (default)
-    void SetResolvePhase(int p) { resolve_phase_ = p; }
 
     // #207 PVT stage 1 (MD_TERRAIN_PVT=1, default off; terrain_pvt.h): baked ground material tiles served by an extra stencil pass between pass A and the full pass.
     struct PvtFine { SDL_GPUTexture* norm_tex = nullptr; int ox = 0, oz = 0; int side = 0; float spacing = 1.8f; bool ok = false; };   // the fine normal window (xyz normal, w height), its first lattice cell
@@ -190,7 +188,7 @@ private:
     GpuPipeline resolve_split_p_[2][3];   // #207 [RGBA8 / RGBA16F target][A lean reuse-only, B full shader with stencil test, one-biome pass (stencil test + write)]
     GpuPipeline resolve_var_p_[8][2];   // measurement (#207 variant_eval): pass B variants from $MD_SPV_VARIANTS (comma list of dirs), [variant][RGBA8 / RGBA16F]; g_ground_variant picks one (-1 = the shipped pass B)
     std::string var_names_[8]; int var_count_ = 0;
-    bool split_ready_ = false, split_active_ = false; int resolve_phase_ = 0;
+    bool split_ready_ = false, split_active_ = false;
     TerrainPvt pvt_;
     GpuPipeline pvt_tile_p_, resolve_pvt_p_[2], resolve_pvt_a_p_[2], resolve_pvt_mark_p_[2], ubiome_probe_p_[2];   // the tile bake (two colour targets), the resolve pass [RGBA8 / RGBA16F target]
     bool pvt_ready_ = false, pvt_active_ = false;
