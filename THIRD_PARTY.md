@@ -61,3 +61,6 @@ Process skill only, no code in the binaries. `.claude/skills/pdca/UPSTREAM.md` i
 
 ## Tracy profiler client (BSD-3-Clause, profiling preset only)
 - Tracy v0.14.1 (https://github.com/wolfpld/tracy, commit `30997d5ca6bb632cc10807a1da8a6d3de0aeeb3c`), fetched by CMake into `third_party/tracy_src` only with `-DMD_TRACY=ON`. Not in the release binary. Captures are never committed or uploaded.
+
+## GFXReconstruct (MIT, dev tool only)
+- LunarG GFXReconstruct, tag `vulkan-sdk-1.4.363.0` (https://github.com/LunarG/gfxreconstruct), built by hand in `temp_/gfxr/` for Vulkan capture / replay of the frame-cost scenes. Not linked into the game, not in the release. Captures contain Kenshi data and are never committed or uploaded.
