@@ -82,6 +82,7 @@ Submodules are pinned by the commit shown; "licence text" is the file in the tre
 | miniaudio | 0.11.24 | public domain or MIT-0 (as stated in the file) | in header | audio |
 | Arimo (4 styles) | 1.33, © 2020 The Arimo Project Authors | SIL Open Font License 1.1 (the font's own name table says OFL; an earlier note of Apache was wrong) | `src/vendor/fonts/OFL-Arimo.txt`, copy in `game/data/fonts/OFL-Arimo.txt` — OFL.txt of the upstream repo https://github.com/googlefonts/arimo (branch main, fetched 11.11.2026; its copyright line reads 2026, the vendored font file says 2020) | UI font (`src/vendor/fonts`, `game/data/fonts`) |
 | Ubuntu Mono (4 styles) | 0.80, © 2011 Canonical Ltd. | Ubuntu Font Licence 1.0 | `src/vendor/fonts/UFL-UbuntuMono.txt` — LICENCE.txt of the ubuntu-font-family-0.83 archive, https://assets.ubuntu.com/v1/fad7939b-ubuntu-font-family-0.83.zip, fetched 11.11.2026 (the vendored Ubuntu Mono is version 0.80, same licence text) | editor font |
+| Poly Haven terrain textures and a rock model | `game/data/textures/terrain/{bark,dirt,grass,rock}.jpg`, `game/data/props/rock_01.glb` (added 17.05.2026) | CC0 1.0 — the Poly Haven licence page https://polyhaven.com/license (read 11.11.2026) states all textures and models are CC0, no attribution required | no licence file needed (CC0); the names of the individual Poly Haven assets were not recorded when the files were added: UNKNOWN | terrain / prop placeholders |
 
 ### Tools (editor) libraries
 | library | version / pin | licence | licence text |
