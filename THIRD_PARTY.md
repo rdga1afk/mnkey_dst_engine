@@ -64,3 +64,34 @@ Process skill only, no code in the binaries. `.claude/skills/pdca/UPSTREAM.md` i
 
 ## GFXReconstruct (MIT, dev tool only)
 - LunarG GFXReconstruct, tag `vulkan-sdk-1.4.363.0` (https://github.com/LunarG/gfxreconstruct), built by hand in `temp_/gfxr/` for Vulkan capture / replay of the frame-cost scenes. Not linked into the game, not in the release. Captures contain Kenshi data and are never committed or uploaded.
+
+## Vendored libraries (attribution table, 11.11.2026; versions and licence texts read from the pinned sources)
+Submodules are pinned by the commit shown; "licence text" is the file in the tree, or "in header" when the text sits at the top of the source.
+| library | version / pin | licence | licence text | where used |
+|---|---|---|---|---|
+| gaia-ecs (single header) | v1.0.0, commit 2843d22a930f3c1efc6b54c995065a1dacd7161a | MIT (upstream) | **not in the tree** (single header only; to be added from the pinned commit); the header embeds robin-hood-hashing (MIT, © 2018–2021 Martin Ankerl, text in header) and tcbrindle/span (Boost 1.0, © 2018 Tristan Brindle, reference in header) | engine ECS |
+| glm | 6f14f4792a0cde5d0cf2c910506724d61cb95834 (header version 1.1.0) | Happy Bunny or MIT | `third_party/glm/copying.txt` | maths |
+| JoltPhysics | 25b055e3401c8e2ffba5a368bdaea30b45f24b5a (v5.5.0 + 142, header 5.5.1) | MIT, © 2021 Jorrit Rouwe | `third_party/JoltPhysics/LICENSE` | physics |
+| MyGUI | 8a05127d7c5bb6772df88185b1f99d8052c379a4 (3.2.2) | MIT, © 2007–2013 MyGUI Developers | `third_party/MyGUI/COPYING.MIT` | in-game UI |
+| ozz-animation | 6cbdc790123aa4731d82e255df187b3a8a808256 (0.16.0) | MIT | `third_party/ozz-animation/LICENSE.md` | skeletal animation |
+| recastnavigation | 9f4ce64458dfae86e1239c525ddc219c4e9e06f1 (v1.6.0 + 367) | zlib-style, © 2009 Mikko Mononen | `third_party/recastnavigation/License.txt` | navmesh |
+| tiny_bvh | 1.6.7 (`include/vendor/tiny_bvh.h`) | MIT, © 2024–2025 Jacco Bikker | in header | ray / BVH |
+| stb_image | 2.30 | public domain / MIT (dual, as stated in the file) | in header | image load |
+| stb_image_write | 1.16 | public domain / MIT | in header | image write |
+| stb_truetype | 1.26 | public domain / MIT | in header | font raster |
+| miniaudio | 0.11.24 | public domain or MIT-0 (as stated in the file) | in header | audio |
+| Arimo (4 styles) | 1.33, © 2020 The Arimo Project Authors | SIL Open Font License 1.1 (from the font's name table) | **not in the tree** (to be added) | UI font (`src/vendor/fonts`, `game/data/fonts`) |
+| Ubuntu Mono (4 styles) | 0.80, © 2011 Canonical Ltd. | Ubuntu Font Licence 1.0 (from the font's name table) | **not in the tree** (to be added) | editor font |
+
+### Tools (editor) libraries
+| library | version / pin | licence | licence text |
+|---|---|---|---|
+| Dear ImGui | ea1c04f7abc31f3089e5b163eef69d933e0a6209 (1.92.8 WIP) | MIT | `tools/third_party/imgui/LICENSE.txt` |
+| ImGuiColorTextEdit | ca2f9f1462e3b60e56351bc466acda448c5ea50d (master) | MIT, © 2017 BalazsJako | `third_party/ImGuiColorTextEdit/LICENSE` |
+| imgui-command-palette | f8d93959c0c2ae6f52b52ffa641644ceda3e3b94 (master) | MIT, © 2021 hnOsmium0001 | `third_party/imgui-command-palette/LICENSE` |
+| imgui-flame-graph | aae0bd9665d1379c511d0b8a64d3752301a327a2 (v1.02) | MIT, © 2019 Sandy | `third_party/imgui-flame-graph/LICENSE` |
+| imgui-node-editor | vendored copy (not a submodule) | MIT, © 2019 Michał Cichoń | `third_party/imgui-node-editor/LICENSE` |
+| ImGuizmo | 867101c4efd597deb9246d408c068978ec21712b (1.10 + 1) | MIT, © 2016 Cedric Guillemet | `third_party/imguizmo/LICENSE` |
+| imnodes | eb36902c892548ef94f88f51ad7e7c9c7058a71c (v0.5 + 38) | MIT, © 2019 Johann Muszynski | `third_party/imnodes/LICENSE.md` |
+| hkxparse (tagfile subset, patched for Linux/GCC) | vendored; upstream exyorha/hkxparse | MIT, © 2018–2020 Maria Egorova | `third_party/hkxparse/LICENSE`; our patches: `README_MONKEYDUST.md` |
+| Dear ImGui Test Engine | 7be88e7fa267f251c7271a33d72b1aa5ca04a4cb (v1.92.8) | its own licence v1.04 (free for individuals, non-profit, education, open-source derivatives, turnover < 2 M USD; otherwise paid): **not linked in release builds** (`MD_UI_TESTS=OFF`, checked by `scripts/check_release_binary.sh`) | `third_party/imgui_test_engine/imgui_test_engine/LICENSE.txt` |
