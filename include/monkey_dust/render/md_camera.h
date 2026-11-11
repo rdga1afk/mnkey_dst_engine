@@ -16,8 +16,14 @@ struct MdCamera {
     Vec3  target;
     Vec3  up;
     float fovy;   // degrees
+    // Exact view direction (not normalised). Set by MdCameraTranslated: a camera moved by ~1e4 m must not get its direction back as target - pos of two big floats (1 mm ulp over a ~1 m vector = ~1 px).
+    Vec3  dir     = { 0.f, 0.f, 0.f };
+    bool  has_dir = false;
 
-    Mat4 ViewMatrix() const { return mat4_lookat(pos, target, up); }
+    Mat4 ViewMatrix() const {
+        if (!has_dir) return mat4_lookat(pos, target, up);
+        return mat4_mul(mat4_lookat(Vec3{ 0.f, 0.f, 0.f }, dir, up), mat4_translate(-pos.x, -pos.y, -pos.z));   // rotation from the direction alone, the position only enters the translation
+    }
     // Correct VP product for the active backend.
     // SDL_GPU (column-major, depth [0,1]): clip = Proj * View * pos → P * V.
     // Raylib/OpenGL (row-major convention): V * P was correct historically.
@@ -59,4 +65,14 @@ inline Vec2 MdWorldToScreen(Vec3 world, const MdCamera& cam, int sw, int sh) {
     if (fabsf(cw) < 1e-6f) return {};
     return { (cx/cw + 1.f) * 0.5f * (float)sw,
              (1.f - cy/cw) * 0.5f * (float)sh };
+}
+
+// The same camera moved by (dx, 0, dz): the view direction is taken from the camera's own (small, local) numbers, never from the difference of the moved position and target.
+inline MdCamera MdCameraTranslated(const MdCamera& cam, float dx, float dz) {
+    MdCamera c = cam;
+    const Vec3 d = cam.has_dir ? cam.dir : Vec3{ cam.target.x - cam.pos.x, cam.target.y - cam.pos.y, cam.target.z - cam.pos.z };
+    c.pos.x += dx; c.pos.z += dz;
+    c.target = { c.pos.x + d.x, c.pos.y + d.y, c.pos.z + d.z };   // kept consistent for code that reads target; the view matrix uses dir
+    c.dir = d; c.has_dir = true;
+    return c;
 }
