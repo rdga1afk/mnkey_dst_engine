@@ -217,6 +217,16 @@ const BiomeDef& BiomeRegistry::ForIndex(int idx) const {
     return biomes_[idx].def;
 }
 
+int BiomeRegistry::FindByLegend(uint32_t rgb) const {
+    for (int i = 0; i < biome_count_; ++i)
+        if (((uint32_t)biomes_[i].legend_rgb[0] << 16 | (uint32_t)biomes_[i].legend_rgb[1] << 8 | biomes_[i].legend_rgb[2]) == rgb) return i;
+    return -1;
+}
+const char* BiomeRegistry::SlugAt(int idx) const { return (idx >= 0 && idx < biome_count_) ? biomes_[idx].slug : ""; }
+uint32_t BiomeRegistry::LegendAt(int idx) const {
+    return (idx >= 0 && idx < biome_count_) ? ((uint32_t)biomes_[idx].legend_rgb[0] << 16 | (uint32_t)biomes_[idx].legend_rgb[1] << 8 | biomes_[idx].legend_rgb[2]) : 0u;
+}
+
 const BiomeDef& BiomeRegistry::ForColor(uint8_t r, uint8_t g, uint8_t b) const {
     if (biome_count_ == 0) return default_;
     int best = 0, best_d2 = 0x7FFFFFFF;

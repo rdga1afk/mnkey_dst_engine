@@ -158,6 +158,10 @@ public:
     // packed 0xRRGGBB (all 57 entries of the old raw -> slug table agree). Returns false when the bytes are not a KBI1 file.
     bool BuildKbi1Lookup(const std::string& blendinfo, int& dim, std::vector<uint8_t>& rgba) const;
     const BiomeDef& ForIndex(int idx) const;
+    // The record that OWNS a biomemap colour: the load-order index of the biome whose legend colour (the FCS record's own `index` field, 0xRRGGBB) equals `rgb` exactly, -1 if none.
+    int FindByLegend(uint32_t rgb) const;
+    const char* SlugAt(int idx) const;      // "" outside [0, BiomeCount())
+    uint32_t    LegendAt(int idx) const;    // 0xRRGGBB of the record's colour, 0 outside the range
 
 private:
     BiomeRegistry() = default;

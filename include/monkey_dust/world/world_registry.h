@@ -1,4 +1,5 @@
 #pragma once
+#include <monkey_dust/world/biome_def.h>
 // WorldRegistry — persistent per-zone player state + active zone tracking.
 // Zones loaded from game/data/terrain_config.txt; save/load game/data/world_registry.txt.
 
@@ -84,6 +85,7 @@ public:
     // Get biome string for any zone by grid coords (returns "desert" if unknown)
     const char* GetBiomeAt(int gx, int gz) const {
         if (gx < 0 || gx > 63 || gz < 0 || gz > 63) return "desert";
+        if (biomes_from_fcs_) return BiomeRegistry::Get().SlugAt(biome_grid_[gz][gx]);   // the slug of the FCS BIOMES record that owns the cell colour (MD_BIOMES_FROM_FCS)
         return kBiomeNames[biome_grid_[gz][gx]];
     }
 
@@ -91,7 +93,8 @@ private:
     static constexpr const char* kBiomeNames[] = {
         "desert","highland","scrubland","swamp","canyon","volcanic","coast","forest","ashlands","jungle","highlands"
     };
-    uint8_t    biome_grid_[64][64] = {};  // biome index per zone cell
+    uint8_t    biome_grid_[64][64] = {};  // biome index per zone cell: a kBiomeNames index, or (biomes_from_fcs_) the BiomeRegistry load-order index of the record
+    bool       biomes_from_fcs_ = false;
 
     WorldRegistry() { LoadFromTerrainConfig(); LoadBiomeMap(); Load(); }
     ZoneRecord zones_[WR_MAX_ZONES];

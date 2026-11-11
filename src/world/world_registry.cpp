@@ -93,6 +93,23 @@ bool WorldRegistry::BuildBiomeMapFromInstall() {
         const unsigned char* q = px + 4 * ((size_t)y * w + x);
         return (uint32_t)q[0] << 16 | (uint32_t)q[1] << 8 | q[2];
     };
+    if (getenv("MD_BIOMES_FROM_FCS")) {   // owner 11.11: the biome of a cell is the FCS BIOMES record that owns the biomemap colour (switch off until the gates are approved)
+        BiomeRegistry& R = BiomeRegistry::Get();
+        if (!R.Loaded()) R.LoadFromKenshi(dir.c_str(), (dir + "/data/newland/land/textures").c_str());
+        if (R.Loaded()) {
+            bool all = true;
+            for (int zz = 0; zz < 64; ++zz) for (int zx = 0; zx < 64; ++zx) {
+                const int id = R.FindByLegend(sample(zx, zz));
+                if (id < 0) all = false;
+                biome_grid_[zz][zx] = (uint8_t)(id < 0 ? 0 : id);
+            }
+            biomes_from_fcs_ = true;
+            if (!all) fprintf(stderr, "[WorldRegistry] some biomemap colours have no BIOMES record (cells fall back to record 0)\n");
+            stbi_image_free(px);
+            return true;
+        }
+    }
+    biomes_from_fcs_ = false;
     auto biome_index = [&](const char* name) { for (uint8_t i = 0; i < 11; ++i) if (!strcmp(name, kBiomeNames[i])) return i; return (uint8_t)0; };
     for (int zz = 0; zz < 64; ++zz) for (int zx = 0; zx < 64; ++zx) {
         const uint32_t c = sample(zx, zz); uint8_t best = biome_index("desert"); long best_d = -1;
