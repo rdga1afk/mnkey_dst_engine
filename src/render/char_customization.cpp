@@ -67,7 +67,7 @@ void CharCustomization_ComputeScales(const float body[CHARCC_BODY_N],
     float LgS = 1.0f;  // Legs shape: neutral (slider not in BODY_N=18 array)
 
     // ── Lower body ────────────────────────────────────────────────────────────
-    // (local_1b4 = "Hips" slider, NOT Height — Hips=1 neutral → legXZ width
+    // (the "Hips" slider, NOT Height — Hips=1 neutral → legXZ width
     // stays constant across Height, avoiding a compounded width+length shrink/grow.)
     float legXZ    = cl((LgS * LgB + (Hips - 1.f) / 3.f) * Fr);
     float overall_XZ = legXZ;  // used by thighs/calves

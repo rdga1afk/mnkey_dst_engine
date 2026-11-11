@@ -44,7 +44,7 @@ bool Glob(const char* p, const char* s) {
 }
 
 // ── data: <KENSHI_DIR>/data/gui, all subfolders, looked up by file name ───────────────────────────────────────
-float g_ui_scale = 1.f;   // Kenshi's MyGUI fork (ScaleManager, exe 1406e3c30): scale = min(W / 1920, H / 1080), the reference is the size of Kenshi_UI.png; ResourceTrueTypeFont multiplies `Size` by it (applyMin)
+float g_ui_scale = 1.f;   // Kenshi's MyGUI fork (ScaleManager, exe): scale = min(W / 1920, H / 1080), the reference is the size of Kenshi_UI.png; ResourceTrueTypeFont multiplies `Size` by it (applyMin)
 
 class DataMgr : public MyGUI::DataManager {
 public:

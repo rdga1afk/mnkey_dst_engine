@@ -6,7 +6,7 @@ namespace md::kenshi {
 
 int PickIndex(int rand_value, int n) {
     if (n <= 0) return 0;
-    const float f = (float)((double)rand_value * -0.000030517578125);   // -2^-15, the constant at 141742c38
+    const float f = (float)((double)rand_value * -0.000030517578125);   // -2^-15, the constant in the exe's .rdata
     int i = 0 - (int)(f * (float)n);
     if (i > n - 1) i = n - 1;
     if (i < 0) i = 0;

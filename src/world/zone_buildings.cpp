@@ -28,7 +28,7 @@ struct BuildingDef { float scale = 1.0f; std::vector<std::string> meshes; std::v
 const float* FindFloat(const md::fcs::GameData& g, const char* key) { auto it = g.floats.find(key); return it == g.floats.end() ? nullptr : &it->second; }
 }
 
-// The part's offset chain moves its scene node: a child node at translation (offset X, Y, Z) of its parent, no own rotation or scale (exe 140848950, Ghidra 02.11: createChildSceneNode(offset, identity) when the
+// The part's offset chain moves its scene node: a child node at translation (offset X, Y, Z) of its parent, no own rotation or scale (exe, Ghidra 02.11: createChildSceneNode(offset, identity) when the
 // part is not a position marker and the offset is non-zero; chains add). Under the instance node that is offset x instance scale, rotated by the instance rotation (w x y z); FCS units are 0.1 m.
 static std::array<float, 3> OffsetWorld(const float* q_wxyz, float scale, const std::array<float, 3>& off) {
     const float n = std::sqrt(q_wxyz[0] * q_wxyz[0] + q_wxyz[1] * q_wxyz[1] + q_wxyz[2] * q_wxyz[2] + q_wxyz[3] * q_wxyz[3]);
@@ -60,7 +60,7 @@ bool AppendZoneFile(const std::string& path, const md::fcs::GameDataContainer& d
                     const md::fcs::GameData* part = data.Get(p.first);
                     if (!part || part->kind != 29) continue;
                     std::array<float, 3> here = acc;
-                    // the part's own MATERIAL_SPEC, else the building's default: the BUILDING's first `material`, else the record 742-gamedata.base (exe 140848950, read in Ghidra 02.11)
+                    // the part's own MATERIAL_SPEC, else the building's default: the BUILDING's first `material`, else the record 742-gamedata.base (exe, read in Ghidra 02.11)
                     const md::fcs::GameData* mat = inherited;
                     if (const auto* mats = part->Refs("material")) if (!mats->empty()) if (const md::fcs::GameData* ms = data.Get(mats->front().first)) mat = ms;
                     if (const float* o = FindFloat(*part, "offset X")) here[0] += *o;
@@ -81,7 +81,7 @@ bool AppendZoneFile(const std::string& path, const md::fcs::GameDataContainer& d
                                 auto im = ms->ints.find("material type"); if (im != ms->ints.end()) mt = im->second;
                                 auto ia = ms->ints.find("alpha threshold"); if (ia != ms->ints.end()) at = ia->second;
                                 auto fx = ms->floats.find("tile X"), fy = ms->floats.find("tile Y");
-                                if (fx != ms->floats.end() && fy != ms->floats.end() && fx->second != 0.f && fy->second != 0.f) tl = {fx->second, fy->second};   // exe 140841a50: either 0 -> (1, 1)
+                                if (fx != ms->floats.end() && fy != ms->floats.end() && fx->second != 0.f && fy->second != 0.f) tl = {fx->second, fy->second};   // exe: either 0 -> (1, 1)
                                 std::replace(t1.begin(), t1.end(), '\\', '/'); std::replace(t2.begin(), t2.end(), '\\', '/');
                             }
                             d.meshes.push_back(std::move(m)); d.offsets.push_back(here); d.tex.push_back(std::move(t1)); d.tex2.push_back(std::move(t2)); d.nrm.push_back(std::move(nm)); d.mtype.push_back(mt); d.athr.push_back(at); d.tile.push_back(tl);

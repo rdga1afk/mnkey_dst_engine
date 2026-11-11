@@ -2,7 +2,7 @@
 // Load time only (std::vector / std::string on purpose); world units are Kenshi's (0.1 m).
 //
 // Behaviour ported from Project Okran (MIT, Copyright (c) 2026 brayniac6-glitch): src/world/foliage.rs (Foliage::load, Mt, scatter_layer, place) and src/world/town.rs
-// (nearest). See THIRD_PARTY.md. The two generator functions were checked against the decompiled exe (Ghidra, 1406d87f0 and 1406cb960): tempering, the double product
+// (nearest). See THIRD_PARTY.md. The two generator functions were checked against the decompiled exe (Ghidra): tempering, the double product
 // and the mask-and-retry loop are the ones below.
 #pragma once
 #include <monkey_dust/io/fcs_gamedata.h>
@@ -14,7 +14,7 @@
 
 namespace md::world {
 
-// Kenshi's global MT19937 (0x142131e90).
+// Kenshi's global MT19937.
 class Mt {
 public:
     explicit Mt(uint32_t seed);
@@ -97,7 +97,7 @@ Foliage LoadFoliage(const md::fcs::GameDataContainer& data);
 struct Blade { float x, y, z, size, yaw; int grass; };   // x, z in Kenshi units (origin shifted by -147456), y in units, size in metres, yaw in degrees
 
 // CLOSE grass blades of the circle (cx, cz, radius; Kenshi units): density x 0.005 x area x `density_mult` candidates per GRASS record, each kept when the zone's grass map (overlay R / G
-// after the grass painting) is above a random number, slope <= max slope, altitude inside the limits (foliage.md "Grass blades", FUN_140a40f40). The exe's page layout depends on the camera: no exact layout to reproduce.
+// after the grass painting) is above a random number, slope <= max slope, altitude inside the limits (foliage.md "Grass blades"). The exe's page layout depends on the camera: no exact layout to reproduce.
 bool ScatterGrass(const std::string& kenshi_dir, const Foliage& f, float cx, float cz, float radius, float density_mult, uint32_t seed, size_t max_blades, std::vector<Blade>& out, std::string& err);
 
 // One layer's meshes scattered over the zone rect {x0, z0, x1, z1}; biome = the biome index the places must be in (kNoBiome: the zone has one biome).

@@ -14,7 +14,7 @@ struct MsvcRand {
     int Next() { state = state * 214013u + 2531011u; return (int)((state >> 16) & 0x7fff); }
 };
 
-// Index in [0, n-1] from a rand() value, exactly as the exe's helper FUN_1409b3b40(0, n - 1): floor(rand / 32768 * n) in float arithmetic, clamped.
+// Index in [0, n-1] from a rand() value, exactly as the exe's helper with the range (0, n - 1): floor(rand / 32768 * n) in float arithmetic, clamped.
 int PickIndex(int rand_value, int n);
 
 struct LoadingScreenData {

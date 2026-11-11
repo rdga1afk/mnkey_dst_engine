@@ -53,7 +53,7 @@ struct BiomeDef {
     // terrainfp4.hlsl computeBiome(): per-layer colour-overlay strength (FCS "overlay mult vertical/grass/dirt/
     // road" = overlayMult.x/y/z/w; cliff = "vertical"), and the distance fade to the biome's ground colour
     // (FCS "fade distance" -> distant.a = 1/fade, "ground colour" -> distant.rgb). Confirmed in kenshi_x64.exe
-    // FUN_140a0d9c0. Defaults = fcs.def defaults (1.0 / 4000 m / #C0A040).
+    // Defaults = fcs.def defaults (1.0 / 4000 m / #C0A040).
     float overlay_mult_cliff = 1.0f, overlay_mult_grass = 1.0f, overlay_mult_dirt = 1.0f, overlay_mult_road = 1.0f;
     float fade_distance = 4000.0f;
     float distant_r = 0.753f, distant_g = 0.627f, distant_b = 0.251f;
