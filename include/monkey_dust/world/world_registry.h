@@ -1,7 +1,7 @@
 #pragma once
 #include <monkey_dust/world/biome_def.h>
 // WorldRegistry — persistent per-zone player state + active zone tracking.
-// Zones loaded from game/data/terrain_config.txt; save/load game/data/world_registry.txt.
+// Zones built from the install (kind-95 weather groups + areasmap regions); save/load game/data/world_registry.txt.
 
 #include <cstring>
 #include <cstdlib>
@@ -29,9 +29,6 @@ struct ZoneRecord {
 class WorldRegistry {
 public:
     static WorldRegistry& Get() { static WorldRegistry s; return s; }
-
-    // Load terrain config (zone definitions) — called from constructor
-    void LoadFromTerrainConfig(const char* path = "game/data/terrain_config.txt");
 
     // Load/save per-zone player state (visited, exit pos, amplitude overrides)
     void Load(const char* path = "game/data/world_registry.txt");
@@ -78,30 +75,23 @@ public:
         return &nr;
     }
 
-    // Load game/data/biome_map.txt (64×64 grid of zx,zz=biome lines)
-    void LoadBiomeMap(const char* path = "game/data/biome_map.txt");
     // The zone list from the install (owner 11.11): one zone per FCS kind-95 weather group (name, areasmap colour `index`); its cell is a cell inside the group's areasmap region (the
-    // region pixel nearest to the region's centroid, 256 x 256 texels -> 64 x 64 cells). Replaces the list of terrain_config.txt; returns the number of zones (0 = no install data).
-    // Zones without a region on the map are skipped. Not used by the game unless MD_ZONES_FROM_INSTALL is set (off until the gates are approved).
+    // region pixel nearest to the region's centroid, 256 x 256 texels -> 64 x 64 cells), so the terrain window origin (zone_ox/oz = cell - TNKN/2) is the real position. Zones without a
+    // region on the map are skipped. Returns the number of zones (0 = no install data: the registry stays empty).
     int  BuildZonesFromInstall();
-    bool BuildBiomeMapFromInstall();   // true when the install has biomemap.png; LoadBiomeMap calls it when biome_map.txt is absent (the release)
-
+    // The biome of every zone cell: the BIOMES record of the install that owns the colour of the cell centre in biomemap.png (exact legend colour, BiomeRegistry::FindByLegend).
+    bool BuildBiomeMapFromInstall();   // false without an install
 
     // Get biome string for any zone by grid coords (returns "desert" if unknown)
     const char* GetBiomeAt(int gx, int gz) const {
         if (gx < 0 || gx > 63 || gz < 0 || gz > 63) return "desert";
-        if (biomes_from_fcs_) return BiomeRegistry::Get().SlugAt(biome_grid_[gz][gx]);   // the slug of the FCS BIOMES record that owns the cell colour (MD_BIOMES_FROM_FCS)
-        return kBiomeNames[biome_grid_[gz][gx]];
+        return BiomeRegistry::Get().SlugAt(biome_grid_[gz][gx]);   // the slug of the FCS BIOMES record that owns the cell colour
     }
 
 private:
-    static constexpr const char* kBiomeNames[] = {
-        "desert","highland","scrubland","swamp","canyon","volcanic","coast","forest","ashlands","jungle","highlands"
-    };
-    uint8_t    biome_grid_[64][64] = {};  // biome index per zone cell: a kBiomeNames index, or (biomes_from_fcs_) the BiomeRegistry load-order index of the record
-    bool       biomes_from_fcs_ = false;
+    uint8_t    biome_grid_[64][64] = {};  // per zone cell: the BiomeRegistry load-order index of the BIOMES record that owns the cell colour
 
-    WorldRegistry() { if (!getenv("MD_ZONES_FROM_INSTALL") || BuildZonesFromInstall() == 0) LoadFromTerrainConfig(); LoadBiomeMap(); Load(); }   // MD_ZONES_FROM_INSTALL (off): the zone list of the install; falls back to the file when the install has none
+    WorldRegistry() { BuildZonesFromInstall(); BuildBiomeMapFromInstall(); Load(); }
     ZoneRecord zones_[WR_MAX_ZONES];
     int        zone_count_  = 0;
     char       current_zone_[WR_NAME_LEN] = "border_zone";

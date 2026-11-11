@@ -11,74 +11,6 @@
 #include <cstdlib>
 #include <dirent.h>
 #include <monkey_dust/io/fcs_gamedata.h>
-#include "biome_colour_classes.h"
-
-void WorldRegistry::LoadFromTerrainConfig(const char* path) {
-    FILE* fp = fopen(md::DataPath(path).c_str(), "r");
-    if (!fp) {
-        fprintf(stderr, "[WorldRegistry] terrain_config not found: %s\n", path);
-        return;
-    }
-    char line[256];
-    ZoneRecord* cur = nullptr;
-    while (fgets(line, sizeof(line), fp)) {
-        const char* p = line;
-        while (*p == ' ' || *p == '\t') p++;
-        if (*p == '#' || *p == '\n' || *p == '\r' || *p == '\0') continue;
-        if (*p == '[') continue;
-
-        if (strncmp(p, "zone=", 5) == 0) {
-            if (zone_count_ >= WR_MAX_ZONES) break;
-            cur = &zones_[zone_count_++];
-            *cur = ZoneRecord{};
-            cur->amplitude   = 30.f;
-            cur->fog_density = 0.3f;
-            cur->fog_dist_m  = 800.f;
-            cur->danger      = 1;
-            const char* id = p + 5;
-            int len = 0;
-            while (id[len] && id[len] != '\n' && id[len] != '\r' && id[len] != ' ') len++;
-            if (len >= WR_NAME_LEN) len = WR_NAME_LEN - 1;
-            memcpy(cur->name, id, (size_t)len);
-            cur->name[len] = '\0';
-            continue;
-        }
-
-        if (!cur) continue;
-        const char* eq = strchr(p, '=');
-        if (!eq) continue;
-
-        char key[64];
-        int klen = (int)(eq - p);
-        while (klen > 0 && (p[klen-1] == ' ' || p[klen-1] == '\t')) klen--;
-        if (klen <= 0 || klen >= 64) continue;
-        memcpy(key, p, (size_t)klen); key[klen] = '\0';
-
-        const char* vs = eq + 1;
-        while (*vs == ' ' || *vs == '\t') vs++;
-        int vlen = 0;
-        while (vs[vlen] && vs[vlen] != '\n' && vs[vlen] != '\r') vlen++;
-        while (vlen > 0 && (vs[vlen-1] == ' ' || vs[vlen-1] == '\t')) vlen--;
-        char val[128];
-        if (vlen >= 128) vlen = 127;
-        memcpy(val, vs, (size_t)vlen); val[vlen] = '\0';
-
-        if      (!strcmp(key, "name"))        strncpy(cur->display_name, val, WR_NAME_LEN - 1);
-        else if (!strcmp(key, "biome"))       strncpy(cur->biome,        val, sizeof(cur->biome) - 1);
-        else if (!strcmp(key, "amplitude"))   cur->amplitude   = (float)atof(val);
-        else if (!strcmp(key, "danger"))      cur->danger      = atoi(val);
-        else if (!strcmp(key, "grid_x"))      cur->grid_x      = atoi(val);
-        else if (!strcmp(key, "grid_z"))      cur->grid_z      = atoi(val);
-        else if (!strcmp(key, "fog_density")) cur->fog_density = (float)atof(val);
-        else if (!strcmp(key, "fog_dist"))    cur->fog_dist_m  = (float)atof(val);
-        else if (!strcmp(key, "factions"))    strncpy(cur->factions_str, val, sizeof(cur->factions_str) - 1);
-    }
-    fclose(fp);
-
-    ZoneRecord* active = Find(current_zone_);
-    if (active) active->visited = true;
-    fprintf(stdout, "[WorldRegistry] Loaded %d zones from terrain_config\n", zone_count_);
-}
 
 int WorldRegistry::BuildZonesFromInstall() {
     const std::string dir = md::KenshiDir();
@@ -122,72 +54,28 @@ int WorldRegistry::BuildZonesFromInstall() {
     return zone_count_;
 }
 
-constexpr const char* WorldRegistry::kBiomeNames[];
-
-// The biome of every zone cell from the install's biomemap.png at run time: the colour of the cell centre -> our class (biome_colour_classes.h), plus the legacy per-cell overrides that keep the grid identical to the old anchor logic.
+// The biome of every zone cell from the install (owner 11.11: the record is the truth, no hand classification): the BIOMES record whose colour field equals the colour of the cell centre
+// in biomemap.png. Every distinct colour of the map has exactly one record (tests/test_biome_map_install.cpp); a colour without one falls back to record 0 and is logged.
 bool WorldRegistry::BuildBiomeMapFromInstall() {
     const std::string dir = md::KenshiDir();
     if (dir.empty()) return false;
     int w = 0, h = 0, ch = 0;
     unsigned char* px = stbi_load((dir + "/data/newland/land/biomemap.png").c_str(), &w, &h, &ch, 4);
     if (!px) return false;
-    auto sample = [&](int zx, int zz) {
-        const int x = std::min(zx * 16 + 8, w - 1), y = std::min(zz * 16 + 8, h - 1);
-        const unsigned char* q = px + 4 * ((size_t)y * w + x);
-        return (uint32_t)q[0] << 16 | (uint32_t)q[1] << 8 | q[2];
-    };
-    if (getenv("MD_BIOMES_FROM_FCS")) {   // owner 11.11: the biome of a cell is the FCS BIOMES record that owns the biomemap colour (switch off until the gates are approved)
-        BiomeRegistry& R = BiomeRegistry::Get();
-        if (!R.Loaded()) R.LoadFromKenshi(dir.c_str(), (dir + "/data/newland/land/textures").c_str());
-        if (R.Loaded()) {
-            bool all = true;
-            for (int zz = 0; zz < 64; ++zz) for (int zx = 0; zx < 64; ++zx) {
-                const int id = R.FindByLegend(sample(zx, zz));
-                if (id < 0) all = false;
-                biome_grid_[zz][zx] = (uint8_t)(id < 0 ? 0 : id);
-            }
-            biomes_from_fcs_ = true;
-            if (!all) fprintf(stderr, "[WorldRegistry] some biomemap colours have no BIOMES record (cells fall back to record 0)\n");
-            stbi_image_free(px);
-            return true;
-        }
-    }
-    biomes_from_fcs_ = false;
-    auto biome_index = [&](const char* name) { for (uint8_t i = 0; i < 11; ++i) if (!strcmp(name, kBiomeNames[i])) return i; return (uint8_t)0; };
+    BiomeRegistry& R = BiomeRegistry::Get();
+    if (!R.Loaded()) R.LoadFromKenshi(dir.c_str(), (dir + "/data/newland/land/textures").c_str());
+    if (!R.Loaded()) { stbi_image_free(px); return false; }
+    int missing = 0;
     for (int zz = 0; zz < 64; ++zz) for (int zx = 0; zx < 64; ++zx) {
-        const uint32_t c = sample(zx, zz); uint8_t best = biome_index("desert"); long best_d = -1;
-        for (const BiomeColourClass& a : kBiomeColourClasses) {   // an exact colour, else the nearest class colour
-            if (a.rgb == c) { best = biome_index(a.biome); break; }
-            const long dr = (long)(c >> 16 & 255) - (long)(a.rgb >> 16 & 255), dg = (long)(c >> 8 & 255) - (long)(a.rgb >> 8 & 255), db = (long)(c & 255) - (long)(a.rgb & 255);
-            const long d = dr * dr + dg * dg + db * db;
-            if (best_d < 0 || d < best_d) { best_d = d; best = biome_index(a.biome); }
-        }
-        biome_grid_[zz][zx] = best;
+        const unsigned char* q = px + 4 * ((size_t)std::min(zz * 16 + 8, h - 1) * w + std::min(zx * 16 + 8, w - 1));
+        const int id = R.FindByLegend((uint32_t)q[0] << 16 | (uint32_t)q[1] << 8 | q[2]);
+        if (id < 0) ++missing;
+        biome_grid_[zz][zx] = (uint8_t)(id < 0 ? 0 : id);
     }
-    for (const LegacyZoneCellOverride& o : kLegacyZoneCellOverrides) biome_grid_[o.z][o.x] = biome_index(o.biome);
     stbi_image_free(px);
+    if (missing) fprintf(stderr, "[WorldRegistry] %d zone cells have a biomemap colour without a BIOMES record (record 0)\n", missing);
+    fprintf(stdout, "[WorldRegistry] Biome map built from the BIOMES records of the install\n");
     return true;
-}
-
-void WorldRegistry::LoadBiomeMap(const char* path) {
-    // the install's biomemap.png first (fresh, tools/md_biome_import.py at run time); the committed table is only the fallback without an install
-    if (BuildBiomeMapFromInstall()) { fprintf(stdout, "[WorldRegistry] Biome map built from the Kenshi install (biomemap.png)\n"); return; }
-    FILE* fp = fopen(path, "r");
-    if (!fp) return;
-    char line[64];
-    while (fgets(line, sizeof(line), fp)) {
-        if (line[0] == '#' || line[0] == '\n') continue;
-        int zx, zz;
-        char biome[24] = {};
-        if (sscanf(line, "%d,%d=%23s", &zx, &zz, biome) != 3) continue;
-        if (zx < 0 || zx > 63 || zz < 0 || zz > 63) continue;
-        uint8_t idx = 0;
-        for (uint8_t i = 0; i < 11; ++i)
-            if (!strcmp(biome, kBiomeNames[i])) { idx = i; break; }
-        biome_grid_[zz][zx] = idx;
-    }
-    fclose(fp);
-    fprintf(stdout, "[WorldRegistry] Biome map loaded from %s\n", path);
 }
 
 // MD_WORLD_REGISTRY=<file> replaces the default registry path: gates and scenarios run on a fixture and never touch the player's game/data file
