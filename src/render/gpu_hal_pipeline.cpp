@@ -305,6 +305,14 @@ static SDL_GPUShader* LoadSpvShader(SDL_GPUDevice* dev,
     void*  code      = ReadBinaryFile(spv_path, &code_size);
     if (!code) {
         MD_LOG(MD_LOG_WARNING, "[GpuPipeline] SPIR-V not found: %s", spv_path);
+        // one line per missing file, always visible: a build without the private shader overlay lacks the translated shaders and the features that need them stay off
+        static char s_reported[64][160]; static int s_reported_n = 0;
+        bool seen = false;
+        for (int i = 0; i < s_reported_n; ++i) if (!strcmp(s_reported[i], spv_path)) { seen = true; break; }
+        if (!seen) {
+            if (s_reported_n < 64) snprintf(s_reported[s_reported_n++], sizeof s_reported[0], "%s", spv_path);
+            fprintf(stderr, "[GpuPipeline] missing shader %s: the feature that needs it is off (not compiled in this checkout)\n", spv_path);
+        }
         return nullptr;
     }
     SDL_GPUShaderCreateInfo info = {};
