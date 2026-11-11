@@ -4,6 +4,7 @@
 // Zones loaded from game/data/terrain_config.txt; save/load game/data/world_registry.txt.
 
 #include <cstring>
+#include <cstdlib>
 #include <cstdint>
 
 static constexpr int WR_MAX_ZONES = 128;
@@ -100,7 +101,7 @@ private:
     uint8_t    biome_grid_[64][64] = {};  // biome index per zone cell: a kBiomeNames index, or (biomes_from_fcs_) the BiomeRegistry load-order index of the record
     bool       biomes_from_fcs_ = false;
 
-    WorldRegistry() { LoadFromTerrainConfig(); LoadBiomeMap(); Load(); }
+    WorldRegistry() { if (!getenv("MD_ZONES_FROM_INSTALL") || BuildZonesFromInstall() == 0) LoadFromTerrainConfig(); LoadBiomeMap(); Load(); }   // MD_ZONES_FROM_INSTALL (off): the zone list of the install; falls back to the file when the install has none
     ZoneRecord zones_[WR_MAX_ZONES];
     int        zone_count_  = 0;
     char       current_zone_[WR_NAME_LEN] = "border_zone";
