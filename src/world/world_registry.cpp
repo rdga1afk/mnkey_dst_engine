@@ -10,6 +10,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <dirent.h>
+#include "biome_colour_classes.h"
 
 void WorldRegistry::LoadFromTerrainConfig(const char* path) {
     FILE* fp = fopen(md::DataPath(path).c_str(), "r");
@@ -80,7 +81,7 @@ void WorldRegistry::LoadFromTerrainConfig(const char* path) {
 
 constexpr const char* WorldRegistry::kBiomeNames[];
 
-// The biome of every zone cell from the install's biomemap.png (tools/md_biome_import.py, now at run time): the zones of terrain_config.txt are the colour anchors, every other cell takes the nearest anchor colour
+// The biome of every zone cell from the install's biomemap.png at run time: the colour of the cell centre -> our class (biome_colour_classes.h), plus the legacy per-cell overrides that keep the grid identical to the old anchor logic.
 bool WorldRegistry::BuildBiomeMapFromInstall() {
     const std::string dir = md::KenshiDir();
     if (dir.empty()) return false;
@@ -92,30 +93,18 @@ bool WorldRegistry::BuildBiomeMapFromInstall() {
         const unsigned char* q = px + 4 * ((size_t)y * w + x);
         return (uint32_t)q[0] << 16 | (uint32_t)q[1] << 8 | q[2];
     };
-    struct Anchor { uint32_t rgb; uint8_t biome; };
-    std::vector<Anchor> anchors;   // insertion order of the first use of a colour; a later zone with the same colour replaces its biome
-    bool known[64][64] = {};
     auto biome_index = [&](const char* name) { for (uint8_t i = 0; i < 11; ++i) if (!strcmp(name, kBiomeNames[i])) return i; return (uint8_t)0; };
-    for (int i = 0; i < zone_count_; ++i) {
-        const ZoneRecord& z = zones_[i];
-        if (!z.biome[0] || z.grid_x < 0 || z.grid_x > 63 || z.grid_z < 0 || z.grid_z > 63) continue;
-        const uint32_t c = sample(z.grid_x, z.grid_z); const uint8_t b = biome_index(z.biome);
-        bool found = false;
-        for (Anchor& a : anchors) if (a.rgb == c) { a.biome = b; found = true; break; }
-        if (!found) anchors.push_back({ c, b });
-        known[z.grid_z][z.grid_x] = true; biome_grid_[z.grid_z][z.grid_x] = b;
-    }
     for (int zz = 0; zz < 64; ++zz) for (int zx = 0; zx < 64; ++zx) {
-        if (known[zz][zx]) continue;
         const uint32_t c = sample(zx, zz); uint8_t best = biome_index("desert"); long best_d = -1;
-        for (const Anchor& a : anchors) {
-            if (a.rgb == c) { best = a.biome; break; }
+        for (const BiomeColourClass& a : kBiomeColourClasses) {   // an exact colour, else the nearest class colour
+            if (a.rgb == c) { best = biome_index(a.biome); break; }
             const long dr = (long)(c >> 16 & 255) - (long)(a.rgb >> 16 & 255), dg = (long)(c >> 8 & 255) - (long)(a.rgb >> 8 & 255), db = (long)(c & 255) - (long)(a.rgb & 255);
             const long d = dr * dr + dg * dg + db * db;
-            if (best_d < 0 || d < best_d) { best_d = d; best = a.biome; }
+            if (best_d < 0 || d < best_d) { best_d = d; best = biome_index(a.biome); }
         }
         biome_grid_[zz][zx] = best;
     }
+    for (const LegacyZoneCellOverride& o : kLegacyZoneCellOverrides) biome_grid_[o.z][o.x] = biome_index(o.biome);
     stbi_image_free(px);
     return true;
 }
