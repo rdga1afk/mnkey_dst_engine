@@ -69,7 +69,7 @@ Process skill only, no code in the binaries. `.claude/skills/pdca/UPSTREAM.md` i
 Submodules are pinned by the commit shown; "licence text" is the file in the tree, or "in header" when the text sits at the top of the source.
 | library | version / pin | licence | licence text | where used |
 |---|---|---|---|---|
-| gaia-ecs (single header) | v1.0.0, commit 2843d22a930f3c1efc6b54c995065a1dacd7161a | MIT (upstream) | **not in the tree** (single header only; to be added from the pinned commit); the header embeds robin-hood-hashing (MIT, © 2018–2021 Martin Ankerl, text in header) and tcbrindle/span (Boost 1.0, © 2018 Tristan Brindle, reference in header) | engine ECS |
+| gaia-ecs (single header) | v1.0.0, commit 2843d22a930f3c1efc6b54c995065a1dacd7161a | MIT, © 2021–2026 Richard Biely | `third_party/gaia-ecs/LICENSE` (raw file at the pinned commit 2843d22a, https://raw.githubusercontent.com/richardbiely/gaia-ecs/2843d22a930f3c1efc6b54c995065a1dacd7161a/LICENSE, fetched 11.11.2026); the header embeds robin-hood-hashing (MIT, © 2018–2021 Martin Ankerl, text in header) and tcbrindle/span (Boost 1.0, © 2018 Tristan Brindle, reference in header) | engine ECS |
 | glm | 6f14f4792a0cde5d0cf2c910506724d61cb95834 (header version 1.1.0) | Happy Bunny or MIT | `third_party/glm/copying.txt` | maths |
 | JoltPhysics | 25b055e3401c8e2ffba5a368bdaea30b45f24b5a (v5.5.0 + 142, header 5.5.1) | MIT, © 2021 Jorrit Rouwe | `third_party/JoltPhysics/LICENSE` | physics |
 | MyGUI | 8a05127d7c5bb6772df88185b1f99d8052c379a4 (3.2.2) | MIT, © 2007–2013 MyGUI Developers | `third_party/MyGUI/COPYING.MIT` | in-game UI |
@@ -80,8 +80,8 @@ Submodules are pinned by the commit shown; "licence text" is the file in the tre
 | stb_image_write | 1.16 | public domain / MIT | in header | image write |
 | stb_truetype | 1.26 | public domain / MIT | in header | font raster |
 | miniaudio | 0.11.24 | public domain or MIT-0 (as stated in the file) | in header | audio |
-| Arimo (4 styles) | 1.33, © 2020 The Arimo Project Authors | SIL Open Font License 1.1 (from the font's name table) | **not in the tree** (to be added) | UI font (`src/vendor/fonts`, `game/data/fonts`) |
-| Ubuntu Mono (4 styles) | 0.80, © 2011 Canonical Ltd. | Ubuntu Font Licence 1.0 (from the font's name table) | **not in the tree** (to be added) | editor font |
+| Arimo (4 styles) | 1.33, © 2020 The Arimo Project Authors | SIL Open Font License 1.1 (the font's own name table says OFL; an earlier note of Apache was wrong) | `src/vendor/fonts/OFL-Arimo.txt`, copy in `game/data/fonts/OFL-Arimo.txt` — OFL.txt of the upstream repo https://github.com/googlefonts/arimo (branch main, fetched 11.11.2026; its copyright line reads 2026, the vendored font file says 2020) | UI font (`src/vendor/fonts`, `game/data/fonts`) |
+| Ubuntu Mono (4 styles) | 0.80, © 2011 Canonical Ltd. | Ubuntu Font Licence 1.0 | `src/vendor/fonts/UFL-UbuntuMono.txt` — LICENCE.txt of the ubuntu-font-family-0.83 archive, https://assets.ubuntu.com/v1/fad7939b-ubuntu-font-family-0.83.zip, fetched 11.11.2026 (the vendored Ubuntu Mono is version 0.80, same licence text) | editor font |
 
 ### Tools (editor) libraries
 | library | version / pin | licence | licence text |
