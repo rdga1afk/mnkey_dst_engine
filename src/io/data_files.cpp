@@ -49,6 +49,21 @@ bool DevFilesEnabled() {
 #endif
 }
 
+std::string RepoPathIn(const char* rel, const std::string& private_root, const std::string& tools_root) {
+    namespace fs = std::filesystem;
+    std::error_code ec;
+    for (const std::string* root : { &private_root, &tools_root }) {
+        const fs::path p = root->empty() ? fs::path(rel) : fs::path(*root) / rel;
+        if (fs::exists(p, ec)) return p.string();
+    }
+    return rel;
+}
+
+std::string RepoPath(const char* rel) {
+    const char* e = getenv("MD_TOOLS_ROOT");
+    return RepoPathIn(rel, "", e && e[0] ? e : "tools");
+}
+
 std::string FlatNormalDds() { static const unsigned char b[8] = { 0x1F, 0x84, 0x1F, 0x84, 0, 0, 0, 0 }; return SolidDds("DXT1", b, 8); }
 std::string MissingDiffuseDds() { static const unsigned char b[16] = { 0xff, 0xff, 0, 0, 0, 0, 0, 0, 0xff, 0xff, 0xff, 0xff, 0, 0, 0, 0 }; return SolidDds("DXT5", b, 16); }
 
