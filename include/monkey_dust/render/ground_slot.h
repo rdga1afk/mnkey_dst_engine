@@ -12,6 +12,6 @@ inline bool GroundLiveLightOn() { static const bool on = GroundSlotTargetOn() &&
 struct GroundLiveRt { int orig_light = -1, tiny = -1, groups = -1; };
 inline GroundLiveRt& GroundLiveRtState() { static GroundLiveRt r; return r; }
 inline bool GroundLiveEnv1(const char* n) { const char* e = getenv(n); return e && e[0] == '1'; }
-inline bool GroundLiveTinyOn() { int& v = GroundLiveRtState().tiny; if (v < 0) v = GroundLiveEnv1("MD_GROUND_LIVE_TINY") ? 1 : 0; return v == 1; }
+inline bool GroundLiveTinyOn() { int& v = GroundLiveRtState().tiny; if (v < 0) { const char* e = getenv("MD_GROUND_LIVE_TINY"); v = (e && e[0] == '0') ? 0 : 1; } return v == 1; }   // default ON (11.11, 6 scenes -2.3..-4.2 ms); MD_GROUND_LIVE_TINY=0 turns it off; acts only with MD_GROUND_LIVE_ORIGLIGHT
 inline bool GroundLiveOrigLightOn() { int& v = GroundLiveRtState().orig_light; if (v < 0) v = GroundLiveEnv1("MD_GROUND_LIVE_ORIGLIGHT") ? 1 : 0; return v == 1; }
 }   // namespace md
