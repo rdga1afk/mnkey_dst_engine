@@ -79,6 +79,10 @@ public:
 
     // Load game/data/biome_map.txt (64×64 grid of zx,zz=biome lines)
     void LoadBiomeMap(const char* path = "game/data/biome_map.txt");
+    // The zone list from the install (owner 11.11): one zone per FCS kind-95 weather group (name, areasmap colour `index`); its cell is a cell inside the group's areasmap region (the
+    // region pixel nearest to the region's centroid, 256 x 256 texels -> 64 x 64 cells). Replaces the list of terrain_config.txt; returns the number of zones (0 = no install data).
+    // Zones without a region on the map are skipped. Not used by the game unless MD_ZONES_FROM_INSTALL is set (off until the gates are approved).
+    int  BuildZonesFromInstall();
     bool BuildBiomeMapFromInstall();   // true when the install has biomemap.png; LoadBiomeMap calls it when biome_map.txt is absent (the release)
 
 

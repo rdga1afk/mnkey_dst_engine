@@ -10,6 +10,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <dirent.h>
+#include <monkey_dust/io/fcs_gamedata.h>
 #include "biome_colour_classes.h"
 
 void WorldRegistry::LoadFromTerrainConfig(const char* path) {
@@ -77,6 +78,48 @@ void WorldRegistry::LoadFromTerrainConfig(const char* path) {
     ZoneRecord* active = Find(current_zone_);
     if (active) active->visited = true;
     fprintf(stdout, "[WorldRegistry] Loaded %d zones from terrain_config\n", zone_count_);
+}
+
+int WorldRegistry::BuildZonesFromInstall() {
+    const std::string dir = md::KenshiDir();
+    if (dir.empty()) return 0;
+    md::fcs::Install inst(dir); md::fcs::LoadOrder order; md::fcs::Error e; md::fcs::GameDataContainer gd;
+    if (!inst.LoadOrderFor(order, e) || !gd.Load(order, e)) return 0;
+    int w = 0, h = 0, ch = 0;
+    unsigned char* areas = stbi_load((dir + "/data/newland/land/areasmap.tga").c_str(), &w, &h, &ch, 3);
+    if (!areas) return 0;
+    zone_count_ = 0;
+    for (const md::fcs::GameData* gr : gd.OfType(95)) {
+        const auto it = gr->ints.find("index");
+        if (it == gr->ints.end() || gr->name == "NONE") continue;
+        const uint32_t key = (uint32_t)it->second & 0xFFFFFFu;
+        double sx = 0, sz = 0; long n = 0;
+        for (int y = 0; y < h; ++y) for (int x = 0; x < w; ++x) {
+            const unsigned char* p = areas + ((size_t)y * w + x) * 3;
+            if ((((uint32_t)p[0] << 16) | ((uint32_t)p[1] << 8) | p[2]) == key) { sx += x; sz += y; ++n; }
+        }
+        if (n == 0 || zone_count_ >= WR_MAX_ZONES) continue;
+        const double cx = sx / (double)n, cz = sz / (double)n;
+        long best_d = -1; int bx = 0, bz = 0;
+        for (int y = 0; y < h; ++y) for (int x = 0; x < w; ++x) {
+            const unsigned char* p = areas + ((size_t)y * w + x) * 3;
+            if ((((uint32_t)p[0] << 16) | ((uint32_t)p[1] << 8) | p[2]) != key) continue;
+            const long d = (long)(((double)x - cx) * ((double)x - cx) + ((double)y - cz) * ((double)y - cz));
+            if (best_d < 0 || d < best_d) { best_d = d; bx = x; bz = y; }
+        }
+        ZoneRecord& z = zones_[zone_count_++];
+        z = ZoneRecord{};
+        strncpy(z.display_name, gr->name.c_str(), WR_NAME_LEN - 1);
+        std::string slug; bool gap = false;
+        for (char c : gr->name) {
+            if (isalnum((unsigned char)c)) { if (gap && !slug.empty()) slug += '_'; slug += (char)tolower((unsigned char)c); gap = false; } else gap = true;
+        }
+        strncpy(z.name, slug.c_str(), WR_NAME_LEN - 1);
+        z.grid_x = std::min(bx * 64 / w, 63); z.grid_z = std::min(bz * 64 / h, 63);
+    }
+    stbi_image_free(areas);
+    fprintf(stdout, "[WorldRegistry] %d zones from the install (kind-95 groups + areasmap regions)\n", zone_count_);
+    return zone_count_;
 }
 
 constexpr const char* WorldRegistry::kBiomeNames[];
