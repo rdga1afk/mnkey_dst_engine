@@ -1,3 +1,4 @@
+#include <chrono>
 #include <monkey_dust/render/gpu_hal_types.h>
 #include <monkey_dust/render/gpu_pipeline.h>
 #include <monkey_dust/render/gpu_compute.h>
@@ -335,6 +336,7 @@ static SDL_GPUShader* LoadSpvShader(SDL_GPUDevice* dev,
 // ── GpuPipeline ───────────────────────────────────────────────────────────────
 
 bool GpuPipeline::Create(const Desc& desc) {
+    const auto t_create0 = std::chrono::steady_clock::now();   // #207: the time of one pipeline creation is logged (hitch investigation: first-draw pipelines on the render thread)
     if (!desc.vert_path || !desc.frag_path) {
         MD_LOG(MD_LOG_WARNING, "[GpuPipeline] Create: null shader paths");
         return false;
@@ -551,8 +553,8 @@ bool GpuPipeline::Create(const Desc& desc) {
         return false;
     }
     md::GpuResourceTracker::Get().OnPipelineCreate();
-    MD_LOG(MD_LOG_INFO, "[GpuPipeline] SDL_GPU pipeline created: %s / %s",
-           desc.vert_path, desc.frag_path);
+    MD_LOG(MD_LOG_INFO, "[GpuPipeline] SDL_GPU pipeline created: %s / %s (%.1f ms)",
+           desc.vert_path, desc.frag_path, std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t_create0).count());
     return true;
 }
 
