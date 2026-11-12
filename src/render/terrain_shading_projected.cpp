@@ -133,9 +133,12 @@ bool TerrainShadingProjected::Init(md::GpuDeviceHandle dev, int w, int h) {
     rd.frag_storage_bufs  = 2;   // binding 16 AmbientProbeBuf, binding 17 BiomeParamsBuf (TS_BIOME_SSBO variants)
     rd.frag_path = "shaders/terrain_shading_screenspace_kenshi.frag";
     resolve_kenshi_ready_ = resolve_kenshi_pipeline_.Create(rd);
-    if (!resolve_kenshi_ready_) {
-        MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] kenshi resolve pipeline create failed");
-        return false;
+    // A build without the translated shaders (the release, docs/research/GROUND_BASE_PATH1_DESIGN_2026-11-12.md) has no resolve of its own: the G-buffer, the skyvis and the
+    // live ground pass (path 1) still run, the consumer is drawn by the game (GroundLivePass::DrawFog); every translated variant below fails the same way and stays off.
+    if (!resolve_kenshi_ready_) {   // every variant below needs the same translated files: not tried, so the log names the one missing file
+        MD_LOG(MD_LOG_WARNING, "[TerrainShadingProjected] kenshi resolve pipeline create failed: no translated ground resolve (the live consumer draws the ground)");
+        ready_ = true;
+        return true;
     }
     // #155 step 1: the same variant without the flat-chain skip on cliff_w >= 1 (A/B, SetSkipFlatOnCliff(false)); non-fatal
     rd.frag_path = "shaders/terrain_shading_screenspace_kenshi_noskip.frag";
@@ -507,7 +510,7 @@ void TerrainShadingProjected::DrawShadingResolve(SDL_GPURenderPass* rp, md::GpuC
                                                    float world_origin_x, float world_origin_z, float world_to_uv,
                                                    float fog_far, const float fog_color[3], float fog_near,
                                                    const TerrainRenderer& ground) {
-    if (!ready_) return;
+    if (!ready_ || !resolve_kenshi_ready_) return;
 
     // RESOLVE_OPT spatial-split plan, Крок 4/6 (docs/RESOLVE_OPT.md,
     // 2026-09-19): four fullscreen draws instead of one -- each pipeline

@@ -52,6 +52,7 @@ public:
     bool Init(md::GpuDeviceHandle dev, int w, int h);
     void Shutdown();
     bool IsReady() const { return ready_; }
+    bool HasTranslatedResolve() const { return resolve_kenshi_ready_; }   // false in a build without the translated shaders: DrawShadingResolve draws nothing, the game draws the live consumer
 
     // Recreates gbuf_color_/gbuf_depth_ at the new size if it differs from
     // what Init() (or the last EnsureSize call) allocated -- call once per
