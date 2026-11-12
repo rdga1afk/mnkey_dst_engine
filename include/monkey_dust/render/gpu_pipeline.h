@@ -40,6 +40,8 @@ public:
         SDL_GPUTextureFormat color_format = SDL_GPU_TEXTUREFORMAT_INVALID;
         // #207 PVT tile bake: a second colour target of this format (INVALID = one target, every other pipeline)
         SDL_GPUTextureFormat color_format2 = SDL_GPU_TEXTUREFORMAT_INVALID;
+        // #207: the second colour target is not written (colour mask 0): a draw over the terrain G-buffer keeps the ground slot already there
+        bool color2_keep = false;
         // #207 stencil split (measurement prototype): INVALID = D32_FLOAT (every existing pipeline); D32_FLOAT_S8_UINT for the two passes that use a stencil.
         // stencil_mode: 0 off; 1 = write 1 where the fragment survives (REPLACE, reference 1); 2 = pass only where the stencil is not 1 (NOT_EQUAL, reference 1); 3 = both: pass where the stencil is not 1 and write 1 where the fragment survives.
         // The reference is set on the pass (SDL_SetGPUStencilReference), the same value 1 for both.
