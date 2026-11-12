@@ -126,15 +126,24 @@ static const md::EmbeddedSpirv* s_embedded = nullptr;
 static size_t s_embedded_count = 0;
 void md::RegisterEmbeddedSpirv(const md::EmbeddedSpirv* table, size_t count) { s_embedded = table; s_embedded_count = count; }
 
+static md::EmbeddedSpirv s_runtime[8];
+static size_t s_runtime_n = 0;
+void md::RegisterRuntimeSpirv(const char* path, const unsigned char* data, size_t size) {
+    if (s_runtime_n < 8) s_runtime[s_runtime_n++] = { path, data, size };
+    else MD_LOG(MD_LOG_WARNING, "[GpuPipeline] runtime SPIR-V table full: %s not registered", path);
+}
+
 static bool EmbeddedOnly() { static const bool v = getenv("MD_SHADERS_EMBEDDED_ONLY") != nullptr; return v; }
 
 static const md::EmbeddedSpirv* FindEmbedded(const char* path) {
     for (size_t i = 0; i < s_embedded_count; ++i) if (strcmp(s_embedded[i].path, path) == 0) return &s_embedded[i];
+    for (size_t i = 0; i < s_runtime_n; ++i) if (strcmp(s_runtime[i].path, path) == 0) return &s_runtime[i];
     return nullptr;
 }
 
 static bool IsEmbeddedPtr(const void* p) {
     for (size_t i = 0; i < s_embedded_count; ++i) if (s_embedded[i].data == p) return true;
+    for (size_t i = 0; i < s_runtime_n; ++i) if (s_runtime[i].data == p) return true;
     return false;
 }
 

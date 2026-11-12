@@ -7,4 +7,6 @@
 namespace md {
 struct EmbeddedSpirv { const char* path; const unsigned char* data; size_t size; };   // path as MakeSpvPath builds it: "shaders/spirv/<name>.spv"
 void RegisterEmbeddedSpirv(const EmbeddedSpirv* table, size_t count);
+// SPIR-V the game compiled at run time (path 1: our glue over the install's HLSL), found like an embedded file of the same path. The caller keeps path and data alive. Up to 8.
+void RegisterRuntimeSpirv(const char* path, const unsigned char* data, size_t size);
 }
