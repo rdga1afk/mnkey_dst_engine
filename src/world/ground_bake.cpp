@@ -60,9 +60,11 @@ bool BuildGroundBaked(const std::string& root, int side, std::vector<uint8_t>& r
     const auto t_start = std::chrono::steady_clock::now();
     auto secs = [&] { return std::chrono::duration<double>(std::chrono::steady_clock::now() - t_start).count(); };
     if (!LoadOverlayMask(root, mask)) return false;
+    fprintf(stderr, "[GroundBake] overlay mask loaded at %.1f s\n", secs());
     const int MW = OVERLAY_MASK_SIZE;
 
     std::vector<float> height; FillTerrainHeightField(height);
+    fprintf(stderr, "[GroundBake] height field filled at %.1f s\n", secs());
     // summed-area table of the edge-padded height field: the box blur of any window in O(1)
     const int PS = HF_SIZE + 2 * PAD;
     std::vector<double> sat((size_t)(PS + 1) * (PS + 1), 0.0);
@@ -76,6 +78,7 @@ bool BuildGroundBaked(const std::string& root, int side, std::vector<uint8_t>& r
         return H((float)(s / ((2.0 * r + 1) * (2.0 * r + 1))));
     };
 
+    fprintf(stderr, "[GroundBake] summed-area table built at %.1f s\n", secs());
     // per-zone biome, in the python iteration order (zy outer, zx inner) for the first-seen mip pick
     const BiomeDef* zb[HF_ZONES][HF_ZONES]; int zr[HF_ZONES][HF_ZONES];
     for (int zy = 0; zy < HF_ZONES; ++zy) for (int zx = 0; zx < HF_ZONES; ++zx) { zb[zy][zx] = &TerrainGen_ResolveBiome(zx, zy); zr[zy][zx] = RadiusForSmin(zb[zy][zx]->slope_min); }
@@ -212,15 +215,22 @@ std::string EnsureGroundBakedDds(const std::string& root) {
     BiomeRegistry& reg = BiomeRegistry::Get();
     for (int i = 0; i < reg.GroundTexCount(); ++i) if (const char* p = reg.GroundTexPath(i)) files.push_back(p);
     for (int ty = 0; ty < 8; ++ty) for (int tx = 0; tx < 8; ++tx) { char p[512]; snprintf(p, sizeof(p), "%s/data/newland/land/overlaymaps/new_overlay.%d.%d.png", root.c_str(), tx, ty); files.push_back(p); }
+    const auto th0 = std::chrono::steady_clock::now();
     const uint64_t key = HashFiles(files) ^ 0x6a0d0002ull;   // salt = bake revision (2: BC1 instead of BC3, constant opaque alpha)
     const std::string path = CachePath(key, "ground_baked.dds");
+    fprintf(stderr, "[GroundBake] input hash took %.1f s\n", std::chrono::duration<double>(std::chrono::steady_clock::now() - th0).count());
     if (path.empty()) return {};
     if (FILE* f = fopen(path.c_str(), "rb")) { fclose(f); fprintf(stderr, "[Cache] hit  %016llx/ground_baked.dds\n", (unsigned long long)key); return path; }
     std::vector<uint8_t> rgb, dds;
+    const auto t0 = std::chrono::steady_clock::now();
+    auto since = [&] { return std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count(); };
     if (!BuildGroundBaked(root, 16384, rgb)) return {};
+    fprintf(stderr, "[GroundBake] bake done at %.1f s\n", since());
     if (!EncodeBc1Dds(rgb.data(), 16384, dds)) return {};
+    fprintf(stderr, "[GroundBake] BC1 encode done at %.1f s\n", since());
     rgb = {}; 
     if (!CacheWrite(key, "ground_baked.dds", dds.data(), dds.size())) return {};
+    fprintf(stderr, "[GroundBake] cache write done at %.1f s\n", since());
     return path;
 }
 }
