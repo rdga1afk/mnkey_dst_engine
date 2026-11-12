@@ -154,6 +154,7 @@ static void* ReadBinaryFile(const char* path, size_t* out_size) {
         if (EmbeddedOnly()) { *out_size = e->size; return (void*)e->data; }
         if (FILE* t = fopen(path, "rb")) fclose(t); else { *out_size = e->size; return (void*)e->data; }
     }
+    if (EmbeddedOnly()) return nullptr;   // exclusively the compiled-in set: a shader that is not in it is missing, not read from <cwd>/shaders/spirv
     uint32_t h = SpvHash(path);
     // Cache hit — update LRU generation, return cached pointer.
     for (int i = 0; i < SPV_CACHE_MAX; ++i) {
