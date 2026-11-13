@@ -172,6 +172,7 @@ public:
     // Transfer SDL_GPU ownership out of this object (caller is responsible for release).
     SDL_GPUTexture* TakeSDLTexture() { SDL_GPUTexture* t = sdl_tex_; sdl_tex_ = nullptr; return t; }
     SDL_GPUSampler* TakeSDLSampler() { SDL_GPUSampler* s = sdl_sampler_; sdl_sampler_ = nullptr; return s; }
+    void SetSDLSampler(SDL_GPUSampler* s) { sdl_sampler_ = s; }   // render thread: a texture whose mips arrive in parts gets a sampler with a new min_lod (the caller releases the old one)
 
     // Transfer GL texture ownership.
     unsigned int Release() { unsigned int t = id_; id_ = 0; return t; }
