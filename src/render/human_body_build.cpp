@@ -63,6 +63,7 @@ bool BuildHumanBody(const std::string& root, HumanBodyData& o) {
             if (te->type == md::ogre::vtype::FLOAT3) for (uint32_t i = 0; i < o.nv; ++i) o.tan[(size_t)i * 4 + 3] = 1.f;
         }
     }
+    if (std::vector<float> bn; g.Element(md::ogre::semantic::BINORMAL, 0) && g.Floats(md::ogre::semantic::BINORMAL, 0, 3, bn) && bn.size() >= (size_t)o.nv * 3) o.bin = std::move(bn);
     o.idx = sm.indices;
     // top four bone weights per vertex, sorted by (weight, bone) descending, renormalised
     const std::vector<md::ogre::BoneAssignment>& ba = sm.use_shared ? m.bone_assignments : sm.bone_assignments;
