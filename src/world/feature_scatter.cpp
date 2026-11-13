@@ -191,7 +191,7 @@ bool FeatureScatterSystem::Init(const char* scatter_path, const char* mesh_dir) 
         pd.has_depth_target = true;
         pd.vert_uniform_bufs = 1; pd.frag_uniform_bufs = 0; pd.frag_samplers = 0; pd.frag_storage_bufs = 0;
         pd.color_format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_UINT;
-        if (md::GroundSlotTargetOn()) { pd.color_format2 = SDL_GPU_TEXTUREFORMAT_R8_UINT; pd.frag_path = "shaders/terrain_gbuffer_mini_slot0.frag"; pd.color2_keep = true; }   // the slot of the ground under the feature stays: the live pass shades it with the original terrain program (the install draws TERRAIN-mode features with terrainfp4.hlsl mapfeature_fs, deferred/mapfeature.material)
+        if (md::GroundSlotTargetOn()) { pd.color_format2 = SDL_GPU_TEXTUREFORMAT_R8_UINT; pd.vert_path = "shaders/feature_gbuf_slot.vert"; pd.frag_path = "shaders/terrain_gbuffer_mini_slot.frag"; }   // the feature writes the slot of the biome list at its own position (md::GroundSlotAt), also where no ground lies behind it
         if (!gbuf_pipeline_.Create(pd)) MD_LOG(MD_LOG_WARNING, "[FeatureScatter] G-buffer pipeline create failed");
     }
     MD_LOG(MD_LOG_INFO, "[FeatureScatter] loaded %d real placements across %d unique meshes from %s",
@@ -261,6 +261,7 @@ void FeatureScatterSystem::DrawGbuf(SDL_GPURenderPass* rp, md::GpuCommandBufferH
     const float r2 = radius * radius;
     static float pos_buf[MAX_DRAW_BATCH * 3];
     static float quat_buf[MAX_DRAW_BATCH * 4];
+    static float slot_buf[MAX_DRAW_BATCH];
     for (int m = 0; m < mesh_count_; ++m) {
         int n = 0;
         for (int i = 0; i < placement_count_ && n < MAX_DRAW_BATCH; ++i) {
@@ -271,8 +272,9 @@ void FeatureScatterSystem::DrawGbuf(SDL_GPURenderPass* rp, md::GpuCommandBufferH
             pos_buf[n * 3] = pl.x; pos_buf[n * 3 + 1] = pl.y; pos_buf[n * 3 + 2] = pl.z;
             quat_buf[n * 4] = pl.qx; quat_buf[n * 4 + 1] = pl.qy; quat_buf[n * 4 + 2] = pl.qz;
             quat_buf[n * 4 + 3] = (fabsf(pl.qw) > 0.0001f) ? pl.qw : 1.0f;
+            slot_buf[n] = (float)md::GroundSlotAt(pl.x, pl.z);
             ++n;
         }
-        if (n > 0) renderers_[m].DrawGbuf(rp, cmd, gbuf_pipeline_, pos_buf, quat_buf, n, vp16);
+        if (n > 0) renderers_[m].DrawGbuf(rp, cmd, gbuf_pipeline_, pos_buf, quat_buf, n, vp16, nullptr, slot_buf);
     }
 }
