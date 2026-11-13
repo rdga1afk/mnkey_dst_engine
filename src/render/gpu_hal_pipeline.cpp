@@ -480,6 +480,10 @@ bool GpuPipeline::Create(const Desc& desc) {
             color_target[0].blend_state.enable_color_write_mask = true;
             color_target[0].blend_state.color_write_mask        = 0;
         }
+        if (desc.color_rgb_only) {
+            color_target[0].blend_state.enable_color_write_mask = true;
+            color_target[0].blend_state.color_write_mask        = SDL_GPU_COLORCOMPONENT_R | SDL_GPU_COLORCOMPONENT_G | SDL_GPU_COLORCOMPONENT_B;
+        }
         if (desc.color2_keep) {
             color_target[1].blend_state.enable_color_write_mask = true;
             color_target[1].blend_state.color_write_mask        = 0;
@@ -539,6 +543,7 @@ bool GpuPipeline::Create(const Desc& desc) {
     raster_bits |= (uint32_t)desc.stencil_mode          << 28; // #207: the stencil variants of the same shaders are other pipelines
     raster_bits ^= (uint32_t)desc.depth_format * 2654435761u; // INVALID (0) leaves the key of every existing pipeline unchanged
     if (desc.color2_keep) raster_bits ^= 0x9E3779B9u;          // the kept-slot variant of the same shaders is another pipeline
+    if (desc.color_rgb_only) raster_bits ^= 0x7F4A7C15u;       // the RGB-only variant too
     const uint32_t pipe_hash = PipeHash(desc.vert_path, desc.frag_path,
                                          desc.shader_features, raster_bits);
     SDL_GPUGraphicsPipeline* cached = PipeCache_Get(pipe_hash);
