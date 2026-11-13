@@ -30,6 +30,7 @@ public:
     int Pending() const;
     const BiomeLayerCache& Cache() const { return cache_; }
     void Clear() { cache_.Clear(); }
+    void Stop();   // joins the worker and releases every set; call before the GPU device is destroyed (a build in flight and the releases use the device). Request after Stop does nothing
     ~BiomeLayerArrays();
 private:
     void Worker();

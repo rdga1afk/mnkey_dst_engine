@@ -6,6 +6,9 @@
 
 namespace md {
 
+// The textures are released here (a deleted set alone keeps its GPU textures: GpuTexture has no destructor); only while the device lives.
+static void FreeSet(BiomeLayerSet* set) { if (!set) return; set->diffuse.Shutdown(); set->normal.Shutdown(); delete set; }
+
 // key = biome * 8 + tier, tier = skipped mips / 2 (0, 2, 4, 6 dropped levels)
 static BiomeLayerCache::Built BuildBiome(int key) {
     const int biome = key / 8, skip = (key % 8) * 2;
@@ -26,26 +29,30 @@ static BiomeLayerCache::Built BuildBiome(int key) {
     auto* set = new BiomeLayerSet;
     if (!set->diffuse.InitFromDDSArray(dif, 6, sd, skip) || !set->normal.InitFromDDSArray(nml, 6, sd, skip)) {
         fprintf(stderr, "[BiomeLayerArrays] biome %d (skip %d mips): layer arrays failed\n", biome, skip);
-        delete set; return {};
+        FreeSet(set); return {};
     }
     return { set, bytes };
 }
 
 BiomeLayerArrays::BiomeLayerArrays()
-    : cache_(BuildBiome, [](void* h) { delete static_cast<BiomeLayerSet*>(h); }) {}
+    : cache_(BuildBiome, [](void* h) { FreeSet(static_cast<BiomeLayerSet*>(h)); }) {}
 
-BiomeLayerArrays::~BiomeLayerArrays() {
+void BiomeLayerArrays::Stop() {
     { std::lock_guard<std::mutex> l(mu_); stop_ = true; }
     cv_.notify_all();
     if (worker_.joinable()) worker_.join();
-    for (Done& d : done_) delete d.set;
+    for (Done& d : done_) FreeSet(d.set);
+    done_.clear(); cache_.Clear();
 }
+
+BiomeLayerArrays::~BiomeLayerArrays() { Stop(); }
 
 void BiomeLayerArrays::Request(int biome, int tier) {
     const int key = biome * 8 + tier;
     std::lock_guard<std::mutex> l(mu_);
     for (int k : known_) if (k == key) return;
     known_.push_back(key); queue_.push_back(key);
+    if (stop_) return;
     if (!running_) { running_ = true; worker_ = std::thread([this] { Worker(); }); }
     cv_.notify_one();
 }
