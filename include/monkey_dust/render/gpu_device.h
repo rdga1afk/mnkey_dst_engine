@@ -116,6 +116,13 @@ public:
     void  SetSyncTiming(bool on) { sync_timing_ = on; }
     bool  SyncTiming() const     { return sync_timing_; }
     float LastGpuMs() const      { return last_gpu_ms_; }
+    // Dynres v2 step 3 probe (MD_GPU_POLL=1, coordinator 6846926508): GPU time of the last SubmitFrame without timestamp queries. Start = when the previous
+    // frame's fence wait returned (this frame cannot start earlier); end = the first PollFrameFence() that sees the fence signalled (the frame cap wait polls
+    // it every 0.5 ms), or the next SubmitFrame's wait when nothing polled it in time. PolledGpuMs(): last value; PolledAtFirstCheck(): the fence was
+    // already signalled at the first poll, so the value is an upper bound (headroom).
+    void  PollFrameFence();
+    float PolledGpuMs() const        { return poll_ms_; }
+    bool  PolledAtFirstCheck() const { return poll_first_; }
 
     // GEOCLIPMAP Phase 7 frame-time A/B (2026-08-16): a screenshot-pending
     // frame submits via EditorScreenshot_CaptureAndSubmit (editor_screenshot.cpp),
@@ -155,6 +162,7 @@ private:
     SDL_GPUFence*  prev_fence_   = nullptr;
     bool           sync_timing_  = false;
     float          last_gpu_ms_  = 0.f;
+    uint64_t       poll_start_ns_ = 0; int poll_checks_ = 0; bool poll_done_ = true; float poll_ms_ = 0.f; bool poll_first_ = false;
     bool           cmd_buffer_active_ = false;
     // GATE-5/W3D-freeze fix (2026-09-12): AcquireCommandBuffer/Submit are
     // called from the main render thread EVERY frame, AND from the editor's

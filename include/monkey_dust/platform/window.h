@@ -104,6 +104,8 @@
            const Uint64 now = SDL_GetTicksNS();
            if (now - prev_ns >= target) break;
            const Uint64 left = target - (now - prev_ns);
+           static const bool gpu_poll = getenv("MD_GPU_POLL") && getenv("MD_GPU_POLL")[0] == '1';   // dynres v2 step 3 probe: 0.5 ms slices, the last frame's fence polled between them
+           if (gpu_poll) { md::GpuDevice::Get().PollFrameFence(); SDL_DelayNS(left < 500000ULL ? left : 500000ULL); continue; }
            SDL_DelayNS(left < 2000000ULL ? left : 2000000ULL);
        }
        prev_ns = SDL_GetTicksNS();

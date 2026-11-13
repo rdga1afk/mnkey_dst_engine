@@ -190,7 +190,18 @@ void GpuDevice::SubmitFrame(SDL_GPUCommandBuffer* cmd) {
         SDL_ReleaseGPUFence(device_, prev_fence_);
         GpuFrameTimeline::Get().OnFenceSignaled();
     }
+    const uint64_t now = SDL_GetTicksNS();
+    if (!poll_done_ && poll_start_ns_) { poll_ms_ = (float)((double)(now - poll_start_ns_) / 1e6); poll_first_ = false; }   // not polled in time (no cap sleep): the wait above ended at the signal
+    poll_start_ns_ = now; poll_checks_ = 0; poll_done_ = false;
     prev_fence_ = f;
+}
+
+void GpuDevice::PollFrameFence() {
+    std::lock_guard<std::mutex> lock(mu_);
+    if (poll_done_ || !prev_fence_ || !device_) return;
+    ++poll_checks_;
+    if (!SDL_QueryGPUFence(device_, prev_fence_)) return;
+    poll_ms_ = (float)((double)(SDL_GetTicksNS() - poll_start_ns_) / 1e6); poll_first_ = poll_checks_ == 1; poll_done_ = true;
 }
 
 SDL_GPUFence* GpuDevice::SubmitAndAcquireFence(SDL_GPUCommandBuffer* cmd) {
