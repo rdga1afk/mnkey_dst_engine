@@ -60,6 +60,41 @@ bool PropRenderer::InitFromOgreMesh(const std::string& stored_path, float scale,
     return InitFromArrays(v.data(), (uint32_t)v.size(), i.data(), (uint32_t)i.size());
 }
 
+GpuPipeline::Desc PropRenderer::PipelineDesc(bool triplanar, bool cut, bool cull_back) {
+    GpuPipeline::Desc pd;
+    pd.vert_path = "shaders/prop.vert";
+    pd.frag_path = triplanar ? "shaders/prop_tri.frag" : (cut ? "shaders/prop_cut.frag" : "shaders/prop.frag");
+
+    // PropVertex: pos(loc=0,off=0,F3) + normal(loc=1,off=12,F3) + uv(loc=2,off=24,F2)
+    // + layer(loc=3,off=32,F1), stride=36.
+    pd.layout.count      = 4;
+    pd.layout.stride     = 36;
+    pd.layout.attribs[0] = { 0,  0, GpuAttribFmt::F3 };  // aPos
+    pd.layout.attribs[1] = { 1, 12, GpuAttribFmt::F3 };  // aNormal
+    pd.layout.attribs[2] = { 2, 24, GpuAttribFmt::F2 };  // aUV
+    pd.layout.attribs[3] = { 3, 32, GpuAttribFmt::F1 };  // aLayer
+
+    pd.raster.depth_test  = true;
+    pd.raster.depth_write = true;
+    pd.raster.cull_back   = cull_back;   // front_face CCW (HAL): checked on the Hub buildings
+    pd.has_depth_target   = true;
+
+    pd.vert_uniform_bufs = 1;  // slot 0: PropVert UBO (80 bytes: mat4 vp + vec4 model_pos_scale)
+    pd.frag_uniform_bufs = 1;  // slot 0: PropFrag UBO (32 bytes: sun_dir_str + ambient)
+    pd.frag_samplers     = triplanar ? 2 : (cut ? 4 : 3);  // triplanar: 0=diffuse, 1=normal; else 0=tex_rock, 1=tex_veg (PropTexShared), 2=tex_custom (per-instance)
+    return pd;
+}
+
+// The six variants (diffuse / cut-out / triplanar x one / two sides) made once at start: InitFromArrays then finds them in the pipeline cache
+// instead of creating one at a zone load (town: a 26 ms first-use frame). Kept alive for the process, so their cache entries stay.
+void PropRenderer::PrewarmPipelines() {
+    static GpuPipeline s_warm[6]; static bool done = false;
+    if (done) return;
+    done = true;
+    int k = 0;
+    for (int v = 0; v < 3; ++v) for (int c = 0; c < 2; ++c) s_warm[k++].Create(PipelineDesc(v == 2, v == 1, c == 1));
+}
+
 bool PropRenderer::InitFromArrays(const PropVertex* verts, uint32_t vert_count, const uint32_t* idx, uint32_t idx_count) {
     if (!mesh_.LoadFromArrays(verts, vert_count, idx, idx_count)) return false;
     return FinishInit();
@@ -86,27 +121,7 @@ bool PropRenderer::FinishInit() {
         SharedWhite();   // not owned: CustomTex() returns the shared 1x1 white
     }
 
-    GpuPipeline::Desc pd;
-    pd.vert_path = "shaders/prop.vert";
-    pd.frag_path = triplanar_ ? "shaders/prop_tri.frag" : (cut_nrm_ ? "shaders/prop_cut.frag" : "shaders/prop.frag");
-
-    // PropVertex: pos(loc=0,off=0,F3) + normal(loc=1,off=12,F3) + uv(loc=2,off=24,F2)
-    // + layer(loc=3,off=32,F1), stride=36.
-    pd.layout.count      = 4;
-    pd.layout.stride     = 36;
-    pd.layout.attribs[0] = { 0,  0, GpuAttribFmt::F3 };  // aPos
-    pd.layout.attribs[1] = { 1, 12, GpuAttribFmt::F3 };  // aNormal
-    pd.layout.attribs[2] = { 2, 24, GpuAttribFmt::F2 };  // aUV
-    pd.layout.attribs[3] = { 3, 32, GpuAttribFmt::F1 };  // aLayer
-
-    pd.raster.depth_test  = true;
-    pd.raster.depth_write = true;
-    pd.raster.cull_back   = cull_back_;   // front_face CCW (HAL): checked on the Hub buildings
-    pd.has_depth_target   = true;
-
-    pd.vert_uniform_bufs = 1;  // slot 0: PropVert UBO (80 bytes: mat4 vp + vec4 model_pos_scale)
-    pd.frag_uniform_bufs = 1;  // slot 0: PropFrag UBO (32 bytes: sun_dir_str + ambient)
-    pd.frag_samplers     = triplanar_ ? 2 : (cut_nrm_ ? 4 : 3);  // triplanar: 0=diffuse, 1=normal; else 0=tex_rock, 1=tex_veg (PropTexShared), 2=tex_custom (per-instance)
+    const GpuPipeline::Desc pd = PipelineDesc(triplanar_, cut_nrm_ != nullptr, cull_back_);
 
     if (!pipeline_.Create(pd)) {
         fprintf(stderr, "[PropRenderer] Pipeline creation failed\n");

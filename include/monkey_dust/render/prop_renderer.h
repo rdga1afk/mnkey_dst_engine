@@ -13,6 +13,7 @@
 #include <SDL3/SDL_gpu.h>
 
 class PropRenderer {
+    static GpuPipeline::Desc PipelineDesc(bool triplanar, bool cut, bool cull_back);
 public:
     static constexpr int   MAX_PROPS = 512;
     static constexpr float SCALE     = 1.5f;  // rock scale in metres
@@ -33,6 +34,7 @@ public:
     // A Kenshi static .mesh from the install (see LoadOgreStaticMesh): the same geometry the converted .glb held.
     bool InitFromOgreMesh(const std::string& stored_path, float scale, float layer = 0.0f);
     bool InitFromArrays(const PropVertex* verts, uint32_t vert_count, const uint32_t* idx, uint32_t idx_count);
+    static void PrewarmPipelines();   // render thread, at start: the pipeline variants InitFromArrays uses
     void Shutdown();
 
     bool IsReady() const { return mesh_.loaded; }
