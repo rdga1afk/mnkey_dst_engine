@@ -56,6 +56,13 @@ bool BuildHumanBody(const std::string& root, HumanBodyData& o) {
     o.pos.resize((size_t)o.nv * 3); o.nrm.resize((size_t)o.nv * 3); o.uv.assign((size_t)o.nv * 2, 0.f);
     for (size_t i = 0; i < (size_t)o.nv * 3; ++i) { o.pos[i] = (float)((double)p[i] * kScale); o.nrm[i] = n[i]; }
     if (has_uv) for (size_t i = 0; i < (size_t)o.nv * 2; ++i) o.uv[i] = uv[i];
+    if (const md::ogre::VertexElement* te = g.Element(md::ogre::semantic::TANGENT, 0)) {   // the original's tangent frame: xyz + handedness (w = 1 when the element has 3 floats)
+        std::vector<float> t;
+        if (g.Floats(md::ogre::semantic::TANGENT, 0, 4, t) && t.size() >= (size_t)o.nv * 4) {
+            o.tan = std::move(t);
+            if (te->type == md::ogre::vtype::FLOAT3) for (uint32_t i = 0; i < o.nv; ++i) o.tan[(size_t)i * 4 + 3] = 1.f;
+        }
+    }
     o.idx = sm.indices;
     // top four bone weights per vertex, sorted by (weight, bone) descending, renormalised
     const std::vector<md::ogre::BoneAssignment>& ba = sm.use_shared ? m.bone_assignments : sm.bone_assignments;

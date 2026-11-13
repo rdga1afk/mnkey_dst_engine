@@ -9,6 +9,7 @@
 struct HumanBodyData {
     uint32_t nv = 0;
     std::vector<float> pos, nrm, uv;          // 3 / 3 / 2 per vertex
+    std::vector<float> tan;                   // 4 per vertex (xyz + handedness) as stored in the .mesh; empty if the mesh has none
     std::vector<uint8_t> joint;               // 4 per vertex
     std::vector<float> weight;                // 4 per vertex, normalised
     std::vector<uint32_t> idx;
