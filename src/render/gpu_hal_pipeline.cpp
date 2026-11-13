@@ -378,12 +378,10 @@ bool GpuPipeline::Create(const Desc& desc) {
             desc.vert_samplers, desc.frag_samplers, desc.vert_path);
     }
     if (desc.vert_storage_bufs > 0 && desc.frag_samplers > 0) {
-        MD_LOG(MD_LOG_WARNING,
-            "[GpuPipeline] INVALID: vert_storage_bufs=%u + frag_samplers=%u — "
-            "silent fail on SDL3 3.4.8 (binding N+1 garbage). "
-            "Use vert SSBO via location=4 workaround. (%s)",
+        MD_LOG(MD_LOG_INFO,
+            "[GpuPipeline] vert_storage_bufs=%u + frag_samplers=%u — failed on SDL3 3.4.8, "
+            "bound correctly on 3.4.20 (NPC body texture read in the fragment stage). Proceeding. (%s)",
             desc.vert_storage_bufs, desc.frag_samplers, desc.vert_path);
-        return false;
     }
     if (desc.has_depth_target && !desc.depth_only && desc.frag_samplers == 0
         && desc.frag_storage_bufs == 0 && desc.frag_uniform_bufs == 0) {
