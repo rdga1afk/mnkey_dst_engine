@@ -79,6 +79,7 @@ Submodules are pinned by the commit shown; "licence text" is the file in the tre
 | stb_image | 2.30 | public domain / MIT (dual, as stated in the file) | in header | image load |
 | stb_image_write | 1.16 | public domain / MIT | in header | image write |
 | stb_truetype | 1.26 | public domain / MIT | in header | font raster |
+| rgbcx (from bc7enc_rdo, richgel999) | b9438627eef73a1157e84201b6fa6eb2ffd6d9f0 | Public Domain or MIT (we use MIT) | `src/vendor/rgbcx/LICENSE.txt` | BC1 encoder of `terrain_colour.dds` / `ground_baked.dds` |
 | miniaudio | 0.11.24 | public domain or MIT-0 (as stated in the file) | in header | audio |
 | Arimo (4 styles) | 1.33, © 2020 The Arimo Project Authors | SIL Open Font License 1.1 (the font's own name table says OFL; an earlier note of Apache was wrong) | `src/vendor/fonts/OFL-Arimo.txt`, copy in `game/data/fonts/OFL-Arimo.txt` — OFL.txt of the upstream repo https://github.com/googlefonts/arimo (branch main, fetched 11.11.2026; its copyright line reads 2026, the vendored font file says 2020) | UI font (`src/vendor/fonts`, `game/data/fonts`) |
 | Ubuntu Mono (4 styles) | 0.80, © 2011 Canonical Ltd. | Ubuntu Font Licence 1.0 | `src/vendor/fonts/UFL-UbuntuMono.txt` — LICENCE.txt of the ubuntu-font-family-0.83 archive, https://assets.ubuntu.com/v1/fad7939b-ubuntu-font-family-0.83.zip, fetched 11.11.2026 (the vendored Ubuntu Mono is version 0.80, same licence text) | editor font |

@@ -1,6 +1,7 @@
 #include <monkey_dust/world/terrain_colour_dds.h>
 #include <monkey_dust/io/derived_cache.h>
 #include <stb_image.h>
+#include "../vendor/rgbcx/rgbcx.h"
 #include <algorithm>
 #include <atomic>
 #include <cstdio>
@@ -11,31 +12,8 @@ namespace md {
 namespace {
 constexpr int GRID = 8, TILE = 2048, SIDE = GRID * TILE, LEVELS = 15;   // 16384 .. 1
 
-uint16_t Pack565(int r, int g, int b) { return (uint16_t)(((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3)); }
-void Unpack565(uint16_t v, int& r, int& g, int& b) { r = ((v >> 11) & 31) * 255 / 31; g = ((v >> 5) & 63) * 255 / 63; b = (v & 31) * 255 / 31; }
-
-// one 4x4 block; px = 16 RGB triples in row-major order
-void EncodeBlock(const uint8_t* px, uint8_t* o) {
-    int mn[3] = { 255, 255, 255 }, mx[3] = { 0, 0, 0 };
-    for (int i = 0; i < 16; ++i) for (int k = 0; k < 3; ++k) { mn[k] = std::min<int>(mn[k], px[i * 3 + k]); mx[k] = std::max<int>(mx[k], px[i * 3 + k]); }
-    const uint16_t a = Pack565(mx[0], mx[1], mx[2]), b = Pack565(mn[0], mn[1], mn[2]);
-    uint16_t c0 = a <= b ? b : a, c1 = a <= b ? a : b;
-    if (a == b) c0 = (uint16_t)std::min<int>(c1 + 1, 0xFFFF);
-    int col[4][3]; Unpack565(c0, col[0][0], col[0][1], col[0][2]); Unpack565(c1, col[1][0], col[1][1], col[1][2]);
-    for (int k = 0; k < 3; ++k) { col[2][k] = (2 * col[0][k] + col[1][k]) / 3; col[3][k] = (col[0][k] + 2 * col[1][k]) / 3; }
-    uint32_t idx = 0;
-    for (int t = 0; t < 16; ++t) {
-        int best = 0, bd = 1 << 30;
-        for (int c = 0; c < 4; ++c) {
-            const int dr = px[t * 3] - col[c][0], dg = px[t * 3 + 1] - col[c][1], db = px[t * 3 + 2] - col[c][2];
-            const int d = dr * dr + dg * dg + db * db;
-            if (d < bd) { bd = d; best = c; }
-        }
-        idx |= (uint32_t)best << (t * 2);
-    }
-    o[0] = c0 & 0xFF; o[1] = c0 >> 8; o[2] = c1 & 0xFF; o[3] = c1 >> 8;   // c0 > c1: the four-colour mode, opaque
-    memcpy(o + 4, &idx, 4);
-}
+// rgbcx BC1 level (engine/src/vendor/rgbcx, bc7enc_rdo b9438627): 5 = +2.1..+6.6 dB over the old min/max range fit on the install colour tiles for about 2x its time
+constexpr uint32_t kBc1Level = 5;
 
 // 2x2 box, truncating like numpy's mean(...).astype(uint8)
 void Down(const std::vector<uint8_t>& s, int dim, std::vector<uint8_t>& d) {
@@ -49,12 +27,15 @@ size_t LevelBytes(int dim) { const size_t b = (size_t)((dim + 3) / 4); return b 
 }
 
 void EncodeBc1(const uint8_t* rgb, int w, int h, uint8_t* out) {
+    static const bool inited = (rgbcx::init(), true); (void)inited;
     const int bw = (w + 3) / 4, bh = (h + 3) / 4;
-    uint8_t px[48];
+    uint8_t px[64];
     for (int by = 0; by < bh; ++by) for (int bx = 0; bx < bw; ++bx) {
-        for (int y = 0; y < 4; ++y) for (int x = 0; x < 4; ++x)
-            memcpy(px + (y * 4 + x) * 3, rgb + ((size_t)std::min(by * 4 + y, h - 1) * w + std::min(bx * 4 + x, w - 1)) * 3, 3);
-        EncodeBlock(px, out + ((size_t)by * bw + bx) * 8);
+        for (int y = 0; y < 4; ++y) for (int x = 0; x < 4; ++x) {
+            uint8_t* d = px + (y * 4 + x) * 4;
+            memcpy(d, rgb + ((size_t)std::min(by * 4 + y, h - 1) * w + std::min(bx * 4 + x, w - 1)) * 3, 3); d[3] = 255;
+        }
+        rgbcx::encode_bc1(kBc1Level, out + ((size_t)by * bw + bx) * 8, px, false, false);   // four-colour mode, opaque
     }
 }
 
@@ -137,7 +118,7 @@ bool BuildTerrainColourDds(const std::string& root, std::vector<uint8_t>& dds) {
 std::string EnsureTerrainColourDds(const std::string& root) {
     std::vector<std::string> files;
     for (int ty = 0; ty < GRID; ++ty) for (int tx = 0; tx < GRID; ++tx) { char p[512]; snprintf(p, sizeof(p), "%s/data/newland/land/overlaymaps/colour.%d.%d.png", root.c_str(), tx, ty); files.push_back(p); }
-    const uint64_t key = HashFiles(files) ^ 0x5eed0003ull;   // salt = encoder revision (3: BC1 instead of BC3, the alpha block was a constant 255)
+    const uint64_t key = HashFiles(files) ^ 0x5eed0004ull;   // salt = encoder revision (4: rgbcx level 5; 3: BC1 instead of BC3, the alpha block was a constant 255)
     const std::string path = CachePath(key, "terrain_colour.dds");
     if (path.empty()) return {};
     if (FILE* f = fopen(path.c_str(), "rb")) { fseek(f, 0, SEEK_END); const long n = ftell(f); fclose(f); if ((size_t)n == 128 + [] { size_t t = 0; for (int l = 0; l < LEVELS; ++l) t += LevelBytes(SIDE >> l); return t; }()) { fprintf(stderr, "[Cache] hit  %016llx/terrain_colour.dds\n", (unsigned long long)key); return path; } }

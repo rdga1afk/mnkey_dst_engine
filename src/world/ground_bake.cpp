@@ -216,7 +216,7 @@ std::string EnsureGroundBakedDds(const std::string& root) {
     for (int i = 0; i < reg.GroundTexCount(); ++i) if (const char* p = reg.GroundTexPath(i)) files.push_back(p);
     for (int ty = 0; ty < 8; ++ty) for (int tx = 0; tx < 8; ++tx) { char p[512]; snprintf(p, sizeof(p), "%s/data/newland/land/overlaymaps/new_overlay.%d.%d.png", root.c_str(), tx, ty); files.push_back(p); }
     const auto th0 = std::chrono::steady_clock::now();
-    const uint64_t key = HashFiles(files) ^ 0x6a0d0002ull;   // salt = bake revision (2: BC1 instead of BC3, constant opaque alpha)
+    const uint64_t key = HashFiles(files) ^ 0x6a0d0003ull;   // salt = bake revision (3: rgbcx BC1 encoder; 2: BC1 instead of BC3, constant opaque alpha)
     const std::string path = CachePath(key, "ground_baked.dds");
     fprintf(stderr, "[GroundBake] input hash took %.1f s\n", std::chrono::duration<double>(std::chrono::steady_clock::now() - th0).count());
     if (path.empty()) return {};
