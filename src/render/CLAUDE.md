@@ -1,8 +1,20 @@
 # engine/src/render/ — CLAUDE.md
 
 SDL_GPU HAL only — новий рендер-код через `GpuPipeline`/`GpuCommandBuffer`/
-`GpuVertexBuffer` (`gpu_hal.h`), ніколи raw GL. SPIR-V: нові шейдери →
-`scripts/compile_shaders.sh` → `.spv`; `#version 460`.
+`GpuVertexBuffer` (`gpu_hal.h`), ніколи raw GL. SPIR-V: власні GLSL-шейдери
+(`tools/shaders/`) → `scripts/compile_shaders.sh` → `.spv`; `#version 460`.
+
+## Шлях кадру зараз (одна збірка, 14.11)
+Програми Kenshi з інсталяції виконуються як є: `md::hlsl::Compile`
+(`tools/game/src/render/kenshi_hlsl.cpp`) → SPIR-V, валідація в процесі
+(`Compiled::valid`, лог `[SpvVal]`; виклик МУСИТЬ перевірити `valid`).
+Порядок: `GroundLivePass::Run` (3 цілі RGBA8/RGBA8/R32F + `D32_FLOAT_S8_UINT`) →
+NPC у той самий G-buffer (`npc_skin_live.cpp`) → `Decode` → `Light` + fog →
+`hdrfp4` експозиція (`ground_live_hdr.cpp`) → будівлі / рослини → вода → небо →
+dynres. Група землі без резидентних даних → far-програма інсталяції.
+Переклади GLSL і каталог `shaders/` видалені 14.11; програму матеріалу
+читають із ланцюга `material X : Y` → `fragment_program_ref`, не з імені файлу.
+Повна карта: `CLAUDE.md` §2, поточний стан: `docs/STATE.md`.
 
 ## SSBO binding map (канонічна, звіряти перед новим SSBO)
 ```
@@ -36,8 +48,8 @@ SSBO) послідовно від 0, без розривів між катего
 `SelectVisible` рахує видимі вузли з камери+frustum щокадру.
 `TerrainWorldHeightmap` — незмінне джерело висот (окремо від quadtree).
 `TerrainShadingProjected` (Варіант A, screen-space G-buffer resolve) —
-незмінна незалежно від геометрії. Формула ground-layer шейдингу:
-`shaders/terrain_shading_common.glsl`.
+незмінна незалежно від геометрії. Формула ground-layer шейдингу — програми землі інсталяції
+(`GroundLivePass`), не власний GLSL.
 
 **Стратегічний напрямок (2026-09-18, рішення власника):**
 `TerrainProjectedGrid` (TPG) і `TerrainTinMesh`/`TerrainTinRenderer`
@@ -48,7 +60,7 @@ bake→stitch→load→draw pipeline не окупав себе проти `Terr
 1-кроку — `docs/TIN_ETAP2_PLAN.md` Stage 5/6). `TerrainQuadtree` —
 ЄДИНА термейн-система, історичні журнали обох спроб лишаються
 (`docs/TERRAIN_PROJECTED_GRID.md`, `docs/TIN_ETAP2_PLAN.md`). Деталі:
-`CLAUDE_STATE.md` (корінь репо), `docs/CLAUDE_RENDER.md`,
+`docs/STATE.md`, `docs/CLAUDE_RENDER.md`,
 `docs/CLAUDE_TERRAIN_SEAM.md`.
 
 ## Resolve UBO: перевикористані слоти (2026-10-04)
