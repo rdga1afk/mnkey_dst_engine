@@ -30,7 +30,7 @@ struct Grid {
 constexpr int kDi[4] = {0, 0, -1, 1}, kDj[4] = {-1, 1, 0, 0};
 }
 
-int RestrictLodNodes(TerrainLodNode* nodes, int count, int max_out) {
+int RestrictLodNodes(TerrainLodNode* nodes, int count, int max_out, int max_diff) {
     Grid g;
     std::vector<char> split;
     for (int pass = 0; pass < 32; ++pass) {
@@ -43,7 +43,7 @@ int RestrictLodNodes(TerrainLodNode* nodes, int count, int max_out) {
             for (int e = 0; e < 4; ++e) {
                 int fl;
                 const int c = g.Cover(n.level, i + kDi[e], j + kDj[e], fl);
-                if (c >= 0 && n.level - fl >= 2 && !split[(size_t)c]) { split[(size_t)c] = 1; ++n_split; }
+                if (c >= 0 && n.level - fl > max_diff && !split[(size_t)c]) { split[(size_t)c] = 1; ++n_split; }
             }
         }
         if (!n_split || count + 3 * n_split > max_out) break;

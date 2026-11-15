@@ -39,10 +39,11 @@ struct TerrainLodNode {
     bool  stitched = false;
 };
 
-// Restricted quadtree (the plugin's neighbour rule): splits every selected leaf whose edge neighbour is 2+ levels coarser until none is, and fills edge_diff / stitched.
+// Restricted quadtree (the plugin's neighbour rule, FUN_1800042c0): splits every selected leaf whose edge neighbour is more than max_diff levels coarser until none is, and fills edge_diff / stitched.
+// The plugin's limit is log2(patch cells) - 2 (Terrain helper +0xf0 = log2(N) - 1, a neighbour below own - (+0xf0) + 1 is split): 2 for 16-cell patches, 4 for 64 (edge_diff holds 3 at most, so callers pass <= 3).
 // Children made by a split keep the parent's box heights, morph 0 (their coarse geometry is the parent's grid). Returns the new count (<= max_out; at the cap the
 // remaining violations stay and edge_diff may exceed 1). Neighbours that are not in the list (culled, out of range) impose nothing.
-int RestrictLodNodes(TerrainLodNode* nodes, int count, int max_out);
+int RestrictLodNodes(TerrainLodNode* nodes, int count, int max_out, int max_diff = 1);
 
 class TerrainLodTree {
 public:
