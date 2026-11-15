@@ -128,6 +128,8 @@ public:
     // whether or not the frame cap sleep polls. GPU ms of frame N = signal(N) - max(submit(N), signal(N-1)). The main thread never waits for it except to release a fence it still holds.
     float WaiterGpuMs() const        { return waiter_ms_.load(std::memory_order_relaxed); }
     bool  WaiterEnabled() const      { return waiter_on_; }
+    uint64_t FrameSerial() const     { return frame_serial_.load(std::memory_order_relaxed); }   // SubmitFrame calls so far: the index the frame being recorded now will get
+    uint64_t WaiterSerial() const    { return waiter_serial_.load(std::memory_order_acquire); }   // 1 + the index of the last frame WaiterGpuMs() belongs to (0 = none yet)
     float PolledGpuMs() const        { return poll_ms_; }
     bool  PolledAtFirstCheck() const { return poll_first_; }
 
@@ -190,12 +192,13 @@ private:
     // WarnIfActive() can also take it.
     mutable std::mutex mu_;
     // The fence waiter (see WaiterGpuMs): a ring of fences handed over by SubmitFrame; wm_ guards the ring only and is never held while waiting on a fence.
-    struct WaitItem { SDL_GPUFence* f = nullptr; uint64_t submit_ns = 0; };
+    struct WaitItem { SDL_GPUFence* f = nullptr; uint64_t submit_ns = 0; uint64_t serial = 0; };
     static constexpr int kWaitRing = 4;
     WaitItem                 w_ring_[kWaitRing]; int w_head_ = 0, w_count_ = 0; SDL_GPUFence* w_busy_ = nullptr;
     std::mutex               wm_; std::condition_variable wcv_; std::thread w_thread_; bool w_stop_ = false;
+    std::atomic<uint64_t>    frame_serial_{0}, waiter_serial_{0};
     std::atomic<float>       waiter_ms_{0.f}; uint64_t w_last_signal_ns_ = 0; bool waiter_on_ = false;
-    void WaiterStart(); void WaiterStop(); void WaiterPost(SDL_GPUFence* f, uint64_t submit_ns); void WaiterRelease(SDL_GPUFence* f);
+    void WaiterStart(); void WaiterStop(); void WaiterPost(SDL_GPUFence* f, uint64_t submit_ns, uint64_t serial); void WaiterRelease(SDL_GPUFence* f);
 };
 
 } // namespace md

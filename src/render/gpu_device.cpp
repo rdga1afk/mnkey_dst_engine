@@ -184,7 +184,8 @@ void GpuDevice::SubmitFrame(SDL_GPUCommandBuffer* cmd) {
     std::lock_guard<std::mutex> lock(mu_);
     // Submit this frame FIRST so the GPU never idles between frames...
     SDL_GPUFence* f = SDL_SubmitGPUCommandBufferAndAcquireFence(cmd);
-    { static const bool want = getenv("MD_GPU_WAITER") && getenv("MD_GPU_WAITER")[0] == '1'; if (want && f) { if (!waiter_on_) WaiterStart(); WaiterPost(f, SDL_GetTicksNS()); } }
+    const uint64_t serial = frame_serial_.fetch_add(1, std::memory_order_relaxed);
+    { static const bool want = (getenv("MD_GPU_WAITER") && getenv("MD_GPU_WAITER")[0] == '1') || (getenv("MD_DYNRES3") && getenv("MD_DYNRES3")[0] == '1'); if (want && f) { if (!waiter_on_) WaiterStart(); WaiterPost(f, SDL_GetTicksNS(), serial); } }
     GpuFrameTimeline::Get().OnSubmit();
     cmd_buffer_active_ = false;
     // ...then retire the previous frame (wait for it to finish, then release the fence -- never release an unsignaled
@@ -211,7 +212,7 @@ void GpuDevice::WaiterStart() {
             SDL_WaitForGPUFences(device_, true, &it.f, 1);   // no lock held: the main thread keeps submitting and retiring
             const uint64_t t = SDL_GetTicksNS();
             const uint64_t start = it.submit_ns > w_last_signal_ns_ ? it.submit_ns : w_last_signal_ns_;
-            waiter_ms_.store((float)((double)(t - start) / 1e6), std::memory_order_relaxed); w_last_signal_ns_ = t;
+            waiter_ms_.store((float)((double)(t - start) / 1e6), std::memory_order_relaxed); w_last_signal_ns_ = t; waiter_serial_.store(it.serial + 1, std::memory_order_release);
             { std::lock_guard<std::mutex> lk(wm_); w_head_ = (w_head_ + 1) % kWaitRing; --w_count_; w_busy_ = nullptr; }
             wcv_.notify_all();
         }
@@ -226,10 +227,10 @@ void GpuDevice::WaiterStop() {
     waiter_on_ = false;
 }
 
-void GpuDevice::WaiterPost(SDL_GPUFence* f, uint64_t submit_ns) {
+void GpuDevice::WaiterPost(SDL_GPUFence* f, uint64_t submit_ns, uint64_t serial) {
     std::lock_guard<std::mutex> lk(wm_);
     if (w_count_ == kWaitRing) return;   // the waiter is behind by 4 frames (cannot happen with 1 frame in flight): this frame is not timed, the fence is released as usual
-    w_ring_[(w_head_ + w_count_) % kWaitRing] = { f, submit_ns }; ++w_count_;
+    w_ring_[(w_head_ + w_count_) % kWaitRing] = { f, submit_ns, serial }; ++w_count_;
     wcv_.notify_all();
 }
 
