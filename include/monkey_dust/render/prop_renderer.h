@@ -63,7 +63,12 @@ public:
         float        anim_time   = 0.0f,
         const float* normals_xyz = nullptr,
         const float* quats_xyzw  = nullptr,
-        const float* scales      = nullptr);   // [count] per-instance scale, overrides `scale` (#119 spike)
+        const float* scales      = nullptr,    // [count] per-instance scale, overrides `scale` (#119 spike)
+        const uint8_t* lods      = nullptr);   // [count] detail level per instance (0 = full), only with SetLods
+
+    // Detail levels inside the one index buffer given to InitFromArrays: level k draws `count[k]` indices from `first[k]` (level 0 = the full mesh). At most MAX_LODS.
+    static constexpr int MAX_LODS = 4;
+    void SetLods(const uint32_t* first, const uint32_t* count, int levels);
 
     // #176: draw count instances of this mesh with `pipe` (feature_gbuf.vert + terrain_gbuffer_mini.frag, the terrain G-buffer pass): vp16, then per instance
     // position (xyz), quaternion (xyzw), uniform scale 1. No textures, no fragment uniforms.
@@ -75,6 +80,7 @@ public:
     void DrawInstancedRange(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, uint32_t first, uint32_t count);
 private:
     bool FinishInit();
+    int lod_n_ = 0; uint32_t lod_first_[MAX_LODS] = {}, lod_count_[MAX_LODS] = {};
     PropMesh    mesh_;
     GpuPipeline pipeline_;
     bool cull_back_ = false;

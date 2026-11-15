@@ -1,4 +1,5 @@
 // PropRenderer — per-instance rock prop draw (up to MAX_PROPS per frame, no malloc).
+#include <algorithm>
 #include <monkey_dust/render/prop_renderer.h>
 #include <monkey_dust/render/prop_tex_shared.h>
 #include <monkey_dust/render/gpu_pass_view.h>
@@ -169,7 +170,8 @@ void PropRenderer::DrawRaw(
     float        anim_time,
     const float* normals_xyz,
     const float* quats_xyzw,
-    const float* scales)
+    const float* scales,
+    const uint8_t* lods)
 {
     if (!mesh_.loaded || count <= 0) return;
     if (count > MAX_PROPS) count = MAX_PROPS;
@@ -249,8 +251,15 @@ void PropRenderer::DrawRaw(
         }
 
         pv.PushVertexUniforms(0, &v_ubo, sizeof(v_ubo));
-        pv.DrawIndexed(mesh_.index_count, 1, 0, 0, 0);
+        const int lv = (lods && lod_n_ > 0) ? std::min<int>(lods[i], lod_n_ - 1) : 0;
+        if (lod_n_ > 0) pv.DrawIndexed(lod_count_[lv], 1, lod_first_[lv], 0, 0);
+        else pv.DrawIndexed(mesh_.index_count, 1, 0, 0, 0);
     }
+}
+
+void PropRenderer::SetLods(const uint32_t* first, const uint32_t* count, int levels) {
+    lod_n_ = std::min(levels, MAX_LODS);
+    for (int k = 0; k < lod_n_; ++k) { lod_first_[k] = first[k]; lod_count_[k] = count[k]; }
 }
 
 void PropRenderer::DrawGbuf(SDL_GPURenderPass* rp, md::GpuCommandBufferHandle cmd, GpuPipeline& pipe, const float* positions_xyz, const float* quats_xyzw, int count, const float* vp16, const float* scales, const float* slots) {
