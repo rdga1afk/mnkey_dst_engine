@@ -55,6 +55,7 @@ struct Grass {   // a GRASS record as the overlay painting takes it (F041791)
     float min_height = 1, max_height = 1;   // blade size U(min x 9, max x 17) / 10 m
     std::string sprite;                      // "grass sprite" file
     bool blackout = false;
+    int visibility = 0;                      // "visibility range" of the first foliage layer that lists this grass (0 CLOSE, 1 MEDIUM, 2 FAR)
 };
 
 struct Foliage {
@@ -99,6 +100,10 @@ struct Blade { float x, y, z, size, yaw; int grass; };   // x, z in Kenshi units
 // CLOSE grass blades of the circle (cx, cz, radius; Kenshi units): density x 0.005 x area x `density_mult` candidates per GRASS record, each kept when the zone's grass map (overlay R / G
 // after the grass painting) is above a random number, slope <= max slope, altitude inside the limits (foliage.md "Grass blades"). The exe's page layout depends on the camera: no exact layout to reproduce.
 bool ScatterGrass(const std::string& kenshi_dir, const Foliage& f, float cx, float cz, float radius, float density_mult, uint32_t seed, size_t max_blades, std::vector<Blade>& out, std::string& err);
+
+// The exe's grass pager (docs/research/GRASS_EXE_2026-11-15.md): pages of half a zone (2304 units) within range of the camera (cx, cz; Kenshi units), the exe's table walk and density
+// sampler over the zone's overlay R map (129 x 129). Range per grass = view_range (the Grass View Range option, 1 = default) x 10 x {50, 100, 800}[the layer's visibility range] units; `option` = the Grass Density option (1 = default). Blades beyond their range are dropped. The table runs on across calls.
+bool ScatterGrassPages(const std::string& kenshi_dir, const Foliage& f, float cx, float cz, float view_range, float option, size_t max_blades, std::vector<Blade>& out, std::string& err);
 
 // One layer's meshes scattered over the zone rect {x0, z0, x1, z1}; biome = the biome index the places must be in (kNoBiome: the zone has one biome).
 void ScatterLayer(const Foliage& f, int layer, const float rect[4], int biome, const std::vector<Town>& towns, FoliageGround& ground, std::vector<Placed>& out);

@@ -1,6 +1,7 @@
 // See foliage_scatter.h: port of Project Okran (MIT, Copyright (c) 2026 brayniac6-glitch) src/world/foliage.rs, behaviour for behaviour.
 #include <monkey_dust/world/foliage_scatter.h>
 #include <algorithm>
+#include <monkey_dust/world/grass_placement.h>
 #include <cmath>
 #include <functional>
 #include <monkey_dust/io/tiff.h>
@@ -132,6 +133,7 @@ Foliage LoadFoliage(const md::fcs::GameDataContainer& data) {
                             x.blackout = Bl(*g, "blackout");
                             x.min_height = fl("min height", 1); x.max_height = fl("max height", 1);
                             { auto sp = g->files.find("grass sprite"); if (sp != g->files.end()) x.sprite = sp->second; }
+                            { auto v = l->ints.find("visibility range"); x.visibility = v == l->ints.end() ? 0 : v->second; }
                             gi = grass_index.emplace(gr.first, (int)f.grass.size()).first;
                             f.grass.push_back(x);
                         }
@@ -548,6 +550,74 @@ bool ScatterGrass(const std::string& kenshi_dir, const Foliage& f, float cx, flo
                         const float size = (float)zu((double)g.min_height * 9.0, (double)g.max_height * 17.0) / 10.f;
                         out.push_back({ x, h, zc, size, (float)zu(0, 360), gi });
                     }
+                }
+        }
+    return true;
+}
+
+namespace {
+struct GrassTable {   // the exe's one RandomTable (60000 floats), filled from a fixed seed (DE-023); not reset between pages or calls
+    std::vector<float> st;
+    md::grass::RandomTable rt;
+    GrassTable() : st(60000) {
+        std::mt19937 g(0x6b656e73u);
+        for (float& v : st) v = md::grass::TableValue(g());
+        rt.Init(st.data(), (uint32_t)st.size());
+    }
+};
+float GroundSlope(float x, float z, void* u) { return static_cast<ZoneGround*>(u)->Slope(x, z); }
+float GroundHeight(float x, float z, void* u) { return static_cast<ZoneGround*>(u)->Height(x, z); }
+} // namespace
+
+bool ScatterGrassPages(const std::string& kenshi_dir, const Foliage& f, float cx, float cz, float view_range, float option, size_t max_blades, std::vector<Blade>& out, std::string& err) {
+    static GrassTable table;
+    OverlayTiles& tiles = SharedTiles();
+    const std::vector<uint8_t>& biomemap = SharedBiomemap(kenshi_dir, err);
+    if (biomemap.empty()) return false;
+    constexpr double kZone = 4608.0;
+    const float kPage = 4608.0f * 0.5f;   // 0.5 x the zone width (1406d4c6d)
+    static const float kLevelRange[3] = { 50.f, 100.f, 800.f };
+    const float max_range = view_range * 10.f * 800.f;
+    const int zx0 = std::max(0, (int)std::floor(((double)cx - max_range) / kZone) + 32), zx1 = std::min(63, (int)std::floor(((double)cx + max_range) / kZone) + 32);
+    const int zz0 = std::max(0, (int)std::floor(((double)cz - max_range) / kZone) + 32), zz1 = std::min(63, (int)std::floor(((double)cz + max_range) / kZone) + 32);
+    std::vector<uint8_t> map(129 * 129);
+    for (int zz = zz0; zz <= zz1; ++zz)
+        for (int zx = zx0; zx <= zx1; ++zx) {
+            ZoneGround z(kenshi_dir, zx, zz, tiles, biomemap, err);
+            if (!z.ok()) return false;
+            const float x0 = z.X0(), z0 = z.Z0();
+            std::vector<int> present;
+            for (int i = 0; i < 16; ++i)
+                for (int j = 0; j < 16; ++j) {
+                    const int key = z.BiomeKey(x0 + ((float)i + 0.5f) * 288.f, z0 + ((float)j + 0.5f) * 288.f);
+                    if (f.biome_by_index.count(key) && std::find(present.begin(), present.end(), key) == present.end()) present.push_back(key);
+                }
+            for (int c : present) for (int gi : f.biome_grass.at(f.biome_by_index.at(c))) z.PaintGrass(f.grass[gi], present.size() != 1, c);
+            for (int r = 0; r < 129; ++r) for (int c = 0; c < 129; ++c) { uint8_t px[4] = {}; z.OverlayAt(c, r, px); map[(size_t)r * 129 + c] = px[2]; }   // memory order B, G, R, A: channel 2 = R
+            const md::grass::TerrainFns tf{ GroundSlope, GroundHeight, &z };
+            for (int c : present)
+                for (int gi : f.biome_blades.at(f.biome_by_index.at(c))) {
+                    const Grass& g = f.grass[gi];
+                    const float range_units = view_range * 10.f * kLevelRange[std::min(std::max(g.visibility, 0), 2)];   // 1406d4d2d: GrassViewRange x 10 x {50, 100, 800}
+                    md::grass::Layer l{};
+                    l.density = g.density * option; l.max_slope = g.max_slope; l.min_y = g.min_altitude; l.max_y = g.max_altitude;
+                    l.map = map.data(); l.map_w = 129; l.map_h = 129; l.map_bounds = { x0, z0, x0 + (float)kZone, z0 + (float)kZone };
+                    for (int py = 0; py < 2; ++py)
+                        for (int px = 0; px < 2; ++px) {
+                            const md::grass::Rect page{ x0 + px * kPage, z0 + py * kPage, x0 + (px + 1) * kPage, z0 + (py + 1) * kPage };
+                            const float ncx = std::max(page.left, std::min(cx, page.right)) - cx, ncz = std::max(page.top, std::min(cz, page.bottom)) - cz;
+                            if (ncx * ncx + ncz * ncz > range_units * range_units) continue;   // the page is out of range
+                            const uint32_t count = md::grass::CandidateCount(l, page);
+                            std::vector<float> buf((size_t)count * 4);
+                            const uint32_t n = md::grass::PopulateBilinear(table.rt, l, tf, page, count, buf.data());
+                            for (uint32_t k = 0; k < n && out.size() < max_blades; ++k) {
+                                const float x = buf[4 * k], zc = buf[4 * k + 1], u = buf[4 * k + 2], ang = buf[4 * k + 3];
+                                const float dx = x - cx, dz = zc - cz;
+                                if (dx * dx + dz * dz > range_units * range_units) continue;
+                                const float h_units = g.min_height * 9.f + (g.max_height * 17.f - g.min_height * 9.f) * u;   // builder: min + (max - min) * u
+                                out.push_back({ x, z.Height(x, zc), zc, h_units / 10.f, ang * 57.29577951f, gi });
+                            }
+                        }
                 }
         }
     return true;
