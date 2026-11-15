@@ -18,7 +18,7 @@ namespace mesh_chunk {
 constexpr uint16_t HEADER = 0x1000, MESH = 0x3000, SUBMESH = 0x4000, SUBMESH_OPERATION = 0x4010, SUBMESH_BONE_ASSIGNMENT = 0x4100,
     SUBMESH_TEXTURE_ALIAS = 0x4200, GEOMETRY = 0x5000, GEOMETRY_VERTEX_DECLARATION = 0x5100, GEOMETRY_VERTEX_ELEMENT = 0x5110,
     GEOMETRY_VERTEX_BUFFER = 0x5200, GEOMETRY_VERTEX_BUFFER_DATA = 0x5210, MESH_SKELETON_LINK = 0x6000, MESH_BONE_ASSIGNMENT = 0x7000,
-    MESH_LOD = 0x8000, MESH_LOD_USAGE = 0x8100, MESH_BOUNDS = 0x9000, SUBMESH_NAME_TABLE = 0xA000, SUBMESH_NAME_TABLE_ELEMENT = 0xA100,
+    MESH_LOD = 0x8000, MESH_LOD_USAGE = 0x8100, MESH_LOD_MANUAL = 0x8110, MESH_LOD_GENERATED = 0x8120, MESH_BOUNDS = 0x9000, SUBMESH_NAME_TABLE = 0xA000, SUBMESH_NAME_TABLE_ELEMENT = 0xA100,
     MESH_POSES = 0xC000, MESH_POSE = 0xC100, MESH_POSE_VERTEX = 0xC111;
 }
 namespace semantic {
@@ -61,6 +61,15 @@ struct SubMesh {
     std::vector<std::pair<std::string, std::string>> texture_aliases;
 };
 
+// One detail level below the full mesh. `distance` is the plain switch distance in the file's units (the strategy squares it);
+// `indices[i]` replaces submesh i's list, empty for a manual level (which names another mesh).
+struct LodLevel {
+    float distance = 0;
+    bool manual = false;
+    std::string manual_name;
+    std::vector<std::vector<uint32_t>> indices;
+};
+
 // A morph target: vertex offsets for one geometry.
 struct Pose {
     std::string name;
@@ -81,6 +90,8 @@ struct Mesh {
     std::vector<BoneAssignment> bone_assignments;   // for the shared geometry
     std::vector<std::pair<uint16_t, std::string>> submesh_names;
     std::vector<Pose> poses;
+    std::string lod_strategy;      // e.g. "distance_sphere"
+    std::vector<LodLevel> lods;    // levels 1..N-1, nearest first
     // vertex positions of pose `name` moved by weight * offsets (positions only, FLOAT3 only); false when the pose or its target is missing
     bool ApplyPose(const std::string& name, float weight);
 };

@@ -93,6 +93,82 @@ void ReadSubmesh(Reader& r, SubMesh& s) {
     }
 }
 
+// Index list from the raw bytes at the reader position.
+std::vector<uint32_t> ReadIndexList(Reader& r, size_t count, bool idx32) {
+    std::vector<uint32_t> out;
+    const uint8_t* p = r.Take(count * (idx32 ? 4 : 2), "lod indices");
+    if (!p) return out;
+    out.resize(count);
+    for (size_t i = 0; i < count; ++i) {
+        if (idx32) out[i] = uint32_t(p[4 * i]) | uint32_t(p[4 * i + 1]) << 8 | uint32_t(p[4 * i + 2]) << 16 | uint32_t(p[4 * i + 3]) << 24;
+        else out[i] = uint32_t(p[2 * i]) | uint32_t(p[2 * i + 1]) << 8;
+    }
+    return out;
+}
+
+// MESH_LOD. v1.100: no manual flag, one MANUAL / GENERATED chunk per level; a generated level lists (count, offset, buffer) per submesh, where buffer is -1
+// (own index data follows) or the number of an earlier level whose index buffer is shared. v1.8 / v1.41: a manual flag, then one USAGE chunk per level holding
+// either a MANUAL chunk or one GENERATED chunk per submesh (count, 32-bit flag, indices); their stored lengths are wrong, so they are read by content.
+void ReadLod(Reader& r, const Chunk& c, Mesh& m) {
+    bool v100 = m.version.find("v1.100") != std::string::npos;
+    m.lod_strategy = r.Line("lod strategy");
+    uint16_t levels = r.U16("lod level count");
+    bool manual_flag = v100 ? false : r.U8("lod manual") != 0;
+    size_t subs = m.submeshes.size();
+    std::vector<std::vector<std::vector<uint32_t>>> buffers;   // [level - 1][submesh] whole index buffer, for sharing
+    for (uint16_t lv = 1; lv < levels && !r.Failed(); ++lv) {
+        LodLevel L;
+        Chunk u;
+        if (!v100) {
+            if (!r.Child(MESH_LOD_USAGE, u)) { Invalid(r, r.Pos(), "missing lod usage"); return; }
+            L.distance = r.F32("lod distance");
+            L.manual = manual_flag;
+        }
+        const uint16_t kinds[] = {MESH_LOD_MANUAL, MESH_LOD_GENERATED};
+        Chunk g;
+        if (v100) {
+            if (!r.Child(kinds, 2, g)) { Invalid(r, r.Pos(), "missing lod level"); return; }
+            L.distance = r.F32("lod distance");
+            L.manual = g.id == MESH_LOD_MANUAL;
+        }
+        if (L.manual) {
+            if (!v100 && !r.Child(MESH_LOD_MANUAL, g)) { Invalid(r, r.Pos(), "missing manual lod"); return; }
+            L.manual_name = r.Line("manual lod mesh");
+            buffers.emplace_back();
+        } else if (v100) {
+            std::vector<std::vector<uint32_t>> own(subs);
+            L.indices.resize(subs);
+            for (size_t s = 0; s < subs && !r.Failed(); ++s) {
+                uint32_t count = r.U32("lod index count"), offset = r.U32("lod index offset"), buf = r.U32("lod buffer index");
+                if (buf == 0xFFFFFFFFu) {
+                    bool idx32 = r.U8("lod 32-bit") != 0;
+                    uint32_t total = r.U32("lod buffer size");
+                    own[s] = ReadIndexList(r, total, idx32);
+                } else {
+                    if (buf < 1 || buf >= lv || buffers[buf - 1].size() <= s) { Invalid(r, c.start, "lod buffer index " + std::to_string(buf) + " at level " + std::to_string(lv)); return; }
+                    own[s] = buffers[buf - 1][s];
+                }
+                if (r.Failed()) return;
+                if (size_t(offset) + count > own[s].size()) { Invalid(r, c.start, "lod index range outside its buffer"); return; }
+                L.indices[s].assign(own[s].begin() + offset, own[s].begin() + offset + count);
+            }
+            buffers.push_back(std::move(own));
+        } else {
+            L.indices.resize(subs);
+            for (size_t s = 0; s < subs && !r.Failed(); ++s) {
+                if (!r.Child(MESH_LOD_GENERATED, g)) { Invalid(r, r.Pos(), "missing generated lod"); return; }
+                uint32_t count = r.U32("lod index count");
+                bool idx32 = r.U8("lod 32-bit") != 0;
+                L.indices[s] = ReadIndexList(r, count, idx32);
+            }
+            buffers.emplace_back();
+        }
+        if (r.Failed()) return;
+        m.lods.push_back(std::move(L));
+    }
+    if (v100) r.Skip(c);
+}
+
 void ReadMeshChunk(Reader& r, const Chunk& c, Mesh& m) {
     m.skeletally_animated = r.U8("skeletally animated") != 0;
     Chunk sub;
@@ -106,11 +182,8 @@ void ReadMeshChunk(Reader& r, const Chunk& c, Mesh& m) {
             m.has_bounds = true; r.F32x3("bounds", m.bounds_min); r.F32x3("bounds", m.bounds_max); m.bounds_radius = r.F32("radius");
             break;
         default:
-            if (sub.id == MESH_LOD && m.version.find("v1.100") == std::string::npos) {
-                // v1.41 / v1.8 store a wrong MESH_LOD length: read its header fields and skip each LOD_USAGE by its (correct) length
-                r.Line("lod strategy"); r.U16("lod level count"); r.U8("lod manual");
-                Chunk u;
-                while (r.Child(MESH_LOD_USAGE, u)) r.Skip(u);
+            if (sub.id == MESH_LOD) {
+                ReadLod(r, sub, m);
             } else if (sub.id == SUBMESH_NAME_TABLE) {
                 Chunk e;
                 while (r.Child(SUBMESH_NAME_TABLE_ELEMENT, e)) { uint16_t i = r.U16("submesh index"); std::string n = r.Line("submesh name"); m.submesh_names.emplace_back(i, n); }
@@ -136,6 +209,12 @@ void ReadMeshChunk(Reader& r, const Chunk& c, Mesh& m) {
         }
         if (r.Failed()) return;
     }
+    for (const LodLevel& L : m.lods)
+        for (size_t i = 0; i < L.indices.size() && i < m.submeshes.size(); ++i) {
+            const SubMesh& s = m.submeshes[i];
+            uint32_t n = s.use_shared ? (m.has_shared ? m.shared.vertex_count : 0) : (s.has_geometry ? s.geometry.vertex_count : 0);
+            for (uint32_t v : L.indices[i]) if (v >= n) { Invalid(r, c.start, "lod index " + std::to_string(v) + " >= " + std::to_string(n) + " vertices"); return; }
+        }
     // every index must address a vertex of the geometry it draws from
     for (const SubMesh& s : m.submeshes) {
         uint32_t n = s.use_shared ? (m.has_shared ? m.shared.vertex_count : 0) : (s.has_geometry ? s.geometry.vertex_count : 0);
