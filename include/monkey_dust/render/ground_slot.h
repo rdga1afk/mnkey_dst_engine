@@ -9,7 +9,7 @@ inline bool GroundSlotTargetOn() { static const bool on = getenv("MD_GROUND_LIVE
 inline bool GroundLiveLightOn() { static const bool on = GroundSlotTargetOn() && getenv("MD_GROUND_LIVE_LIGHT") && getenv("MD_GROUND_LIVE_LIGHT")[0] == '1'; return on; }
 // Run-time switches (Lua md.set_ground_live_switch), env var = initial value; -1 = not yet read. One game process can serve several arms that differ only in these.
 // MD_GROUND_LIVE and MD_GROUND_LIVE_LIGHT stay start-up only (they decide the G-buffer targets and pipelines).
-struct GroundLiveRt { int orig_light = -1, tiny = -1, groups = -1; };
+struct GroundLiveRt { int orig_light = -1, tiny = -1, groups = -1, debug_view = 0; };   // debug_view: 0 off, 1 LOD level, 2 node hash, 3 skirt, 4 vertex source (md.set_debug_view)
 inline GroundLiveRt& GroundLiveRtState() { static GroundLiveRt r; return r; }
 inline bool GroundLiveEnv1(const char* n) { const char* e = getenv(n); return e && e[0] == '1'; }
 inline bool GroundLiveTinyOn() { int& v = GroundLiveRtState().tiny; if (v < 0) { const char* e = getenv("MD_GROUND_LIVE_TINY"); v = (e && e[0] == '0') ? 0 : 1; } return v == 1; }   // default ON (11.11, 6 scenes -2.3..-4.2 ms); MD_GROUND_LIVE_TINY=0 turns it off; acts only with MD_GROUND_LIVE_ORIGLIGHT

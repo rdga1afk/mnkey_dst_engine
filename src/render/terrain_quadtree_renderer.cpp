@@ -424,7 +424,7 @@ bool TerrainQuadtreeRenderer::InitLod(md::GpuDeviceHandle dev, const TerrainWorl
     pd.frag_path = "shaders/terrain_gbuffer_mini.frag";
     pd.frag_uniform_bufs = 0; pd.frag_samplers = 0; pd.frag_storage_bufs = 0;
     pd.color_format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_UINT;
-    if (md::GroundSlotTargetOn()) { pd.color_format2 = SDL_GPU_TEXTUREFORMAT_R8_UINT; pd.vert_path = "shaders/terrain_quadtree_batched_lod_slot.vert"; pd.frag_path = "shaders/terrain_gbuffer_mini_slot.frag"; }
+    if (md::GroundSlotTargetOn()) { pd.color_format2 = SDL_GPU_TEXTUREFORMAT_R8_UINT; pd.vert_path = "shaders/terrain_quadtree_batched_lod_slot.vert"; pd.frag_path = "shaders/terrain_gbuffer_mini_slot_dbg.frag"; }
     if (!lod_pipeline_.Create(pd)) { MD_LOG(MD_LOG_WARNING, "[TerrainQuadtreeRenderer] lod pipeline create failed"); return false; }
     lod_ready_ = true;
     // the tables (a read of the whole fullmap.tif, ~3 s) are built from here, in parallel with the rest of the start-up: the first frame then already draws the LOD, not the flat tiling
@@ -591,6 +591,7 @@ void TerrainQuadtreeRenderer::BeginBatchedLod(SDL_GPURenderPass* rp, md::GpuComm
     ubo.cam_pos_pad[0] = cam_x; ubo.cam_pos_pad[1] = cam_y; ubo.cam_pos_pad[2] = cam_z; ubo.cam_pos_pad[3] = (float)lod_cells_;
     ubo.fine_win[0] = (float)fine_ox_; ubo.fine_win[1] = (float)fine_oz_; ubo.fine_win[2] = (float)kFineW; ubo.fine_win[3] = kCellM;
     ubo.flags[0] = (lod_normtex_ && lod_norm_ready_ && fine_norm_ok_) ? 1.f : 0.f;
+    ubo.flags[1] = (float)md::GroundLiveRtState().debug_view;
     for (int k = 0; k < kWLevels; ++k) ubo.wo[k >> 1][(k & 1) * 2] = wnorm_o_[k][0], ubo.wo[k >> 1][(k & 1) * 2 + 1] = wnorm_o_[k][1];
     pv.PushVertexUniforms(0, &ubo, sizeof(ubo));
     SDL_GPUTextureSamplerBinding samp[5] = {
