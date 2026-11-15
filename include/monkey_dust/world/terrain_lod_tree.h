@@ -33,7 +33,16 @@ struct TerrainLodNode {
     int   level;
     float y_min, y_max;
     int   list_slot = 0;      // ground live pass: 1.. = the slot of the node's biome list (set by the caller before the upload), 0 = none
+    // RestrictLodNodes: levels the edge neighbour is coarser (0 = same or finer / not drawn), edges 0 = z min, 1 = z max, 2 = x min, 3 = x max. stitched = no skirt, the
+    // border vertices snap to the coarser neighbour's lattice (the plugin's index-buffer border rewrite, plugin_terrain_functions.md).
+    unsigned char edge_diff[4] = {0, 0, 0, 0};
+    bool  stitched = false;
 };
+
+// Restricted quadtree (the plugin's neighbour rule): splits every selected leaf whose edge neighbour is 2+ levels coarser until none is, and fills edge_diff / stitched.
+// Children made by a split keep the parent's box heights, morph 0 (their coarse geometry is the parent's grid). Returns the new count (<= max_out; at the cap the
+// remaining violations stay and edge_diff may exceed 1). Neighbours that are not in the list (culled, out of range) impose nothing.
+int RestrictLodNodes(TerrainLodNode* nodes, int count, int max_out);
 
 class TerrainLodTree {
 public:

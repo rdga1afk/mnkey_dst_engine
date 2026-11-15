@@ -510,7 +510,8 @@ void TerrainQuadtreeRenderer::UploadLodNodes(md::GpuDeviceHandle dev, SDL_GPUCop
         const float wx0 = (float)fine_ox_ * kCellM, wz0 = (float)fine_oz_ * kCellM, wx1 = wx0 + (kFineW - 1) * kCellM, wz1 = wz0 + (kFineW - 1) * kCellM;
         const bool fine = spacing < 3.5f && fine_ox_ >= 0 && nodes[i].origin_x - m >= wx0 && nodes[i].origin_z - m >= wz0 &&
                           nodes[i].origin_x + nodes[i].size + m <= wx1 && nodes[i].origin_z + nodes[i].size + m <= wz1;
-        b[0] = (float)nodes[i].level; b[1] = nodes[i].skirt_depth; b[2] = (fine ? 1.f : 0.f) + 2.f * (float)nodes[i].list_slot; b[3] = 0.f;   // list_slot: ground live pass (0 = none)
+        const int packed = nodes[i].edge_diff[0] | (nodes[i].edge_diff[1] << 2) | (nodes[i].edge_diff[2] << 4) | (nodes[i].edge_diff[3] << 6);
+        b[0] = (float)nodes[i].level; b[1] = nodes[i].stitched ? -(1.f + (float)packed) : nodes[i].skirt_depth;   // < 0: restricted mode, see terrain_quadtree_batched_lod.vert b[2] = (fine ? 1.f : 0.f) + 2.f * (float)nodes[i].list_slot; b[3] = 0.f;   // list_slot: ground live pass (0 = none)
         if (lod_norm_ready_ && spacing > 3.5f) {   // same lattice rule as the vertex shader: stride = round(spacing / 3.6), the node's cells are multiples of the stride
             const int stride = (int)(spacing / 3.6f + 0.5f);
             int k = 0; while ((1 << k) < stride && k < kWLevels) ++k;
