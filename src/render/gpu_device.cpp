@@ -185,7 +185,7 @@ void GpuDevice::SubmitFrame(SDL_GPUCommandBuffer* cmd) {
     // Submit this frame FIRST so the GPU never idles between frames...
     SDL_GPUFence* f = SDL_SubmitGPUCommandBufferAndAcquireFence(cmd);
     const uint64_t serial = frame_serial_.fetch_add(1, std::memory_order_relaxed);
-    { static const bool want = (getenv("MD_GPU_WAITER") && getenv("MD_GPU_WAITER")[0] == '1') || (getenv("MD_DYNRES3") && getenv("MD_DYNRES3")[0] == '1'); if (want && f) { if (!waiter_on_) WaiterStart(); WaiterPost(f, SDL_GetTicksNS(), serial); } }
+    { static const bool want = (getenv("MD_GPU_WAITER") && getenv("MD_GPU_WAITER")[0] == '1') || !(getenv("MD_DYNRES3") && getenv("MD_DYNRES3")[0] == '0'); if (want && f) { if (!waiter_on_) WaiterStart(); WaiterPost(f, SDL_GetTicksNS(), serial); } }
     GpuFrameTimeline::Get().OnSubmit();
     cmd_buffer_active_ = false;
     // ...then retire the previous frame (wait for it to finish, then release the fence -- never release an unsignaled
