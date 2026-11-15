@@ -132,6 +132,7 @@ Foliage LoadFoliage(const md::fcs::GameDataContainer& data) {
                             x.cap = fl("cap", 1); x.brightness_boost = fl("brightness boost", 1);
                             x.blackout = Bl(*g, "blackout");
                             x.min_height = fl("min height", 1); x.max_height = fl("max height", 1);
+                            x.min_width = fl("min width", 1); x.max_width = fl("max width", 1); x.cross_quads = Bl(*g, "cross quads");
                             { auto sp = g->files.find("grass sprite"); if (sp != g->files.end()) x.sprite = sp->second; }
                             { auto v = l->ints.find("visibility range"); x.visibility = v == l->ints.end() ? 0 : v->second; }
                             gi = grass_index.emplace(gr.first, (int)f.grass.size()).first;
@@ -556,6 +557,18 @@ bool ScatterGrass(const std::string& kenshi_dir, const Foliage& f, float cx, flo
 }
 
 namespace {
+
+// The exe's per-layer density map (1406d0340): the zone's overlay R, 129 x 129; in a zone of several biomes a pixel counts only where the biome lookup at its centre is this layer's biome.
+void GrassMapFor(ZoneGround& z, const std::vector<uint8_t>& base, bool multi_biome, int biome, std::vector<uint8_t>& out) {
+    out = base;
+    if (!multi_biome) return;
+    for (int r = 0; r < 129; ++r)
+        for (int c = 0; c < 129; ++c) {
+            float px = 0, pz = 0;
+            if (!z.OverlayCentre(c, r, &px, &pz)) { px = z.X0() + ((float)c + 0.5f) * 36.f; pz = z.Z0() + ((float)r + 0.5f) * 36.f; }
+            if (z.BiomeKey(px, pz) != biome) out[(size_t)r * 129 + c] = 0;
+        }
+}
 struct GrassTable {   // the exe's one RandomTable (60000 floats), filled from a fixed seed (DE-023); not reset between pages or calls
     std::vector<float> st;
     md::grass::RandomTable rt;
@@ -580,7 +593,7 @@ bool ScatterGrassPages(const std::string& kenshi_dir, const Foliage& f, float cx
     const float max_range = view_range * 10.f * 800.f;
     const int zx0 = std::max(0, (int)std::floor(((double)cx - max_range) / kZone) + 32), zx1 = std::min(63, (int)std::floor(((double)cx + max_range) / kZone) + 32);
     const int zz0 = std::max(0, (int)std::floor(((double)cz - max_range) / kZone) + 32), zz1 = std::min(63, (int)std::floor(((double)cz + max_range) / kZone) + 32);
-    std::vector<uint8_t> map(129 * 129);
+    std::vector<uint8_t> map(129 * 129), base(129 * 129);
     for (int zz = zz0; zz <= zz1; ++zz)
         for (int zx = zx0; zx <= zx1; ++zx) {
             ZoneGround z(kenshi_dir, zx, zz, tiles, biomemap, err);
@@ -593,9 +606,10 @@ bool ScatterGrassPages(const std::string& kenshi_dir, const Foliage& f, float cx
                     if (f.biome_by_index.count(key) && std::find(present.begin(), present.end(), key) == present.end()) present.push_back(key);
                 }
             for (int c : present) for (int gi : f.biome_grass.at(f.biome_by_index.at(c))) z.PaintGrass(f.grass[gi], present.size() != 1, c);
-            for (int r = 0; r < 129; ++r) for (int c = 0; c < 129; ++c) { uint8_t px[4] = {}; z.OverlayAt(c, r, px); map[(size_t)r * 129 + c] = px[2]; }   // memory order B, G, R, A: channel 2 = R
+            for (int r = 0; r < 129; ++r) for (int c = 0; c < 129; ++c) { uint8_t px[4] = {}; z.OverlayAt(c, r, px); base[(size_t)r * 129 + c] = px[2]; }   // memory order B, G, R, A: channel 2 = R
             const md::grass::TerrainFns tf{ GroundSlope, GroundHeight, &z };
-            for (int c : present)
+            for (int c : present) {
+                GrassMapFor(z, base, present.size() != 1, c, map);
                 for (int gi : f.biome_blades.at(f.biome_by_index.at(c))) {
                     const Grass& g = f.grass[gi];
                     const float range_units = view_range * 10.f * kLevelRange[std::min(std::max(g.visibility, 0), 2)];   // 1406d4d2d: GrassViewRange x 10 x {50, 100, 800}
@@ -615,10 +629,64 @@ bool ScatterGrassPages(const std::string& kenshi_dir, const Foliage& f, float cx
                                 const float dx = x - cx, dz = zc - cz;
                                 if (dx * dx + dz * dz > range_units * range_units) continue;
                                 const float h_units = g.min_height * 9.f + (g.max_height * 17.f - g.min_height * 9.f) * u;   // builder: min + (max - min) * u
-                                out.push_back({ x, z.Height(x, zc), zc, h_units / 10.f, ang * 57.29577951f, gi });
+                                out.push_back({ x, z.Height(x, zc), zc, h_units / 10.f, ang * 57.29577951f, gi, u });
                             }
                         }
                 }
+            }
+        }
+    return true;
+}
+
+
+// Closed-form expectation of ScatterGrassPages: the same candidates, density map, slope and altitude tests summed over the overlay cells (36 units) instead of drawn.
+bool ExpectedGrassPages(const std::string& kenshi_dir, const Foliage& f, float cx, float cz, float view_range, float option, float count_radius, double* total, double* within, std::string& err) {
+    OverlayTiles& tiles = SharedTiles();
+    const std::vector<uint8_t>& biomemap = SharedBiomemap(kenshi_dir, err);
+    if (biomemap.empty()) return false;
+    constexpr double kZone = 4608.0;
+    static const float kLevelRange[3] = { 50.f, 100.f, 800.f };
+    const float max_range = view_range * 10.f * 800.f;
+    const int zx0 = std::max(0, (int)std::floor(((double)cx - max_range) / kZone) + 32), zx1 = std::min(63, (int)std::floor(((double)cx + max_range) / kZone) + 32);
+    const int zz0 = std::max(0, (int)std::floor(((double)cz - max_range) / kZone) + 32), zz1 = std::min(63, (int)std::floor(((double)cz + max_range) / kZone) + 32);
+    std::vector<uint8_t> map(129 * 129), base(129 * 129);
+    *total = 0; *within = 0;
+    for (int zz = zz0; zz <= zz1; ++zz)
+        for (int zx = zx0; zx <= zx1; ++zx) {
+            ZoneGround z(kenshi_dir, zx, zz, tiles, biomemap, err);
+            if (!z.ok()) return false;
+            const float x0 = z.X0(), z0 = z.Z0();
+            std::vector<int> present;
+            for (int i = 0; i < 16; ++i)
+                for (int j = 0; j < 16; ++j) {
+                    const int key = z.BiomeKey(x0 + ((float)i + 0.5f) * 288.f, z0 + ((float)j + 0.5f) * 288.f);
+                    if (f.biome_by_index.count(key) && std::find(present.begin(), present.end(), key) == present.end()) present.push_back(key);
+                }
+            for (int c : present) for (int gi : f.biome_grass.at(f.biome_by_index.at(c))) z.PaintGrass(f.grass[gi], present.size() != 1, c);
+            for (int r = 0; r < 129; ++r) for (int c = 0; c < 129; ++c) { uint8_t px[4] = {}; z.OverlayAt(c, r, px); base[(size_t)r * 129 + c] = px[2]; }
+            const md::grass::Rect mb{ x0, z0, x0 + (float)kZone, z0 + (float)kZone };
+            const double cell = 4.0;   // units: a 1152 x 1152 grid per zone
+            for (int c : present) {
+                GrassMapFor(z, base, present.size() != 1, c, map);
+                for (int gi : f.biome_blades.at(f.biome_by_index.at(c))) {
+                    const Grass& g = f.grass[gi];
+                    const float range = view_range * 10.f * kLevelRange[std::min(std::max(g.visibility, 0), 2)];
+                    const double dens = (double)g.density * option;
+                    for (double zc = z0 + cell / 2; zc < z0 + kZone; zc += cell)
+                        for (double xc = x0 + cell / 2; xc < x0 + kZone; xc += cell) {
+                            const double dx = xc - cx, dz = zc - cz, d2 = dx * dx + dz * dz;
+                            if (d2 > (double)range * range) continue;
+                            if (!(z.Slope((float)xc, (float)zc) <= g.max_slope)) continue;
+                            if (g.min_altitude != 0.f || g.max_altitude != 0.f) {
+                                const float h = z.Height((float)xc, (float)zc);
+                                if ((g.min_altitude != 0.f && h < g.min_altitude) || (g.max_altitude != 0.f && h > g.max_altitude)) continue;
+                            }
+                            const double e = dens * cell * cell * md::grass::DensityBilinear(map.data(), 129, 129, (float)xc, (float)zc, mb);
+                            *total += e;
+                            if (d2 <= (double)count_radius * count_radius) *within += e;
+                        }
+                }
+            }
         }
     return true;
 }

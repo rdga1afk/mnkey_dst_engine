@@ -53,6 +53,8 @@ struct Grass {   // a GRASS record as the overlay painting takes it (F041791)
     float density = 0, min_altitude = 0, max_altitude = 0, max_slope = 0;
     float noise_scale = 1, zero_cutoff = 0, blackout_noise_scale = 1, blackout_zero_cutoff = 0, cap = 1, brightness_boost = 1;
     float min_height = 1, max_height = 1;   // blade size U(min x 9, max x 17) / 10 m
+    float min_width = 1, max_width = 1;     // "min width" / "max width": the blade width is (min x 9 + (max x 17 - min x 9) u) x 0.5 units on each side of the centre
+    bool cross_quads = false;               // "cross quads": two crossed quads per blade, else one
     std::string sprite;                      // "grass sprite" file
     bool blackout = false;
     int visibility = 0;                      // "visibility range" of the first foliage layer that lists this grass (0 CLOSE, 1 MEDIUM, 2 FAR)
@@ -95,7 +97,7 @@ constexpr int kNoBiome = -1;   // scatter without the per-place biome check
 int32_t ParseIntOgre(const std::string& s);   // Ogre StringConverter::parseInt: the leading integer, 0 when none
 Foliage LoadFoliage(const md::fcs::GameDataContainer& data);
 
-struct Blade { float x, y, z, size, yaw; int grass; };   // x, z in Kenshi units (origin shifted by -147456), y in units, size in metres, yaw in degrees
+struct Blade { float x, y, z, size, yaw; int grass; float u = 0.f; };   // u = the pager's size draw (ScatterGrassPages), 0 otherwise   // x, z in Kenshi units (origin shifted by -147456), y in units, size in metres, yaw in degrees
 
 // CLOSE grass blades of the circle (cx, cz, radius; Kenshi units): density x 0.005 x area x `density_mult` candidates per GRASS record, each kept when the zone's grass map (overlay R / G
 // after the grass painting) is above a random number, slope <= max slope, altitude inside the limits (foliage.md "Grass blades"). The exe's page layout depends on the camera: no exact layout to reproduce.
@@ -104,6 +106,9 @@ bool ScatterGrass(const std::string& kenshi_dir, const Foliage& f, float cx, flo
 // The exe's grass pager (docs/research/GRASS_EXE_2026-11-15.md): pages of half a zone (2304 units) within range of the camera (cx, cz; Kenshi units), the exe's table walk and density
 // sampler over the zone's overlay R map (129 x 129). Range per grass = view_range (the Grass View Range option, 1 = default) x 10 x {50, 100, 800}[the layer's visibility range] units; `option` = the Grass Density option (1 = default). Blades beyond their range are dropped. The table runs on across calls.
 bool ScatterGrassPages(const std::string& kenshi_dir, const Foliage& f, float cx, float cz, float view_range, float option, size_t max_blades, std::vector<Blade>& out, std::string& err);
+
+// The expectation of ScatterGrassPages in closed form (sum over the overlay cells instead of random draws): `total` and `within` count_radius of the camera. For tests.
+bool ExpectedGrassPages(const std::string& kenshi_dir, const Foliage& f, float cx, float cz, float view_range, float option, float count_radius, double* total, double* within, std::string& err);
 
 // One layer's meshes scattered over the zone rect {x0, z0, x1, z1}; biome = the biome index the places must be in (kNoBiome: the zone has one biome).
 void ScatterLayer(const Foliage& f, int layer, const float rect[4], int biome, const std::vector<Town>& towns, FoliageGround& ground, std::vector<Placed>& out);
