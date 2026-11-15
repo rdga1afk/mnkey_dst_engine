@@ -542,6 +542,7 @@ bool GpuPipeline::Create(const Desc& desc) {
     raster_bits ^= (uint32_t)desc.depth_format * 2654435761u; // INVALID (0) leaves the key of every existing pipeline unchanged
     if (desc.color2_keep) raster_bits ^= 0x9E3779B9u;          // the kept-slot variant of the same shaders is another pipeline
     if (desc.color_rgb_only) raster_bits ^= 0x7F4A7C15u;       // the RGB-only variant too
+    if (!desc.has_depth_target) raster_bits ^= 0xA5A5C3C3u;    // a pass without a depth attachment needs its own pipeline (VUID-vkCmdDraw-renderPass-02684): the same shaders with and without depth are two pipelines
     const uint32_t pipe_hash = PipeHash(desc.vert_path, desc.frag_path,
                                          desc.shader_features, raster_bits);
     SDL_GPUGraphicsPipeline* cached = PipeCache_Get(pipe_hash);
