@@ -56,6 +56,7 @@ struct Grass {   // a GRASS record as the overlay painting takes it (F041791)
     float min_width = 1, max_width = 1;     // "min width" / "max width": the blade width is (min x 9 + (max x 17 - min x 9) u) x 0.5 units on each side of the centre
     bool cross_quads = false;               // "cross quads": two crossed quads per blade, else one
     std::string sprite;                      // "grass sprite" file
+    std::string colour_map;                  // "color map" file (the exe stretches it over the zone, 140a6dc40)
     bool blackout = false;
     int visibility = 0;                      // "visibility range" of the first foliage layer that lists this grass (0 CLOSE, 1 MEDIUM, 2 FAR)
 };
@@ -97,7 +98,7 @@ constexpr int kNoBiome = -1;   // scatter without the per-place biome check
 int32_t ParseIntOgre(const std::string& s);   // Ogre StringConverter::parseInt: the leading integer, 0 when none
 Foliage LoadFoliage(const md::fcs::GameDataContainer& data);
 
-struct Blade { float x, y, z, size, yaw; int grass; float u = 0.f; };   // u = the pager's size draw (ScatterGrassPages), 0 otherwise   // x, z in Kenshi units (origin shifted by -147456), y in units, size in metres, yaw in degrees
+struct Blade { float x, y, z, size, yaw; int grass; float u = 0.f; uint32_t colour = 0xFFFFFFFFu; };   // u = the pager's size draw (ScatterGrassPages), 0 otherwise   // colour = the layer colour map at the blade centre, bytes R G B A (ScatterGrassPages); x, z in Kenshi units (origin shifted by -147456), y in units, size in metres, yaw in degrees
 
 // CLOSE grass blades of the circle (cx, cz, radius; Kenshi units): density x 0.005 x area x `density_mult` candidates per GRASS record, each kept when the zone's grass map (overlay R / G
 // after the grass painting) is above a random number, slope <= max slope, altitude inside the limits (foliage.md "Grass blades"). The exe's page layout depends on the camera: no exact layout to reproduce.

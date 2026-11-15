@@ -7,6 +7,9 @@
 #include <monkey_dust/io/tiff.h>
 #include <stb_image.h>
 #include <map>
+#include <filesystem>
+#include <sstream>
+#include <cctype>
 #include <random>
 #include <memory>
 
@@ -134,6 +137,7 @@ Foliage LoadFoliage(const md::fcs::GameDataContainer& data) {
                             x.min_height = fl("min height", 1); x.max_height = fl("max height", 1);
                             x.min_width = fl("min width", 1); x.max_width = fl("max width", 1); x.cross_quads = Bl(*g, "cross quads");
                             { auto sp = g->files.find("grass sprite"); if (sp != g->files.end()) x.sprite = sp->second; }
+                            { auto cm = g->files.find("color map"); if (cm != g->files.end()) x.colour_map = cm->second; }
                             { auto v = l->ints.find("visibility range"); x.visibility = v == l->ints.end() ? 0 : v->second; }
                             gi = grass_index.emplace(gr.first, (int)f.grass.size()).first;
                             f.grass.push_back(x);
@@ -582,6 +586,59 @@ float GroundSlope(float x, float z, void* u) { return static_cast<ZoneGround*>(u
 float GroundHeight(float x, float z, void* u) { return static_cast<ZoneGround*>(u)->Height(x, z); }
 } // namespace
 
+// Layer colour map (GrassLoader colour map, 140a41de0): the PNG stretched over the zone rectangle, bilinear (140a6dc40).
+namespace {
+struct ColourMap { int w = 0, h = 0; std::vector<uint8_t> px; };
+const ColourMap& GrassColourMap(const std::string& kenshi_dir, const std::string& rel) {
+    static std::map<std::string, ColourMap> cache;
+    auto it = cache.find(rel);
+    if (it != cache.end()) return it->second;
+    ColourMap& m = cache[rel];
+    namespace fs = std::filesystem;
+    fs::path p = kenshi_dir;
+    std::string r = rel;
+    for (char& ch : r) if (ch == '\\') ch = '/';
+    std::stringstream ss(r); std::string part;
+    while (std::getline(ss, part, '/')) {   // case-insensitive walk: the install paths come from a Windows data set
+        if (part.empty() || part == ".") continue;
+        fs::path cand = p / part; std::error_code ec;
+        if (!fs::exists(cand, ec)) {
+            std::string lw = part; for (char& ch : lw) ch = (char)std::tolower((unsigned char)ch);
+            for (const auto& e : fs::directory_iterator(p, ec)) {
+                std::string n = e.path().filename().string(); for (char& ch : n) ch = (char)std::tolower((unsigned char)ch);
+                if (n == lw) { cand = e.path(); break; }
+            }
+        }
+        p = cand;
+    }
+    int w = 0, h = 0, ch = 0;
+    uint8_t* d = stbi_load(p.string().c_str(), &w, &h, &ch, 4);
+    if (!d) return m;
+    m.w = w; m.h = h; m.px.assign(d, d + (size_t)w * h * 4);
+    stbi_image_free(d);
+    return m;
+}
+uint32_t SampleColourMap(const ColourMap& m, float x, float z, float x0, float z0, float x1, float z1) {
+    auto texel = [&](int ix, int iy) { const uint8_t* q = &m.px[((size_t)iy * m.w + ix) * 4]; return q; };
+    auto pack = [](float r, float g, float b, float a) { return (uint32_t)(r + 0.5f) | (uint32_t)(g + 0.5f) << 8 | (uint32_t)(b + 0.5f) << 16 | (uint32_t)(a + 0.5f) << 24; };
+    if (m.w < 3 || m.h < 3) return 0xFFFFFFFFu;
+    const uint8_t* t0 = texel(0, 0);
+    const uint32_t first = pack(t0[0], t0[1], t0[2], t0[3]);
+    if (x < x0 || x >= x1 || z < z0 || z >= z1) return first;
+    float fx = ((float)(m.w - 2) * (x - x0)) / (x1 - x0) - 0.5f, fy = ((float)(m.h - 2) * (z - z0)) / (z1 - z0) - 0.5f;
+    const uint32_t ix = (uint32_t)fx, iy = (uint32_t)fy;   // the exe's unsigned truncation: a negative value wraps and is rejected below
+    if (fx < 0.f || fy < 0.f || ix == 0 || iy == 0 || ix > (uint32_t)(m.w - 2) || iy > (uint32_t)(m.h - 2)) return first;
+    fx -= (float)ix; fy -= (float)iy;
+    float c[4];
+    for (int k = 0; k < 4; ++k) {
+        const float a = texel(ix, iy)[k] * (1.f - fx) + texel(ix + 1, iy)[k] * fx;
+        const float b = texel(ix, iy + 1)[k] * (1.f - fx) + texel(ix + 1, iy + 1)[k] * fx;
+        c[k] = a * (1.f - fy) + b * fy;
+    }
+    return pack(c[0], c[1], c[2], c[3]);
+}
+}  // namespace
+
 bool ScatterGrassPages(const std::string& kenshi_dir, const Foliage& f, float cx, float cz, float view_range, float option, size_t max_blades, std::vector<Blade>& out, std::string& err) {
     static GrassTable table;
     OverlayTiles& tiles = SharedTiles();
@@ -613,6 +670,7 @@ bool ScatterGrassPages(const std::string& kenshi_dir, const Foliage& f, float cx
                 for (int gi : f.biome_blades.at(f.biome_by_index.at(c))) {
                     const Grass& g = f.grass[gi];
                     const float range_units = view_range * 10.f * kLevelRange[std::min(std::max(g.visibility, 0), 2)];   // 1406d4d2d: GrassViewRange x 10 x {50, 100, 800}
+                    const ColourMap* cmap = g.colour_map.empty() ? nullptr : &GrassColourMap(kenshi_dir, g.colour_map);
                     md::grass::Layer l{};
                     l.density = g.density * option; l.max_slope = g.max_slope; l.min_y = g.min_altitude; l.max_y = g.max_altitude;
                     l.map = map.data(); l.map_w = 129; l.map_h = 129; l.map_bounds = { x0, z0, x0 + (float)kZone, z0 + (float)kZone };
@@ -629,7 +687,8 @@ bool ScatterGrassPages(const std::string& kenshi_dir, const Foliage& f, float cx
                                 const float dx = x - cx, dz = zc - cz;
                                 if (dx * dx + dz * dz > range_units * range_units) continue;
                                 const float h_units = g.min_height * 9.f + (g.max_height * 17.f - g.min_height * 9.f) * u;   // builder: min + (max - min) * u
-                                out.push_back({ x, z.Height(x, zc), zc, h_units / 10.f, ang * 57.29577951f, gi, u });
+                                const uint32_t col = cmap && cmap->w ? SampleColourMap(*cmap, x, zc, x0, z0, x0 + (float)kZone, z0 + (float)kZone) : 0xFFFFFFFFu;
+                                out.push_back({ x, z.Height(x, zc), zc, h_units / 10.f, ang * 57.29577951f, gi, u, col });
                             }
                         }
                 }
