@@ -16,6 +16,9 @@
 #include <SDL3/SDL_gpu.h>
 #include <cstdint>
 #include <mutex>
+#include <condition_variable>
+#include <thread>
+#include <atomic>
 
 namespace md {
 
@@ -121,6 +124,10 @@ public:
     // it every 0.5 ms), or the next SubmitFrame's wait when nothing polled it in time. PolledGpuMs(): last value; PolledAtFirstCheck(): the fence was
     // already signalled at the first poll, so the value is an upper bound (headroom).
     void  PollFrameFence();
+    // Dynres v2 GPU signal (MD_GPU_WAITER=1, coordinator 6885067368): a thread that BLOCKS on each frame fence and stamps the wake-up, so the end of the GPU work is known to ~50 us
+    // whether or not the frame cap sleep polls. GPU ms of frame N = signal(N) - max(submit(N), signal(N-1)). The main thread never waits for it except to release a fence it still holds.
+    float WaiterGpuMs() const        { return waiter_ms_.load(std::memory_order_relaxed); }
+    bool  WaiterEnabled() const      { return waiter_on_; }
     float PolledGpuMs() const        { return poll_ms_; }
     bool  PolledAtFirstCheck() const { return poll_first_; }
 
@@ -182,6 +189,13 @@ private:
     // independent of this class's own state). `mutable` so the const
     // WarnIfActive() can also take it.
     mutable std::mutex mu_;
+    // The fence waiter (see WaiterGpuMs): a ring of fences handed over by SubmitFrame; wm_ guards the ring only and is never held while waiting on a fence.
+    struct WaitItem { SDL_GPUFence* f = nullptr; uint64_t submit_ns = 0; };
+    static constexpr int kWaitRing = 4;
+    WaitItem                 w_ring_[kWaitRing]; int w_head_ = 0, w_count_ = 0; SDL_GPUFence* w_busy_ = nullptr;
+    std::mutex               wm_; std::condition_variable wcv_; std::thread w_thread_; bool w_stop_ = false;
+    std::atomic<float>       waiter_ms_{0.f}; uint64_t w_last_signal_ns_ = 0; bool waiter_on_ = false;
+    void WaiterStart(); void WaiterStop(); void WaiterPost(SDL_GPUFence* f, uint64_t submit_ns); void WaiterRelease(SDL_GPUFence* f);
 };
 
 } // namespace md

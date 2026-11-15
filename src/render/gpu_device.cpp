@@ -5,6 +5,7 @@
 #include <monkey_dust/platform/md_log.h>
 #include <SDL3/SDL_gpu.h>
 #include <SDL3/SDL_timer.h>  // SDL_GetPerformanceCounter/Frequency -- sync-timing path
+#include <cstdlib>
 
 namespace md {
 
@@ -60,6 +61,7 @@ void GpuDevice::Shutdown() {
         // during this exact Shutdown() call, both only under --exec
         // scenarios that quit quickly — never during normal interactive
         // use, which naturally gives every upload time to finish).
+        WaiterStop();
         SDL_WaitForGPUIdle(device_);
         // MdPipeCache_Shutdown/MdSpvCache_Shutdown exist and are declared for
         // exactly this purpose (splash_screen.cpp's own comment already
@@ -149,6 +151,7 @@ void GpuDevice::Submit(SDL_GPUCommandBuffer* cmd) {
     // docs/SDLGPU_FENCE_OBJECT_LEAK_BUG.md §9.
     if (prev_fence_) {
         SDL_WaitForGPUFences(device_, true, &prev_fence_, 1);
+        WaiterRelease(prev_fence_);
         SDL_ReleaseGPUFence(device_, prev_fence_);
         prev_fence_ = nullptr;
     }
@@ -181,12 +184,14 @@ void GpuDevice::SubmitFrame(SDL_GPUCommandBuffer* cmd) {
     std::lock_guard<std::mutex> lock(mu_);
     // Submit this frame FIRST so the GPU never idles between frames...
     SDL_GPUFence* f = SDL_SubmitGPUCommandBufferAndAcquireFence(cmd);
+    { static const bool want = getenv("MD_GPU_WAITER") && getenv("MD_GPU_WAITER")[0] == '1'; if (want && f) { if (!waiter_on_) WaiterStart(); WaiterPost(f, SDL_GetTicksNS()); } }
     GpuFrameTimeline::Get().OnSubmit();
     cmd_buffer_active_ = false;
     // ...then retire the previous frame (wait for it to finish, then release the fence -- never release an unsignaled
     // fence, see Submit()'s doc comment / docs/SDLGPU_FENCE_OBJECT_LEAK_BUG.md).
     if (prev_fence_ && device_) {
         SDL_WaitForGPUFences(device_, true, &prev_fence_, 1);
+        WaiterRelease(prev_fence_);
         SDL_ReleaseGPUFence(device_, prev_fence_);
         GpuFrameTimeline::Get().OnFenceSignaled();
     }
@@ -194,6 +199,44 @@ void GpuDevice::SubmitFrame(SDL_GPUCommandBuffer* cmd) {
     if (!poll_done_ && poll_start_ns_) { poll_ms_ = (float)((double)(now - poll_start_ns_) / 1e6); poll_first_ = false; }   // not polled in time (no cap sleep): the wait above ended at the signal
     poll_start_ns_ = now; poll_checks_ = 0; poll_done_ = false;
     prev_fence_ = f;
+}
+
+void GpuDevice::WaiterStart() {
+    if (waiter_on_) return;
+    w_stop_ = false; w_head_ = 0; w_count_ = 0; w_busy_ = nullptr; w_last_signal_ns_ = 0; waiter_on_ = true;
+    w_thread_ = std::thread([this] {
+        for (;;) {
+            WaitItem it;
+            { std::unique_lock<std::mutex> lk(wm_); wcv_.wait(lk, [this] { return w_stop_ || w_count_ > 0; }); if (w_count_ == 0) return; it = w_ring_[w_head_]; w_busy_ = it.f; }
+            SDL_WaitForGPUFences(device_, true, &it.f, 1);   // no lock held: the main thread keeps submitting and retiring
+            const uint64_t t = SDL_GetTicksNS();
+            const uint64_t start = it.submit_ns > w_last_signal_ns_ ? it.submit_ns : w_last_signal_ns_;
+            waiter_ms_.store((float)((double)(t - start) / 1e6), std::memory_order_relaxed); w_last_signal_ns_ = t;
+            { std::lock_guard<std::mutex> lk(wm_); w_head_ = (w_head_ + 1) % kWaitRing; --w_count_; w_busy_ = nullptr; }
+            wcv_.notify_all();
+        }
+    });
+}
+
+void GpuDevice::WaiterStop() {
+    if (!waiter_on_) return;
+    { std::lock_guard<std::mutex> lk(wm_); w_stop_ = true; }
+    wcv_.notify_all();
+    if (w_thread_.joinable()) w_thread_.join();
+    waiter_on_ = false;
+}
+
+void GpuDevice::WaiterPost(SDL_GPUFence* f, uint64_t submit_ns) {
+    std::lock_guard<std::mutex> lk(wm_);
+    if (w_count_ == kWaitRing) return;   // the waiter is behind by 4 frames (cannot happen with 1 frame in flight): this frame is not timed, the fence is released as usual
+    w_ring_[(w_head_ + w_count_) % kWaitRing] = { f, submit_ns }; ++w_count_;
+    wcv_.notify_all();
+}
+
+void GpuDevice::WaiterRelease(SDL_GPUFence* f) {   // the fence is signalled (the caller just waited on it): the waiter wakes within microseconds; it must not touch a released fence
+    if (!waiter_on_ || !f) return;
+    std::unique_lock<std::mutex> lk(wm_);
+    wcv_.wait(lk, [&] { if (w_busy_ == f) return false; for (int i = 0; i < w_count_; ++i) if (w_ring_[(w_head_ + i) % kWaitRing].f == f) return false; return true; });
 }
 
 void GpuDevice::PollFrameFence() {
