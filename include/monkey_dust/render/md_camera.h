@@ -11,6 +11,9 @@
 #include <monkey_dust/platform/math_types.h>
 #include <monkey_dust/render/kenshi_sky.h>
 
+// Sub-pixel projection jitter in NDC (x, y), added by MdCamera::ProjMatrix; set once per frame by the SGSR 2 pass, zero otherwise.
+inline float g_proj_jitter_ndc[2] = { 0.f, 0.f };
+
 struct MdCamera {
     Vec3  pos;
     Vec3  target;
@@ -33,7 +36,12 @@ struct MdCamera {
 
     Mat4 ProjMatrix(float aspect) const {
         static constexpr float DEG2R = 0.01745329251f;
-        return mat4_perspective(fovy * DEG2R, aspect, 0.5f, md::ViewFarClipM());
+        Mat4 p = mat4_perspective(fovy * DEG2R, aspect, 0.5f, md::ViewFarClipM());
+        if (g_proj_jitter_ndc[0] != 0.f || g_proj_jitter_ndc[1] != 0.f) {   // temporal upscaler (SGSR 2): the clip position shifts by jitter * w; column-major [col 2][row 0 / 1] and [col 2][row 3]
+            float* m = const_cast<float*>(mat4_ptr(p));
+            m[8] += g_proj_jitter_ndc[0] * m[11]; m[9] += g_proj_jitter_ndc[1] * m[11];
+        }
+        return p;
     }
 
     inline void CamPosToArr(float out[3]) const {
