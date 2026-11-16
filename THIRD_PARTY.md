@@ -57,6 +57,12 @@ SOFTWARE.
 - Used for: the optional temporal upscale of dynres 0.6 (`shaders/sgsr2_convert.frag`, `shaders/sgsr2_upscale.frag`), a port of those fragment shaders to our SDL_GPU sets.
 - Licence: BSD-3-Clause, Copyright (c) 2024 Qualcomm Innovation Center, Inc.
 
+## AMD FidelityFX FSR 2 (MIT), ideas ported into the SGSR 2 shader
+
+- Source: <https://github.com/GPUOpen-Effects/FidelityFX-FSR2>, commit `1680d1edd5c034f88ebbbb793d8b88f8842cf804`, folder `src/ffx-fsr2-api/shaders` (read only; the checkout is kept outside git, `third_party/fsr2_ref/`, gitignored; no foreign binaries are run).
+- Used for: the variance box and history clip in YCoCg and the thin-feature lock in `shaders/sgsr2_upscale.frag` (`ffx_fsr2_common.h`, `ffx_fsr2_accumulate.h`, `ffx_fsr2_lock.h`), written in our own words; the RCAS after the upscale is the FSR 1 pass already listed above.
+- Licence: MIT, Copyright (c) 2022-2023 Advanced Micro Devices, Inc.
+
 ## AMD FidelityFX FSR 1 (MIT)
 
 - Source: <https://github.com/GPUOpen-Effects/FidelityFX-FSR>, tag `v1.0.2`, commit `a21ffb8f6c13233ba336352bdff293894c706575`.
