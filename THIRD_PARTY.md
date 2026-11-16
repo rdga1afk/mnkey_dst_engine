@@ -51,6 +51,12 @@ SOFTWARE.
 - Used for: the optional spatial upscale of #198 S1 (`shaders/sgsr1.frag`, `md.set_sgsr1`), a port of that fragment shader to our SDL_GPU sets. Only the licence is copied into `third_party/sgsr1/`.
 - Licence: `third_party/sgsr1/LICENSE.txt` (BSD-3-Clause, Copyright (c) 2023, Qualcomm Innovation Center, Inc.).
 
+## Qualcomm Snapdragon Game Super Resolution 2 (BSD-3-Clause)
+
+- Source: <https://github.com/SnapdragonStudios/snapdragon-gsr>, folder `sgsr/v2`, commit `d926f074bcb9d714e179f1ce0fcb9ee2eeb5074e`, variant `include/glsl_2_pass_fs` (convert + upscale fragment shaders). The checkout is kept outside git (`third_party/sgsr_ref/`, gitignored); no foreign binaries are run.
+- Used for: the optional temporal upscale of dynres 0.6 (`shaders/sgsr2_convert.frag`, `shaders/sgsr2_upscale.frag`), a port of those fragment shaders to our SDL_GPU sets.
+- Licence: BSD-3-Clause, Copyright (c) 2024 Qualcomm Innovation Center, Inc.
+
 ## AMD FidelityFX FSR 1 (MIT)
 
 - Source: <https://github.com/GPUOpen-Effects/FidelityFX-FSR>, tag `v1.0.2`, commit `a21ffb8f6c13233ba336352bdff293894c706575`.
