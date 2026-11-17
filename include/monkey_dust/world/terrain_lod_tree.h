@@ -23,6 +23,7 @@ struct TerrainLodParams {
     float max_render_distance = 4000.f; // nodes whose box is farther than this from the camera are dropped (the camera far plane)
     int   min_level = 4;                // coarsest drawn level
     int   max_level = 10;               // finest level (spacing 1.8 m)
+    bool  plugin_ramp = false;          // the far ramp as the plugin computes it (FUN_180003b30, proven in the emulator): the node value is multiplied by t * (near / far) + 1 - t, so the threshold between near_dist and far_dist is near / that factor (hyperbolic), not linear
 };
 
 struct TerrainLodNode {
@@ -38,6 +39,9 @@ struct TerrainLodNode {
     unsigned char edge_diff[4] = {0, 0, 0, 0};
     bool  stitched = false;
 };
+
+// The screen-error threshold at a distance (the ramp between near_dist and far_dist; plugin_ramp picks the plugin's shape).
+float TerrainLodThreshold(const TerrainLodParams& p, float distance);
 
 // Restricted quadtree (the plugin's neighbour rule, FUN_1800042c0): splits every selected leaf whose edge neighbour is more than max_diff levels coarser until none is, and fills edge_diff / stitched.
 // The plugin's limit is log2(patch cells) - 2 (Terrain helper +0xf0 = log2(N) - 1, a neighbour below own - (+0xf0) + 1 is split): 2 for 16-cell patches, 4 for 64 (edge_diff holds 3 at most, so callers pass <= 3).

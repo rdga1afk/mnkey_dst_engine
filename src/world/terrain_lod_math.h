@@ -29,6 +29,7 @@ inline float NodeDistance(const float cam[3], const NodeRef& n) {
 }
 inline float Threshold(const TerrainLodParams& p, float d) {
     const float t = std::min(std::max((d - p.near_dist) / std::max(p.far_dist - p.near_dist, 1.f), 0.f), 1.f);
+    if (p.plugin_ramp) return p.near_px / (t * (p.near_px / p.far_px) + (1.f - t));
     return p.near_px + (p.far_px - p.near_px) * t;
 }
 

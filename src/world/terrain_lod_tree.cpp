@@ -143,4 +143,6 @@ int TerrainLodTree::Select(const float cam[3], const float frustum_planes[16], c
     return count;
 }
 
+float TerrainLodThreshold(const TerrainLodParams& p, float distance) { return lodmath::Threshold(p, distance); }
+
 } // namespace md
