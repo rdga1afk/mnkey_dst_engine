@@ -17,7 +17,7 @@
  "codeRepository":"https://github.com/rdga1afk/mnkey_dst_engine",
  "runtimePlatform":"SDL3 / SDL_GPU (Vulkan)",
  "operatingSystem":"Linux",
- "license":"https://opensource.org/licenses/MIT"}
+ "license":"https://www.gnu.org/licenses/gpl-3.0.html"}
 </script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@400;600;800&family=Inter:wght@300;400;500&display=swap');
@@ -83,6 +83,9 @@
   .hero { background: linear-gradient(135deg, var(--bg2) 0%, var(--bg3) 100%); border: 1px solid var(--border); border-radius: 12px; padding: 32px; margin-bottom: 32px; }
   .version-badge { display: inline-block; background: rgba(79,156,255,.12); border: 1px solid rgba(79,156,255,.3); color: var(--accent); font-size: 12px; font-family: 'JetBrains Mono', monospace; padding: 4px 12px; border-radius: 20px; margin-bottom: 16px; }
   .hero-meta { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 16px; }
+  .hero-links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+  .hero-links a { display: inline-block; padding: 6px 14px; border: 1px solid var(--accent); border-radius: 6px; color: var(--accent); text-decoration: none; font-size: 13px; font-weight: 600; }
+  .hero-links a:hover { background: rgba(79,156,255,.12); }
   .hero-meta-item { font-size: 13px; color: var(--text-dim); display: flex; align-items: center; gap: 6px; }
   .dot { color: var(--accent); font-size: 8px; }
 
@@ -252,6 +255,10 @@
     <a href="#patterns"  class="nav-link"><span class="nav-icon">💡</span><span class="l-en">Code patterns</span><span class="l-uk">Патерни коду</span></a>
     <a href="#history"   class="nav-link"><span class="nav-icon">🕰️</span><span class="l-en">History: problems &amp; fixes</span><span class="l-uk">Історія: проблеми й рішення</span></a>
     <a href="#license"   class="nav-link"><span class="nav-icon">©</span><span class="l-en">Legal &amp; licences</span><span class="l-uk">Правове й ліцензії</span></a>
+    <div class="nav-section"><span class="l-en">Source</span><span class="l-uk">Код</span></div>
+    <a href="https://github.com/rdga1afk/mnkey_dst_engine" class="nav-link"><span class="nav-icon">⌨</span><span class="l-en">Engine source</span><span class="l-uk">Код рушія</span></a>
+    <a href="https://github.com/rdga1afk/mnkey_dst_tools" class="nav-link"><span class="nav-icon">⌨</span><span class="l-en">Game &amp; tools source</span><span class="l-uk">Код гри та інструментів</span></a>
+    <a href="https://github.com/rdga1afk/mnkey_dst_tools/releases" class="nav-link"><span class="nav-icon">📦</span><span class="l-en">Releases</span><span class="l-uk">Релізи</span></a>
   </nav>
 </div>
 
@@ -269,7 +276,11 @@
     <div class="hero-meta">
       <div class="hero-meta-item"><span class="dot">●</span><span class="l-en">Kenshi install required</span><span class="l-uk">Потрібна інсталяція Kenshi</span></div>
       <div class="hero-meta-item"><span class="dot">●</span><span class="l-en">Test platform:</span><span class="l-uk">Тестова платформа:</span> Intel HD 520</div>
-      <div class="hero-meta-item"><span class="dot">●</span>Engine: MIT · Tools: MIT · Game: <span class="l-en">proprietary</span><span class="l-uk">власницька</span></div>
+      <div class="hero-meta-item"><span class="dot">●</span>Engine: GPL-3.0 · Tools: GPL-3.0</div>
+    </div>
+    <div class="hero-links">
+      <a href="https://github.com/rdga1afk/mnkey_dst_engine"><span class="l-en">Engine source</span><span class="l-uk">Код рушія</span></a>
+      <a href="https://github.com/rdga1afk/mnkey_dst_tools"><span class="l-en">Game &amp; tools source</span><span class="l-uk">Код гри та інструментів</span></a>
     </div>
   </div>
 
@@ -284,7 +295,7 @@
     <ul>
       <li><b>Not a playable game yet.</b> No NPCs, combat, trade or UI from Kenshi. The early prototype game layer was removed on 2026-10-17; new game logic will be written from facts about Kenshi's systems.</li>
       <li><b>Not a Kenshi remake.</b> Kenshi is © Lo-Fi Games; this is an independent, unofficial project.</li>
-      <li><b>Nothing to download yet.</b> The engine library and, since 11.11, the game's source code are public (MIT); building the game on its own from the public repositories is not set up yet. Early Linux builds of the game will be published in the <a href="https://github.com/rdga1afk/mnkey_dst_tools/releases">Releases of the tools repository</a> (planned, date not set yet).</li>
+      <li><b>Nothing to download yet.</b> The engine library and, since 11.11, the game's source code are public (GPL-3.0-or-later; MIT until 17.11.2026); building the game on its own from the public repositories is not set up yet. Early Linux builds of the game will be published in the <a href="https://github.com/rdga1afk/mnkey_dst_tools/releases">Releases of the tools repository</a> (planned, date not set yet).</li>
     </ul>
   </div>
   <div class="l-uk">
@@ -298,7 +309,7 @@
     <ul>
       <li><b>Це не гра, в яку можна грати.</b> NPC, бою, торгівлі й інтерфейсу з Kenshi ще немає.</li>
       <li><b>Це не ремейк Kenshi.</b> Kenshi © Lo-Fi Games; це незалежний неофіційний проєкт.</li>
-      <li><b>Завантажити поки нічого.</b> Бібліотека рушія і, з 11.11, код гри публічні (MIT); самостійна збірка гри з публічних репозиторіїв ще не налаштована. Ранні збірки гри для Linux публікуватимуться в <a href="https://github.com/rdga1afk/mnkey_dst_tools/releases">релізах репозиторію інструментів</a> (заплановано, дату ще не визначено).</li>
+      <li><b>Завантажити поки нічого.</b> Бібліотека рушія і, з 11.11, код гри публічні (GPL-3.0-or-later; до 17.11.2026 — MIT); самостійна збірка гри з публічних репозиторіїв ще не налаштована. Ранні збірки гри для Linux публікуватимуться в <a href="https://github.com/rdga1afk/mnkey_dst_tools/releases">релізах репозиторію інструментів</a> (заплановано, дату ще не визначено).</li>
     </ul>
   </div>
 </section>
@@ -321,7 +332,7 @@
   <table>
     <tr><th><span class="l-en">Area</span><span class="l-uk">Напрям</span></th><th><span class="l-en">State</span><span class="l-uk">Стан</span></th></tr>
     <tr><td><span class="l-en">Latest (11.11)</span><span class="l-uk">Найновіше (11.11)</span></td>
-        <td><span class="badge done">done</span> <span class="l-en"><b>The game's source is now public</b> in the tools repository (MIT), moved with new commits only; all 17 pixel gates pass after the move, 339 / 339 fast unit tests, compiled shaders byte-identical. <b>Kenshi's own shader programs</b> (ground, main light, sky, moons, clouds) are compiled at run time from the player's install; nothing of Kenshi is in the repositories. <b>World layout from the install by default</b>: biomes from the FCS records, zones and their real origin from the install; a float-precision fix of the terrain camera. <b>Measured in motion at 1080p</b>: 27.5–31.3 ms at native, 17.1–19.7 ms at 0.75 render scale on three views; the frame is 70–81 % pixel-bound</span><span class="l-uk"><b>Код гри тепер публічний</b> у репозиторії інструментів (MIT), перенесено лише новими комітами; після переносу всі 17 піксельних воріт проходять, 339 / 339 швидких тестів, скомпільовані шейдери побайтово ті самі. <b>Власні шейдерні програми Kenshi</b> (ґрунт, головне світло, небо, місяці, хмари) компілюються під час запуску з інсталяції гравця; нічого з Kenshi в репозиторіях немає. <b>Розкладка світу з інсталяції за замовчуванням</b>: біоми з записів FCS, зони і їхній справжній початок координат з інсталяції; виправлено точність камери ландшафту. <b>Виміряно в русі при 1080p</b>: 27,5–31,3 мс нативно, 17,1–19,7 мс при масштабі 0,75 на трьох видах; кадр на 70–81 % залежить від кількості пікселів</span></td></tr>
+        <td><span class="badge done">done</span> <span class="l-en"><b>The game's source is now public</b> in the tools repository, moved with new commits only; all 17 pixel gates pass after the move, 339 / 339 fast unit tests, compiled shaders byte-identical. <b>Kenshi's own shader programs</b> (ground, main light, sky, moons, clouds) are compiled at run time from the player's install; nothing of Kenshi is in the repositories. <b>World layout from the install by default</b>: biomes from the FCS records, zones and their real origin from the install; a float-precision fix of the terrain camera. <b>Measured in motion at 1080p</b>: 27.5–31.3 ms at native, 17.1–19.7 ms at 0.75 render scale on three views; the frame is 70–81 % pixel-bound</span><span class="l-uk"><b>Код гри тепер публічний</b> у репозиторії інструментів, перенесено лише новими комітами; після переносу всі 17 піксельних воріт проходять, 339 / 339 швидких тестів, скомпільовані шейдери побайтово ті самі. <b>Власні шейдерні програми Kenshi</b> (ґрунт, головне світло, небо, місяці, хмари) компілюються під час запуску з інсталяції гравця; нічого з Kenshi в репозиторіях немає. <b>Розкладка світу з інсталяції за замовчуванням</b>: біоми з записів FCS, зони і їхній справжній початок координат з інсталяції; виправлено точність камери ландшафту. <b>Виміряно в русі при 1080p</b>: 27,5–31,3 мс нативно, 17,1–19,7 мс при масштабі 0,75 на трьох видах; кадр на 70–81 % залежить від кількості пікселів</span></td></tr>
     <tr><td><span class="l-en">FCS reader and writer (v15–v17, <code>mods.cfg</code> order, record merge)</span><span class="l-uk">Читач і запис FCS (v15–v17, порядок <code>mods.cfg</code>, злиття записів)</span></td>
         <td><span class="badge done">done</span> <span class="l-en">writer (v16 / v17) re-creates every installed file byte for byte (22.10); 20 481 records, 394 766 values, 0 mismatches against an independent dump; biomes from the merged data (mods applied)</span><span class="l-uk">20 481 запис, 394 766 значень, 0 розбіжностей з незалежним дампом; біоми зі злитих даних (з модами)</span></td></tr>
     <tr><td><span class="l-en">Heights from <code>fullmap.tif</code></span><span class="l-uk">Висоти з <code>fullmap.tif</code></span></td>
@@ -432,12 +443,12 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"   # optiona
   <h2><span class="l-en">Repositories</span><span class="l-uk">Репозиторії</span></h2>
   <table>
     <tr><th><span class="l-en">Repository</span><span class="l-uk">Репозиторій</span></th><th><span class="l-en">Access</span><span class="l-uk">Доступ</span></th><th><span class="l-en">Licence</span><span class="l-uk">Ліцензія</span></th><th><span class="l-en">Contents</span><span class="l-uk">Вміст</span></th></tr>
-    <tr><td><a href="https://github.com/rdga1afk/mnkey_dst_engine">mnkey_dst_engine</a></td><td><span class="l-en">public</span><span class="l-uk">публічний</span></td><td>MIT</td><td><span class="l-en">engine library: Kenshi data readers, renderer, world, ECS, physics</span><span class="l-uk">бібліотека рушія: читачі даних Kenshi, рендер, світ, ECS, фізика</span></td></tr>
-    <tr><td><a href="https://github.com/rdga1afk/mnkey_dst_tools">mnkey_dst_tools</a></td><td><span class="l-en">public</span><span class="l-uk">публічний</span></td><td>MIT</td><td><span class="l-en">since 11.11 the game source (<code>game/</code>, <code>shaders/</code>, <code>tests/</code>), editor, measurement/QA scripts, offline converters; Releases: early Linux builds of the game (planned)</span><span class="l-uk">з 11.11 код гри (<code>game/</code>, <code>shaders/</code>, <code>tests/</code>), редактор, скрипти замірів і QA, офлайн-конвертери; релізи: ранні збірки гри для Linux (заплановано)</span></td></tr>
-    <tr><td>mnkey_dst</td><td><span class="l-en">private</span><span class="l-uk">приватний</span></td><td><span class="l-en">proprietary</span><span class="l-uk">власницька</span></td><td><span class="l-en">pixel gates and reference frames, oracles, research, the 15 translated Kenshi shaders (private overlay), Kenshi-derived data; the two above are its submodules (<code>engine/</code>, <code>tools/</code>)</span><span class="l-uk">піксельні ворота й еталони, оракули, дослідження, 15 перекладених шейдерів Kenshi (приватна накладка), дані, похідні від Kenshi; два репо вище — його підмодулі (<code>engine/</code>, <code>tools/</code>)</span></td></tr>
+    <tr><td><a href="https://github.com/rdga1afk/mnkey_dst_engine">mnkey_dst_engine</a></td><td><span class="l-en">public</span><span class="l-uk">публічний</span></td><td>GPL-3.0-or-later</td><td><span class="l-en">engine library: Kenshi data readers, renderer, world, ECS, physics</span><span class="l-uk">бібліотека рушія: читачі даних Kenshi, рендер, світ, ECS, фізика</span></td></tr>
+    <tr><td><a href="https://github.com/rdga1afk/mnkey_dst_tools">mnkey_dst_tools</a></td><td><span class="l-en">public</span><span class="l-uk">публічний</span></td><td>GPL-3.0-or-later</td><td><span class="l-en">since 11.11 the game source (<code>game/</code>, <code>shaders/</code>, <code>tests/</code>), editor, measurement/QA scripts, offline converters; Releases: early Linux builds of the game (planned)</span><span class="l-uk">з 11.11 код гри (<code>game/</code>, <code>shaders/</code>, <code>tests/</code>), редактор, скрипти замірів і QA, офлайн-конвертери; релізи: ранні збірки гри для Linux (заплановано)</span></td></tr>
+    <tr><td>mnkey_dst</td><td><span class="l-en">private</span><span class="l-uk">приватний</span></td><td><span class="l-en">private</span><span class="l-uk">приватна</span></td><td><span class="l-en">pixel gates and reference frames, oracles, research, the 15 translated Kenshi shaders (private overlay), Kenshi-derived data; the two above are its submodules (<code>engine/</code>, <code>tools/</code>)</span><span class="l-uk">піксельні ворота й еталони, оракули, дослідження, 15 перекладених шейдерів Kenshi (приватна накладка), дані, похідні від Kenshi; два репо вище — його підмодулі (<code>engine/</code>, <code>tools/</code>)</span></td></tr>
   </table>
-  <p class="l-en">Dependency direction: <code>game → tools → engine</code>. The engine never includes from <code>game/</code> or <code>tools/</code>; <code>tools/</code> never includes from <code>game/</code>.</p>
-  <p class="l-uk">Напрям залежностей: <code>game → tools → engine</code>. Рушій ніколи не включає файли з <code>game/</code> чи <code>tools/</code>; <code>tools/</code> — з <code>game/</code>.</p>
+  <p class="l-en">Dependency direction: <code>tools/game → tools → engine</code> (the game code lives in <code>tools/game</code>). The engine never includes from <code>game/</code> or <code>tools/</code>; <code>tools/</code> never includes from <code>game/</code>.</p>
+  <p class="l-uk">Напрям залежностей: <code>tools/game → tools → engine</code> (код гри живе в <code>tools/game</code>). Рушій ніколи не включає файли з <code>game/</code> чи <code>tools/</code>; <code>tools/</code> — з <code>game/</code>.</p>
 </section>
 
 <!-- ═══ DATA FLOW ═══ -->
@@ -573,8 +584,8 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"   # optiona
 <!-- ═══ TOOLS ═══ -->
 <section class="doc-section" id="tools">
   <h2><span class="l-en">Editor &amp; tools</span><span class="l-uk">Редактор та інструменти</span></h2>
-  <p class="l-en">The <a href="https://github.com/rdga1afk/mnkey_dst_tools">tools repository</a> (MIT) holds the standalone <code>monkey_dust_editor</code> (Dear ImGui): a Kenshi-style character editor (body sliders scale bones, as Kenshi does), a Settings tab (upscaling mode, <code>resolution_scale</code>, terrain chunk size), a 3D world view and inspectors. It also holds shader hot-reload, the live game command driver used for all measurements, offline converters, and two small local MCP servers for development (read-only Ghidra project access, headless RenderDoc capture reading; no network code).</p>
-  <p class="l-uk"><a href="https://github.com/rdga1afk/mnkey_dst_tools">Репозиторій інструментів</a> (MIT) містить окремий <code>monkey_dust_editor</code> (Dear ImGui): редактор персонажів у стилі Kenshi (слайдери тіла масштабують кістки, як у Kenshi), вкладку Settings (режим масштабування, <code>resolution_scale</code>, розмір патча ландшафту), 3D-перегляд світу й інспектори. Також гаряче перезавантаження шейдерів, драйвер гри для всіх замірів, офлайн-конвертери і два невеликі локальні MCP-сервери для розробки (лише читання проєкту Ghidra, читання захоплень RenderDoc без інтерфейсу; без мережевого коду).</p>
+  <p class="l-en">The <a href="https://github.com/rdga1afk/mnkey_dst_tools">tools repository</a> (GPL-3.0-or-later) holds the standalone <code>monkey_dust_editor</code> (Dear ImGui): a Kenshi-style character editor (body sliders scale bones, as Kenshi does), a Settings tab (upscaling mode, <code>resolution_scale</code>, terrain chunk size), a 3D world view and inspectors. It also holds shader hot-reload, the live game command driver used for all measurements, offline converters, and two small local MCP servers for development (read-only Ghidra project access, headless RenderDoc capture reading; no network code).</p>
+  <p class="l-uk"><a href="https://github.com/rdga1afk/mnkey_dst_tools">Репозиторій інструментів</a> (GPL-3.0-or-later) містить окремий <code>monkey_dust_editor</code> (Dear ImGui): редактор персонажів у стилі Kenshi (слайдери тіла масштабують кістки, як у Kenshi), вкладку Settings (режим масштабування, <code>resolution_scale</code>, розмір патча ландшафту), 3D-перегляд світу й інспектори. Також гаряче перезавантаження шейдерів, драйвер гри для всіх замірів, офлайн-конвертери і два невеликі локальні MCP-сервери для розробки (лише читання проєкту Ghidra, читання захоплень RenderDoc без інтерфейсу; без мережевого коду).</p>
 </section>
 
 <!-- ═══ RULES ═══ -->
@@ -584,7 +595,7 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"   # optiona
     <h3>Kenshi data and third-party code</h3>
     <ul>
       <li>No Kenshi files in public repositories or releases.</li>
-      <li>Kenshi's own code (shaders, executable) is never copied. Behaviour is ported from permissively licensed open-source code (attributed in THIRD_PARTY.md) or re-implemented from facts; parity is checked against Kenshi's own code, not only against screenshots.</li>
+      <li>Kenshi's own code (shaders, executable) is never copied. Behaviour is ported from compatibly licensed open-source code (attributed in THIRD_PARTY.md) or re-implemented from facts; parity is checked against Kenshi's own code, not only against screenshots.</li>
       <li>Every claim about Kenshi is backed by its code or data (address, file and line, or a number), not by screenshots.</li>
     </ul>
     <h3>Code</h3>
@@ -599,7 +610,7 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"   # optiona
     <h3>Дані Kenshi і сторонній код</h3>
     <ul>
       <li>Жодних файлів Kenshi в публічних репозиторіях і релізах.</li>
-      <li>Власний код Kenshi (шейдери, виконуваний файл) не копіюється. Поведінка переноситься з відкритого коду з дозвільною ліцензією (атрибуція в THIRD_PARTY.md) або відтворюється за фактами; паритет перевіряється за кодом самої Kenshi, а не лише за скриншотами.</li>
+      <li>Власний код Kenshi (шейдери, виконуваний файл) не копіюється. Поведінка переноситься з відкритого коду зі сумісною ліцензією (атрибуція в THIRD_PARTY.md) або відтворюється за фактами; паритет перевіряється за кодом самої Kenshi, а не лише за скриншотами.</li>
       <li>Кожне твердження про Kenshi підтверджується її кодом або даними (адреса, файл і рядок, число), а не скриншотами.</li>
     </ul>
     <h3>Код</h3>
@@ -659,7 +670,12 @@ pipeline.Create(d);   // checked by gpu_pipeline_safety_check.h first</code></pr
     <tr><td>2026-11-14 – 15</td><td><span class="l-en">Edge shimmer below scale 0.75; can a better upscaler buy back resolution?</span><span class="l-uk">Мерехтіння країв нижче масштабу 0,75; чи поверне роздільність кращий апскейлер?</span></td><td><span class="l-en">SGSR 1, FSR 1 and sharpening off at 0.5 / 0.67 / 0.75, FLIP against native and a temporal edge-flicker metric</span><span class="l-uk">SGSR 1, FSR 1 і без різкості на 0,5 / 0,67 / 0,75, FLIP проти нативного кадру й метрика мерехтіння країв</span></td><td><span class="l-en">0.5 + SGSR 1 is worse than 0.67 (FLIP 0.105 vs 0.073) and not better than plain 0.5; FSR 1 costs +4 ms; sharpening off flickers least by the metric. The owner chooses by eye</span><span class="l-uk">0,5 + SGSR 1 гірше за 0,67 (FLIP 0,105 проти 0,073) і не краще за звичайне 0,5; FSR 1 коштує +4 мс; без різкості мерехтить найменше за метрикою. Вибирає власник на око</span></td></tr>
     <tr><td>2026-11-15</td><td><span class="l-en">Dynamic resolution needs the real GPU time; SDL_GPU has no timestamp queries</span><span class="l-uk">Динамічній роздільності потрібен справжній час GPU; у SDL_GPU немає запитів часу</span></td><td><span class="l-en">Fence polling (failed under the 60 FPS cap), then a waiter thread; dynres v3: an IRLS-Huber model on Dagor's controller</span><span class="l-uk">Опитування фенса (не спрацювало під обмеженням 60 FPS), потім окремий потік; dynres v3: модель IRLS-Huber на регуляторі Dagor</span></td><td><span class="l-en">Missed frames 0.3–0.6 % → 0–0.1 % at the same frame time; mean moving scale on the street 0.67 → 0.77 (behind a switch, the owner decides)</span><span class="l-uk">Пропущені кадри 0,3–0,6 % → 0–0,1 % при тому самому часі кадру; середній масштаб у русі на вулиці 0,67 → 0,77 (за перемикачем, вирішує власник)</span></td></tr>
     <tr><td>2026-11-15</td><td><span class="l-en">Is our engine built like the references?</span><span class="l-uk">Чи побудований наш рушій як еталонні?</span></td><td><span class="l-en">Audit of 19 subsystems against OGRE 1.9, ogre-next and Dagor; then mesh LOD, occlusion for all objects, grass from the exe</span><span class="l-uk">Аудит 19 підсистем проти OGRE 1.9, ogre-next і Dagor; потім LOD мешів, відсікання для всіх об'єктів, трава з exe</span></td><td><span class="l-en">Mesh LOD gives 0 in the Hub (first switch at 400 m, objects drawn to 300 m); occlusion culls &lt; 5 % in the open Hub streets (and town draws had never been tested against depth); grass placement ported from the exe with a closed-form check. Water reflection and shadows wait for a frame graph</span><span class="l-uk">LOD мешів у Хабі дає 0 (перше перемикання на 400 м, об'єкти до 300 м); відсікання у відкритих вулицях Хабу &lt; 5 % (а міські об'єкти взагалі не перевірялися за глибиною); розміщення трави перенесено з exe з перевіркою формулою. Відображення води й тіні чекають на граф кадру</span></td></tr>
-    <tr><td>next</td><td><span class="l-en">Formal acceptance 19.11.2026</span><span class="l-uk">Формальне приймання 19.11.2026</span></td><td><span class="l-en">Grass, particles, blood decals, frame graph; the scale is chosen on the 19.11 numbers (1.0 / 0.75 / 0.67)</span><span class="l-uk">Трава, частинки, плями крові, граф кадру; масштаб вибираємо за числами 19.11 (1,0 / 0,75 / 0,67)</span></td><td><span class="l-en">After 19.11: one engine standard from OGRE 1.9 / Dagor / ogre-next, dynamic resolution, full reading of the original's functions</span><span class="l-uk">Після 19.11: єдиний стандарт рушія з OGRE 1.9 / Dagor / ogre-next, динамічна роздільність, повне читання функцій оригіналу</span></td></tr>
+    <tr><td>2026-11-16 – 17</td><td><span class="l-en">Terrain must behave like the original terrain module</span><span class="l-uk">Ландшафт має поводитися як оригінальний модуль ландшафту</span></td><td><span class="l-en">Restricted quadtree, border snap to the coarser lattice, no skirts or geomorph; the far LOD ramp and the edge tie are checked against the original's own functions run in a CPU emulator</span><span class="l-uk">Обмежене квадродерево, прив'язка меж до грубішої сітки, без спідниць і геоморфінгу; дальня рампа LOD і зв'язок країв перевірені проти власних функцій оригіналу в емуляторі процесора</span></td><td><span class="l-en">Proven since 17.11</span><span class="l-uk">Доведено з 17.11</span></td></tr>
+    <tr><td>2026-11-16 – 17</td><td><span class="l-en">Render scale below 1.0</span><span class="l-uk">Масштаб рендеру нижче 1,0</span></td><td><span class="l-en">HiAlgo-style chain: FXAA, stair blur, neighbour-clamped upscale, clamped sharpening; dynamic resolution v0.7</span><span class="l-uk">Ланцюг у стилі HiAlgo: FXAA, розмиття сходинок, апскейл із обмеженням сусідами, обмежене загострення; динамічна роздільність v0.7</span></td><td><span class="l-en">In use</span><span class="l-uk">Використовується</span></td></tr>
+    <tr><td>2026-11-17</td><td><span class="l-en">Fog distance</span><span class="l-uk">Дальність туману</span></td><td><span class="l-en">Taken from the original's view-distance setting (×10) instead of the far-clip value</span><span class="l-uk">Береться з налаштування дальності огляду оригіналу (×10) замість значення дальньої відсічки</span></td><td><span class="l-en">Done</span><span class="l-uk">Зроблено</span></td></tr>
+    <tr><td>2026-11-17</td><td><span class="l-en">How we check changes</span><span class="l-uk">Як ми перевіряємо зміни</span></td><td><span class="l-en">Every change is checked against the original's code, run in a CPU emulator where possible; frame comparisons are only a final check</span><span class="l-uk">Кожна зміна перевіряється проти коду оригіналу, за можливості в емуляторі процесора; порівняння кадрів — лише остаточна перевірка</span></td><td><span class="l-en">Method</span><span class="l-uk">Метод</span></td></tr>
+    <tr><td>2026-11-17</td><td><span class="l-en">Licence</span><span class="l-uk">Ліцензія</span></td><td><span class="l-en">Engine and tools move to GPL-3.0-or-later; MIT until 17.11.2026, copies taken before that keep MIT</span><span class="l-uk">Рушій та інструменти переходять на GPL-3.0-or-later; MIT до 17.11.2026, раніше взяті копії лишаються під MIT</span></td><td><span class="l-en">Done</span><span class="l-uk">Зроблено</span></td></tr>
+    <tr><td>next</td><td><span class="l-en">Formal acceptance 19.11.2026</span><span class="l-uk">Формальне приймання 19.11.2026</span></td><td><span class="l-en">Acceptance 19.11 covers terrain, sky / light / fog, grass and post / resolution; results go up after 19.11. Then: particles, blood decals, frame graph; the scale is chosen on the 19.11 numbers (1.0 / 0.75 / 0.67)</span><span class="l-uk">Трава, частинки, плями крові, граф кадру; масштаб вибираємо за числами 19.11 (1,0 / 0,75 / 0,67)</span></td><td><span class="l-en">After 19.11: one engine standard from OGRE 1.9 / Dagor / ogre-next, dynamic resolution, full reading of the original's functions</span><span class="l-uk">Після 19.11: єдиний стандарт рушія з OGRE 1.9 / Dagor / ogre-next, динамічна роздільність, повне читання функцій оригіналу</span></td></tr>
 </table>
 </section>
 
@@ -672,9 +688,8 @@ pipeline.Create(d);   // checked by gpu_pipeline_safety_check.h first</code></pr
     <p>Kenshi — торгова марка Lo-Fi Games. Проєкт не пов'язаний з Lo-Fi Games і не схвалений ними. Файли гри не поширюються; потрібна власна копія.</p></div>
   <table>
     <tr><th><span class="l-en">Component</span><span class="l-uk">Компонент</span></th><th><span class="l-en">Licence</span><span class="l-uk">Ліцензія</span></th><th><span class="l-en">Use</span><span class="l-uk">Використання</span></th></tr>
-    <tr><td><code>engine/</code></td><td>MIT</td><td><span class="l-en">public</span><span class="l-uk">публічний</span></td></tr>
-    <tr><td><code>tools/</code></td><td>MIT</td><td><span class="l-en">public</span><span class="l-uk">публічний</span></td></tr>
-    <tr><td><span class="l-en">game</span><span class="l-uk">гра</span></td><td><span class="l-en">proprietary</span><span class="l-uk">власницька</span></td><td><span class="l-en">private</span><span class="l-uk">приватний</span></td></tr>
+    <tr><td><code>engine/</code></td><td>GPL-3.0-or-later <span class="l-en">(MIT until 17.11.2026)</span><span class="l-uk">(до 17.11.2026 — MIT)</span></td><td><span class="l-en">public</span><span class="l-uk">публічний</span></td></tr>
+    <tr><td><code>tools/</code></td><td>GPL-3.0-or-later <span class="l-en">(MIT until 17.11.2026)</span><span class="l-uk">(до 17.11.2026 — MIT)</span></td><td><span class="l-en">public</span><span class="l-uk">публічний</span></td></tr>
     <tr><td>SDL3 + SDL_GPU</td><td>zlib</td><td><span class="l-en">window, input, rendering</span><span class="l-uk">вікно, ввід, рендер</span></td></tr>
     <tr><td>gaia-ecs 1.0.0</td><td>MIT</td><td>ECS</td></tr>
     <tr><td>Jolt Physics</td><td>MIT</td><td><span class="l-en">physics</span><span class="l-uk">фізика</span></td></tr>

@@ -15,7 +15,7 @@ summary: "Public engine README (EN + UA): native Linux engine that renders Kensh
 
 Not related to the Dust rendering mod for Kenshi on Windows.
 
-[English](#english) · [Українською](#українською) · [Docs site](https://rdga1afk.github.io/mnkey_dst_engine/)
+[English](#english) · [Українською](#українською) · Project page: https://rdga1afk.github.io/mnkey_dst_engine/ · Game & tools: [mnkey_dst_tools](https://github.com/rdga1afk/mnkey_dst_tools)
 
 ---
 
@@ -32,13 +32,13 @@ Not related to the Dust rendering mod for Kenshi on Windows.
 ### What this is not (yet)
 - **Not a playable game yet.** No NPCs, combat, trade or UI from Kenshi. An earlier prototype game layer (AI, combat, saves, building, Flare) was removed on 2026-10-17; the new game logic will be written from scratch, following facts about Kenshi's own systems.
 - **Not a Kenshi replacement or a remake.** Kenshi is © Lo-Fi Games. This is an independent, unofficial engine.
-- **There is nothing to download and play yet.** Since 11.11.2026 the game's source code is public in [`mnkey_dst_tools`](https://github.com/rdga1afk/mnkey_dst_tools) (MIT); building it on its own from the public repositories is not set up yet. This repository is the engine library.
+- **There is nothing to download and play yet.** Since 11.11.2026 the game's source code is public in [`mnkey_dst_tools`](https://github.com/rdga1afk/mnkey_dst_tools) (GPL-3.0-or-later); building it on its own from the public repositories is not set up yet. This repository is the engine library.
 
 ### Status (2026-11-11)
 
 | Area | State |
 |---|---|
-| **Latest (11.11)** | **The game's source code moved to the public tools repo (MIT)**, new commits only; all 17 pixel gates pass after the move, 339 / 339 fast unit tests, compiled shaders byte-identical. **Kenshi's own shader programs** (ground `terrainfp4`, main light `deferred.hlsl`, sky, moons, clouds) are compiled at run time from the player's install; nothing of Kenshi is in the repositories. **World layout from the install by default:** biomes from the FCS records, zones and their real origin from the install; a float-precision fix of the terrain camera. **Measured in motion at 1080p:** 27.5 / 27.8 / 31.3 ms at native on three views, 17.7 / 17.1 / 19.7 ms at 0.75 render scale; the frame is 70–81 % pixel-bound |
+| **Latest (11.11)** | **The game's source code moved to the public tools repo**, new commits only; all 17 pixel gates pass after the move, 339 / 339 fast unit tests, compiled shaders byte-identical. **Kenshi's own shader programs** (ground `terrainfp4`, main light `deferred.hlsl`, sky, moons, clouds) are compiled at run time from the player's install; nothing of Kenshi is in the repositories. **World layout from the install by default:** biomes from the FCS records, zones and their real origin from the install; a float-precision fix of the terrain camera. **Measured in motion at 1080p:** 27.5 / 27.8 / 31.3 ms at native on three views, 17.7 / 17.1 / 19.7 ms at 0.75 render scale; the frame is 70–81 % pixel-bound |
 | FCS reader and writer (`.base`/`.mod` v15–v17, `mods.cfg` load order, record merge) | **Done.** Writer (v16 / v17) re-creates every installed file byte for byte (22.10). Checked on a real install: 20 481 records, 394 766 values, 0 mismatches against an independent dump. Biomes come from the merged data (mod overrides applied) |
 | Heightmap from `fullmap.tif` (16385², uint16) | **Done.** 68 161 536 heights, 0 differences. Near the camera a 1.8 m window (Kenshi's own grid), streamed on a background thread; further away every 2nd sample (3.6 m) |
 | `biomemap`, `blendmap`, `ambientmap`, ground textures | **Done.** Read from the install; textures are found by file name the way Ogre does it |
@@ -124,9 +124,9 @@ An honest log of what went wrong, what we tried and what the numbers said is on 
 
 | Repository | Visibility | Licence | Contents |
 |---|---|---|---|
-| [`mnkey_dst_engine`](https://github.com/rdga1afk/mnkey_dst_engine) (this) | public | MIT | Engine library: Kenshi data readers, renderer, world, ECS, physics |
-| [`mnkey_dst_tools`](https://github.com/rdga1afk/mnkey_dst_tools) | public | MIT | Editor, QA/measurement scripts, offline converters; **Releases: early Linux builds of the game** (planned, date not set yet) |
-| `mnkey_dst` | private | proprietary | Game executable, shaders, tests, research. Includes the two above as submodules |
+| [`mnkey_dst_engine`](https://github.com/rdga1afk/mnkey_dst_engine) (this) | public | GPL-3.0-or-later | Engine library: Kenshi data readers, renderer, world, ECS, physics |
+| [`mnkey_dst_tools`](https://github.com/rdga1afk/mnkey_dst_tools) | public | GPL-3.0-or-later | Game source (`game/`), editor, QA/measurement scripts, offline converters; **Releases: early Linux builds of the game** (planned, date not set yet) |
+| `mnkey_dst` | private | — | Research, documents, pixel gates and reference frames; includes the two above as submodules |
 
 **Data flow at startup:**
 ```
@@ -164,8 +164,8 @@ index.html             documentation site (GitHub Pages)
 ### Legal and third-party code
 - **Kenshi** is a trademark of Lo-Fi Games. This project is not affiliated with or endorsed by Lo-Fi Games. No game files are distributed; you need your own copy.
 - Third-party code and its licences: [THIRD_PARTY.md](THIRD_PARTY.md).
-- Kenshi's own code (shaders, executable) is never copied. Where parity is needed, behaviour is ported from permissively licensed open-source code (attributed in [THIRD_PARTY.md](THIRD_PARTY.md)) or re-implemented from facts.
-- **Licence:** MIT, see [LICENSE](LICENSE). The game executable and its sources are proprietary and not part of this repository.
+- Kenshi's own code (shaders, executable) is never copied. Where parity is needed, behaviour is ported from compatibly licensed open-source code (attributed in [THIRD_PARTY.md](THIRD_PARTY.md)) or re-implemented from facts.
+- **Licence:** GPL-3.0-or-later, see [LICENSE](LICENSE) (GPL-3.0 text; "or any later version" applies). MIT until 17.11.2026; copies taken before that keep MIT. The game's source code is in the tools repository, under the same licence.
 
 ---
 
@@ -182,13 +182,13 @@ index.html             documentation site (GitHub Pages)
 ### Чим це (поки) не є
 - **Це ще не гра, в яку можна грати.** NPC, бою, торгівлі й інтерфейсу з Kenshi немає. Ранній прототип ігрового шару (ШІ, бій, збереження, будівництво, Flare) видалено 17.10.2026; нову ігрову логіку пишемо з нуля за фактами про системи самої Kenshi.
 - **Це не заміна і не ремейк Kenshi.** Kenshi © Lo-Fi Games. Це незалежний неофіційний рушій.
-- **Завантажити й зіграти поки нічого.** З 11.11.2026 код гри публічний у [`mnkey_dst_tools`](https://github.com/rdga1afk/mnkey_dst_tools) (MIT); самостійна збірка з публічних репозиторіїв ще не налаштована. Тут — бібліотека рушія.
+- **Завантажити й зіграти поки нічого.** З 11.11.2026 код гри публічний у [`mnkey_dst_tools`](https://github.com/rdga1afk/mnkey_dst_tools) (GPL-3.0-or-later); самостійна збірка з публічних репозиторіїв ще не налаштована. Тут — бібліотека рушія.
 
 ### Стан (11.11.2026)
 
 | Напрям | Стан |
 |---|---|
-| **Найновіше (11.11)** | **Код гри перенесено в публічне репо tools (MIT)**, лише новими комітами; після переносу всі 17 піксельних воріт проходять, 339 / 339 швидких тестів, скомпільовані шейдери побайтово ті самі. **Власні шейдерні програми Kenshi** (ґрунт `terrainfp4`, головне світло `deferred.hlsl`, небо, місяці, хмари) компілюються під час запуску з інсталяції гравця; нічого з Kenshi в репозиторіях немає. **Розкладка світу з інсталяції за замовчуванням:** біоми з записів FCS, зони і їхній справжній початок координат з інсталяції; виправлено точність камери ландшафту. **Виміряно в русі при 1080p:** 27,5 / 27,8 / 31,3 мс нативно на трьох видах, 17,7 / 17,1 / 19,7 мс при масштабі 0,75; кадр на 70–81 % залежить від кількості пікселів |
+| **Найновіше (11.11)** | **Код гри перенесено в публічне репо tools**, лише новими комітами; після переносу всі 17 піксельних воріт проходять, 339 / 339 швидких тестів, скомпільовані шейдери побайтово ті самі. **Власні шейдерні програми Kenshi** (ґрунт `terrainfp4`, головне світло `deferred.hlsl`, небо, місяці, хмари) компілюються під час запуску з інсталяції гравця; нічого з Kenshi в репозиторіях немає. **Розкладка світу з інсталяції за замовчуванням:** біоми з записів FCS, зони і їхній справжній початок координат з інсталяції; виправлено точність камери ландшафту. **Виміряно в русі при 1080p:** 27,5 / 27,8 / 31,3 мс нативно на трьох видах, 17,7 / 17,1 / 19,7 мс при масштабі 0,75; кадр на 70–81 % залежить від кількості пікселів |
 | Читач і запис FCS (`.base`/`.mod` v15–v17, порядок `mods.cfg`, злиття записів) | **Готово.** Запис (v16 / v17) відтворює кожен встановлений файл байт у байт (22.10). Перевірено на справжній інсталяції: 20 481 запис, 394 766 значень, 0 розбіжностей з незалежним дампом. Біоми — зі злитих даних (з модами) |
 | Карта висот з `fullmap.tif` (16385², uint16) | **Готово.** 68 161 536 висот, 0 відмінностей. Біля камери — вікно 1,8 м (сітка самої Kenshi), підвантажується у фоновому потоці; далі — кожен 2-й відлік (3,6 м) |
 | `biomemap`, `blendmap`, `ambientmap`, текстури ґрунту | **Готово.** Читаються з інсталяції; текстури шукаються за іменем файлу, як в Ogre |
@@ -272,9 +272,9 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"   # тек�
 
 | Репозиторій | Доступ | Ліцензія | Вміст |
 |---|---|---|---|
-| [`mnkey_dst_engine`](https://github.com/rdga1afk/mnkey_dst_engine) (цей) | публічний | MIT | Бібліотека рушія: читачі даних Kenshi, рендер, світ, ECS, фізика |
-| [`mnkey_dst_tools`](https://github.com/rdga1afk/mnkey_dst_tools) | публічний | MIT | Редактор, скрипти замірів і QA, офлайн-конвертери; **релізи: ранні збірки гри для Linux** (заплановано, дату ще не визначено) |
-| `mnkey_dst` | приватний | власницька | Виконуваний файл гри, шейдери, тести, дослідження. Два репо вище — його підмодулі |
+| [`mnkey_dst_engine`](https://github.com/rdga1afk/mnkey_dst_engine) (цей) | публічний | GPL-3.0-or-later | Бібліотека рушія: читачі даних Kenshi, рендер, світ, ECS, фізика |
+| [`mnkey_dst_tools`](https://github.com/rdga1afk/mnkey_dst_tools) | публічний | GPL-3.0-or-later | Код гри (`game/`), редактор, скрипти замірів і QA, офлайн-конвертери; **релізи: ранні збірки гри для Linux** (заплановано, дату ще не визначено) |
+| `mnkey_dst` | приватний | — | Дослідження, документи, піксельні ворота й еталонні кадри; містить два репо вище як підмодулі |
 
 **Потік даних під час запуску:** див. схему в англійському розділі вище: інсталяція Kenshi (лише читання) → `io/` → `world/` (атлас 3,6 м + вікно 1,8 м біля камери) → `render/` (LOD → 8-байтовий G-буфер → шейдер ґрунту Kenshi) → SDL_GPU / Vulkan.
 
@@ -293,5 +293,5 @@ export KENSHI_DIR="$HOME/.local/share/Steam/steamapps/common/Kenshi"   # тек�
 ### Правове
 - **Kenshi** — торгова марка Lo-Fi Games. Проєкт не пов'язаний з Lo-Fi Games і не схвалений ними. Файли гри не поширюються; потрібна власна копія.
 - Сторонній код і його ліцензії: [THIRD_PARTY.md](THIRD_PARTY.md).
-- Власний код Kenshi (шейдери, виконуваний файл) не копіюється. Де потрібен паритет, поведінка переноситься з відкритого коду з дозвільною ліцензією (атрибуція в [THIRD_PARTY.md](THIRD_PARTY.md)) або відтворюється за фактами.
-- **Ліцензія:** MIT, див. [LICENSE](LICENSE). Виконуваний файл гри і його код — власницькі й не входять до цього репозиторію.
+- Власний код Kenshi (шейдери, виконуваний файл) не копіюється. Де потрібен паритет, поведінка переноситься з відкритого коду зі сумісною ліцензією (атрибуція в [THIRD_PARTY.md](THIRD_PARTY.md)) або відтворюється за фактами.
+- **Ліцензія:** GPL-3.0-or-later, див. [LICENSE](LICENSE) (текст GPL-3.0; діє «або будь-яка пізніша версія»). MIT — до 17.11.2026; копії, взяті раніше, лишаються під MIT. Код гри — в репозиторії tools, під тією ж ліцензією.

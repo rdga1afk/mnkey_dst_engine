@@ -88,6 +88,9 @@ Process skill only, no code in the binaries. `.claude/skills/pdca/UPSTREAM.md` i
 ## GFXReconstruct (MIT, dev tool only)
 - LunarG GFXReconstruct, tag `vulkan-sdk-1.4.363.0` (https://github.com/LunarG/gfxreconstruct), built by hand in `temp_/gfxr/` for Vulkan capture / replay of the frame-cost scenes. Not linked into the game, not in the release. Captures contain Kenshi data and are never committed or uploaded.
 
+## Licence of this repository and compatibility (17.11.2026)
+This repository is GPL-3.0-or-later since 17.11.2026 (MIT before; copies taken earlier keep MIT). Every library below is under a licence that allows use in a GPL-3.0-or-later work: MIT, MIT-0, zlib-style, public domain, Happy Bunny / MIT (glm). The font files (Arimo: SIL OFL 1.1; Ubuntu Mono: Ubuntu Font Licence 1.0) are data shipped next to the code, not linked code, and keep their own licences. Dear ImGui Test Engine (its own licence) is tests-only: it is compiled only with `-DMD_UI_TESTS=ON`, which is OFF by default and never set for a release build (`tools/cmake/standalone.cmake`, root `CMakeLists.txt`).
+
 ## Vendored libraries (attribution table, 11.11.2026; versions and licence texts read from the pinned sources)
 Submodules are pinned by the commit shown; "licence text" is the file in the tree, or "in header" when the text sits at the top of the source.
 | library | version / pin | licence | licence text | where used |
