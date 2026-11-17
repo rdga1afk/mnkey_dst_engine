@@ -121,3 +121,6 @@ Submodules are pinned by the commit shown; "licence text" is the file in the tre
 | imnodes | eb36902c892548ef94f88f51ad7e7c9c7058a71c (v0.5 + 38) | MIT, © 2019 Johann Muszynski | `third_party/imnodes/LICENSE.md` |
 | hkxparse (tagfile subset, patched for Linux/GCC) | vendored; upstream exyorha/hkxparse | MIT, © 2018–2020 Maria Egorova | `third_party/hkxparse/LICENSE`; our patches: `README_MONKEYDUST.md` |
 | Dear ImGui Test Engine | 7be88e7fa267f251c7271a33d72b1aa5ca04a4cb (v1.92.8) | its own licence v1.04 (free for individuals, non-profit, education, open-source derivatives, turnover < 2 M USD; otherwise paid): **not linked in release builds** (`MD_UI_TESTS=OFF`, checked by `scripts/check_release_binary.sh`) | `third_party/imgui_test_engine/imgui_test_engine/LICENSE.txt` |
+
+## Test-oracle only (never in the engine or a public repo)
+| ParticleUniverse (OGRECave/particleuniverse), reference for the CPU particle step | fa7467748e0e2402a7f700125a0af391d733aa9d (master); sparse checkout of `Plugins/ParticleUniverse` in `~/rdga1prj/refs/particleuniverse`, outside every repo; none of its code is copied into ours | MIT, © 2006–2013 Henry van Merode | its `LICENSE`; allowed by the owner 15.11 (coordinator 6899730704) |
