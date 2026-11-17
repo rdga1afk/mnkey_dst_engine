@@ -1,6 +1,7 @@
 // Where the player's own Kenshi install is, and a way to prefer its files over the repo's offline copies. The engine ships no Kenshi
 // data: a file found here is read straight from the install, and when it is missing the caller's fallback path is used.
 #pragma once
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -34,5 +35,15 @@ std::string KenshiLandFile(const char* name, const char* fallback);
 // The one supported version of the original is 1.0.68. Reads <dir>/currentVersion.txt (the install's own version line, e.g. "Kenshi 1.0.68 - x64 (Newland)").
 // Returns "" when the line names 1.0.68, else a one-line warning for the player (file missing: the version is unknown). Never blocks the start.
 std::string KenshiVersionWarning(const std::string& dir);
+
+// Which build the install is, from FNV-1a 64 of a fixed file list (identification only, not security): kenshi_x64.exe, Plugin_Terrain_x64.dll,
+// data/gamedata.base and two install materials. Our exe addresses hold for the reviewed build only.
+constexpr int kBuildFiles = 5;
+const char* const* KenshiBuildFiles();                                         // the kBuildFiles relative paths
+bool KenshiFingerprint(const std::string& dir, uint64_t out[kBuildFiles]);     // false when a file is missing (its slot is 0)
+// Name and platform of a known build ("1.0.68", "Steam") or nullptr when the hash set matches no table row.
+const char* KenshiBuildLookup(const uint64_t h[kBuildFiles], const char** platform);
+// "" when the install is a known, reviewed build; else a one-line warning. `label` (optional) gets "1.0.68 Steam" or "unknown build".
+std::string KenshiBuildWarning(const std::string& dir, std::string* label);
 
 } // namespace md

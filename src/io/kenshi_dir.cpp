@@ -83,6 +83,53 @@ std::string KenshiVersionWarning(const std::string& dir) {
     return "This Kenshi install is \"" + v + "\"; only Kenshi " + kSupported + " is supported. The game starts anyway, but data and shaders may not match.";
 }
 
+namespace {
+uint64_t Fnv64File(const std::string& path) {
+    std::ifstream f(path, std::ios::binary);
+    if (!f) return 0;
+    uint64_t h = 1469598103934665603ull;
+    static char buf[1 << 20];
+    while (f.read(buf, sizeof buf) || f.gcount() > 0) {
+        for (std::streamsize i = 0; i < f.gcount(); ++i) h = (h ^ (uint8_t)buf[i]) * 1099511628211ull;
+        if (f.eof()) break;
+    }
+    return h;
+}
+const char* const kBuildFileList[kBuildFiles] = { "kenshi_x64.exe", "Plugin_Terrain_x64.dll", "data/gamedata.base", "data/materials/debug.material", "data/materials/deferred/buildings.material" };
+struct BuildRow { const char* name; const char* platform; uint64_t h[kBuildFiles]; };
+const BuildRow kBuilds[] = {
+    { "1.0.68", "Steam", { 0x96453559db8e72b9ull, 0x25c9a4579f73b792ull, 0xdfac53b4c13b258aull, 0x292e102d26ca9282ull, 0xb558f1c78c992c0aull } },
+};
+}  // namespace
+
+const char* const* KenshiBuildFiles() { return kBuildFileList; }
+
+bool KenshiFingerprint(const std::string& dir, uint64_t out[kBuildFiles]) {
+    bool all = true;
+    for (int i = 0; i < kBuildFiles; ++i) { out[i] = Fnv64File(dir + "/" + kBuildFileList[i]); all = all && out[i] != 0; }
+    return all;
+}
+
+const char* KenshiBuildLookup(const uint64_t h[kBuildFiles], const char** platform) {
+    for (const BuildRow& r : kBuilds) {
+        bool same = true;
+        for (int i = 0; i < kBuildFiles; ++i) same = same && r.h[i] == h[i];
+        if (same) { if (platform) *platform = r.platform; return r.name; }
+    }
+    return nullptr;
+}
+
+std::string KenshiBuildWarning(const std::string& dir, std::string* label) {
+    uint64_t h[kBuildFiles];
+    const bool all = KenshiFingerprint(dir, h);
+    const char* platform = "";
+    const char* name = all ? KenshiBuildLookup(h, &platform) : nullptr;
+    if (label) *label = name ? std::string(name) + " " + platform : "unknown build";
+    if (name) return "";
+    return all ? "This Kenshi install is not a build we reviewed (file hashes differ); exe addresses, shaders and data may not match. The game starts anyway."
+               : "This Kenshi install lacks files used to identify its build; exe addresses, shaders and data may not match. The game starts anyway.";
+}
+
 static std::string& Override() { static std::string o; return o; }
 void SetKenshiDir(const std::string& dir) { Override() = dir; }
 
