@@ -32,6 +32,25 @@ GpuTexture* AssetCache::GetOrLoadDDS(const char* path, const GpuSamplerDesc& s) 
     return nullptr;
 }
 
+GpuTexture* AssetCache::GetOrLoadDDS2D(const char* path, const GpuSamplerDesc& s) {
+    char key[PATH_LEN];
+    snprintf(key, sizeof key, "2d:%s", path);
+    if (Entry* e = Find(key)) { e->refcount++; return &e->tex; }
+    for (auto& slot : entries_) {
+        if (slot.used) continue;
+        if (!slot.tex.InitFromDDS(path, s)) {
+            fprintf(stderr, "[AssetCache] failed to load DDS (2D) %s\n", path);
+            return nullptr;
+        }
+        snprintf(slot.path, PATH_LEN, "%s", key);
+        slot.used     = true;
+        slot.refcount = 1;
+        return &slot.tex;
+    }
+    fprintf(stderr, "[AssetCache] MAX_ENTRIES (%d) exceeded, cannot load %s\n", MAX_ENTRIES, path);
+    return nullptr;
+}
+
 void AssetCache::Release(const char* path) {
     Entry* e = Find(path);
     if (!e) return;

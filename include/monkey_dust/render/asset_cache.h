@@ -21,6 +21,8 @@ public:
     // — the single-file-as-1-layer-array form PropTexShared uses for Kenshi
     // DDS assets (InitFromFile does not handle compressed DDS).
     GpuTexture* GetOrLoadDDS(const char* path, const GpuSamplerDesc& s = {});
+    // A plain 2D texture (one layer, not an array view): for shaders that declare sampler2D (the triplanar map features); kept under its own cache key so the array entry of the same file is not reused
+    GpuTexture* GetOrLoadDDS2D(const char* path, const GpuSamplerDesc& s = {});
 
     // Decrements refcount; frees the GPU texture and slot when it reaches 0.
     void Release(const char* path);

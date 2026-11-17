@@ -163,8 +163,8 @@ bool FeatureScatterSystem::Init(const char* scatter_path, const char* mesh_dir) 
             if (triplanar) {
                 static GpuSamplerDesc sd = GpuSamplerDesc::Default();
                 const std::string tp = md::KenshiDir() + "/" + md::NormalizeKenshiPath(tex_path);
-                if (GpuTexture* t = AssetCache::Get().GetOrLoadDDS(tp.c_str(), sd)) renderers_[mesh_idx].SetSharedTexture(t);
-                if (nm_path[0]) { const std::string np = md::KenshiDir() + "/" + md::NormalizeKenshiPath(nm_path); if (GpuTexture* t = AssetCache::Get().GetOrLoadDDS(np.c_str(), sd)) renderers_[mesh_idx].SetNormalTexture(t); }
+                if (GpuTexture* t = AssetCache::Get().GetOrLoadDDS2D(tp.c_str(), sd)) renderers_[mesh_idx].SetSharedTexture(t);
+                if (nm_path[0]) { const std::string np = md::KenshiDir() + "/" + md::NormalizeKenshiPath(nm_path); if (GpuTexture* t = AssetCache::Get().GetOrLoadDDS2D(np.c_str(), sd)) renderers_[mesh_idx].SetNormalTexture(t); }
                 else MD_LOG(MD_LOG_WARNING, "[FeatureScatter] triplanar texture not loaded: %s", tp.c_str());
             }
             strncpy(mesh_names_[mesh_idx], name, sizeof(mesh_names_[mesh_idx]) - 1);

@@ -35,10 +35,12 @@ bool GpuTexture::InitFromDDS(const char* path, const GpuSamplerDesc& s) {
     bool is_rgb32 = (pf_flags & DDPF_RGB) && rgb_bit_count == 32;
     static constexpr uint32_t FOURCC_DXT1 = 0x31545844u;
     const bool is_bc1 = (pf_flags & DDPF_FOURCC) && fourcc == FOURCC_DXT1;   // 8 bytes a 4x4 block, no alpha: Kenshi's plant and rock textures
-    bool is_bc3   = ((pf_flags & DDPF_FOURCC) && fourcc == FOURCC_DXT5) || is_bc1;   // the BC3 path below, with BC1 block size and format
+    static constexpr uint32_t FOURCC_DXT3 = 0x33545844u;
+    const bool is_bc2 = (pf_flags & DDPF_FOURCC) && fourcc == FOURCC_DXT3;   // 16 bytes a block, explicit alpha (the array loader takes it for a single layer too)
+    bool is_bc3   = ((pf_flags & DDPF_FOURCC) && fourcc == FOURCC_DXT5) || is_bc1 || is_bc2;   // the BC3 path below, with the BC1 / BC2 block size and format
     if ((!is_rgb32 && !is_bc3) || w <= 0 || h <= 0) {
         fprintf(stderr, "[GpuTexture] dds unsupported (need uncompressed 32bpp DDPF_RGB or "
-                "BC1/DXT1 or BC3/DXT5) %dx%d flags=%#x fourcc=%#x bitcount=%u: %s\n",
+                "BC1/DXT1, BC2/DXT3 or BC3/DXT5) %dx%d flags=%#x fourcc=%#x bitcount=%u: %s\n",
                 w, h, pf_flags, fourcc, rgb_bit_count, path);
         fclose(f);
         return false;
@@ -68,7 +70,7 @@ bool GpuTexture::InitFromDDS(const char* path, const GpuSamplerDesc& s) {
 
         SDL_GPUTextureCreateInfo ti = {};
         ti.type                 = SDL_GPU_TEXTURETYPE_2D;
-        ti.format               = is_bc1 ? SDL_GPU_TEXTUREFORMAT_BC1_RGBA_UNORM : SDL_GPU_TEXTUREFORMAT_BC3_RGBA_UNORM;
+        ti.format               = is_bc1 ? SDL_GPU_TEXTUREFORMAT_BC1_RGBA_UNORM : is_bc2 ? SDL_GPU_TEXTUREFORMAT_BC2_RGBA_UNORM : SDL_GPU_TEXTUREFORMAT_BC3_RGBA_UNORM;
         ti.usage                = SDL_GPU_TEXTUREUSAGE_SAMPLER;
         ti.width                = (Uint32)w;
         ti.height               = (Uint32)h;
