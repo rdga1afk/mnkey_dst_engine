@@ -9,6 +9,9 @@
 namespace md {
 
 inline float g_view_distance_m = 5000.f;
+// D of the sky controller (FUN_14066f190): the `view distance` option * 10, in Kenshi units. The settings loader (FUN_1403e84f0) takes the file's value, 5000 when the key is
+// absent, and 6000 below 500. The original uses it as the camera far clip, the light's pFogParams.x and the programs' farClip.
+inline float ViewDistanceUnits() { return g_view_distance_m * 10.f; }
 inline float ViewFarClipM() { return g_view_distance_m < 4000.f ? g_view_distance_m : 4000.f; }   // camera far clip / HZB / terrain cull: V up to 4000 m; beyond it the depth precision of the ground reconstruction changes the frames (gate frames at V 5000 and far 5000: 14 of 15 views differ)   // the "View Distance" option (settings.cfg, Kenshi default 5000): D = value x 10 units; the camera far clip, the fog and the skydome radius follow it
 
 struct KsVec3 { float x = 0.f, y = 0.f, z = 0.f; };
