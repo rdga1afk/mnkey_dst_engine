@@ -43,6 +43,9 @@ struct TerrainLodNode {
 // The screen-error threshold at a distance (the ramp between near_dist and far_dist; plugin_ramp picks the plugin's shape).
 // A border vertex index i (0..cells) next to a neighbour `diff` levels coarser goes to the nearest multiple of 2^diff (Plugin_Terrain FUN_180005e10): the half-way tie
 // rounds down on the x min / z min borders and up on the x max / z max ones (`upper`). The terrain vertex shader repeats this rule.
+// The tree's neighbour limit for a patch of `cells` cells (Plugin_Terrain FUN_1800016c0, setPatchSize): log2(cells) - 1.
+int TerrainNeighbourLimit(int cells);
+
 int TerrainSnapBorder(int i, int diff, bool upper);
 
 float TerrainLodThreshold(const TerrainLodParams& p, float distance);

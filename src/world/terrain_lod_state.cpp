@@ -122,7 +122,7 @@ int TerrainLodState::Select(const TerrainLodSource& src, const float cam[3], con
     ++frame_;
     splits_ = merges_ = 0;
     Ctx c{ &src, cam, frustum_planes, &p, out, max_out, 0, std::max(p.min_level, TerrainLodTree::kMinBuiltLevel), std::min(p.max_level, src.leaf_level), 0 };
-    c.f0 = (src.cells == 64 ? 6 : 4) - 1;   // log2(N) - 1: 3 for 16-cell patches, 5 for 64
+    c.f0 = TerrainNeighbourLimit(src.cells);   // log2(N) - 1: 3 for 16-cell patches, 5 for 64
     if (c.min_level > 6) c.min_level = 6;
     if (c.min_level != roots_level_) { Reset(); roots_level_ = c.min_level; }
     const int n0 = 1 << c.min_level;

@@ -145,6 +145,12 @@ int TerrainLodTree::Select(const float cam[3], const float frustum_planes[16], c
 
 float TerrainLodThreshold(const TerrainLodParams& p, float distance) { return lodmath::Threshold(p, distance); }
 
+int TerrainNeighbourLimit(int cells) {
+    int f0 = 0;
+    for (int x = cells; (x >>= 1) > 1;) ++f0;
+    return f0;
+}
+
 int TerrainSnapBorder(int i, int diff, bool upper) {
     if (diff <= 0) return i;
     const int st = 1 << diff;
