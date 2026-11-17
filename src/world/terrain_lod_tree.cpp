@@ -145,4 +145,10 @@ int TerrainLodTree::Select(const float cam[3], const float frustum_planes[16], c
 
 float TerrainLodThreshold(const TerrainLodParams& p, float distance) { return lodmath::Threshold(p, distance); }
 
+int TerrainSnapBorder(int i, int diff, bool upper) {
+    if (diff <= 0) return i;
+    const int st = 1 << diff;
+    return (i / st + (((i % st) * 2 > st || (upper && (i % st) * 2 == st)) ? 1 : 0)) * st;
+}
+
 } // namespace md
