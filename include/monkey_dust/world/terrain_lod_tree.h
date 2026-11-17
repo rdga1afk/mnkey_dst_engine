@@ -63,6 +63,12 @@ public:
 
     static constexpr int kMaxNodes = 65536;
 
+    // The tables for TerrainLodState (the same err / box heights Select reads).
+    float Extent() const { return extent_; }
+    int   LeafLevel() const { return leaf_; }
+    int   Cells() const { return cells_; }
+    void  Info(int level, int i, int j, float& err, float& ymin, float& ymax) const { const Level& l = lv_[level]; const size_t k = (size_t)j * l.n + i; err = l.err[k]; ymin = l.ymin[k]; ymax = l.ymax[k]; }
+
 private:
     struct Level {
         int n = 0;                          // nodes per side

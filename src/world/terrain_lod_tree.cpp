@@ -1,5 +1,6 @@
 #include <monkey_dust/world/terrain_lod_tree.h>
 #include <monkey_dust/io/tiff.h>
+#include "terrain_lod_math.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -100,33 +101,7 @@ void TerrainLodTree::Join() {
     if (th_.joinable()) th_.join();
 }
 
-static inline bool AabbInFrustum(float x0, float z0, float x1, float z1, float ymin, float ymax, const float fp[16]) {
-    for (int p = 0; p < 4; ++p) {
-        const float* pl = fp + p * 4;
-        const float px = (pl[0] >= 0.f) ? x1 : x0;
-        const float pz = (pl[2] >= 0.f) ? z1 : z0;
-        const float py = (pl[1] >= 0.f) ? ymax : ymin;
-        if (pl[0] * px + pl[1] * py + pl[2] * pz + pl[3] < 0.f) return false;
-    }
-    return true;
-}
-
-namespace {
-struct NodeRef { float x0, z0, size, ymin, ymax, err; };
-
-// Distance from the camera to the node's box, the camera's height taken 40 % of the way to the node's centre (as the plugin's node error).
-inline float NodeDistance(const float cam[3], const NodeRef& n) {
-    const float cy = cam[1] + ((n.ymin + n.ymax) * 0.5f - cam[1]) * 0.4f;
-    const float dx = std::max(std::max(n.x0 - cam[0], 0.f), cam[0] - (n.x0 + n.size));
-    const float dz = std::max(std::max(n.z0 - cam[2], 0.f), cam[2] - (n.z0 + n.size));
-    const float dy = std::max(std::max(n.ymin - cy, 0.f), cy - n.ymax);
-    return std::max(std::sqrt(dx * dx + dy * dy + dz * dz), 1.f);
-}
-inline float Threshold(const TerrainLodParams& p, float d) {
-    const float t = std::min(std::max((d - p.near_dist) / std::max(p.far_dist - p.near_dist, 1.f), 0.f), 1.f);
-    return p.near_px + (p.far_px - p.near_px) * t;
-}
-} // namespace
+using namespace lodmath;
 
 int TerrainLodTree::Select(const float cam[3], const float frustum_planes[16], const TerrainLodParams& p, TerrainLodNode* out, int max_out) const {
     if (!Ready()) return 0;

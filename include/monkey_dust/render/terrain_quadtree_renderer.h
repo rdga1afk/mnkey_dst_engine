@@ -14,6 +14,8 @@
 #include <monkey_dust/render/terrain_renderer.h>
 #include <monkey_dust/world/terrain_quadtree.h>
 #include <monkey_dust/world/terrain_lod_tree.h>
+#include <monkey_dust/world/terrain_lod_state.h>
+#include <memory>
 
 // 2026-09-05 (docs/TERRAIN_FLAT_LOD_PLAN.md): fixed-depth tiling -- draws
 // ONE TerrainQuadtree::VisibleNode per DrawNode call. Vertex-buffer-less
@@ -225,6 +227,16 @@ public:
     int  SelectLod(const float cam[3], const float frustum_planes[16], const md::TerrainLodParams& p, md::TerrainLodNode* out, int max_out) const {
         return lod_tree_.Select(cam, frustum_planes, p, out, max_out);
     }
+    // DE-316: the same selection from the persistent tree (md.set_terrain_lod_stateful); the tree is created on the first call and dropped with the renderer.
+    int  SelectLodStateful(const float cam[3], const float frustum_planes[16], const md::TerrainLodParams& p, md::TerrainLodNode* out, int max_out) {
+        if (!lod_state_) lod_state_ = std::make_unique<md::TerrainLodState>();
+        md::TerrainLodSource s; s.extent = lod_tree_.Extent(); s.leaf_level = lod_tree_.LeafLevel(); s.cells = lod_tree_.Cells(); s.ctx = &lod_tree_;
+        s.info = [](const void* c, int L, int i, int j, float& e, float& a, float& b) { static_cast<const md::TerrainLodTree*>(c)->Info(L, i, j, e, a, b); };
+        return lod_state_->Select(s, cam, frustum_planes, p, out, max_out);
+    }
+    int  LodStateSplits() const { return lod_state_ ? lod_state_->Splits() : 0; }
+    int  LodStateMerges() const { return lod_state_ ? lod_state_->Merges() : 0; }
+    int  LodStateBlocks() const { return lod_state_ ? lod_state_->LiveBlocks() : 0; }
     // Inside the caller's open copy pass: recentres the fine window if needed and uploads the node data (2 texels per node, see the .vert).
     void UploadLodNodes(md::GpuDeviceHandle dev, SDL_GPUCopyPass* cp, const md::TerrainLodNode* nodes, int count, float cam_x, float cam_z);
     // #207 (MD_LOD_NORMTEX=1): after UploadLodNodes and before the G-buffer pass, on the same command buffer: the compute passes that fill the normal windows (fine window, world strides) that moved this frame.
@@ -269,6 +281,7 @@ private:
     bool lod_ready_ = false;
     bool lod_started_ = false;
     md::TerrainLodTree lod_tree_;
+    std::unique_ptr<md::TerrainLodState> lod_state_;
     GpuPipeline lod_pipeline_;
     GpuStaticBuffer lod_ibo_;
     uint32_t lod_index_count_ = 0;
