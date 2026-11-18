@@ -9,6 +9,7 @@ on:
       - 'robots.txt'
       - 'sitemap.xml'
       - 'google*.html'   # search-engine site-verification files (Search Console etc.)
+      - 'ksdp/**'
   workflow_dispatch:
 
 permissions:
@@ -36,15 +37,25 @@ jobs:
             robots.txt
             sitemap.xml
             google*.html
+            ksdp
           sparse-checkout-cone-mode: false
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
+      - name: KSDP lint and site under /ksdp/
+        run: |
+          mkdir -p _site && cp -r index.html monkey_dust_docs.html robots.txt sitemap.xml google*.html _site/ 2>/dev/null || true
+          if [ -d ksdp/functions ]; then
+            pip install -q pyyaml
+            python3 ksdp/_gen/lint.py ksdp
+            python3 ksdp/_gen/build.py ksdp _site/ksdp
+          fi
+
       - name: Upload artifact (docs only)
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: _site
 
       - name: Deploy to GitHub Pages
         id: deployment

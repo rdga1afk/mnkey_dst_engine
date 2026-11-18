@@ -1,0 +1,18 @@
+name: KSDP lint
+
+on:
+  push:
+    paths: ['ksdp/**']
+  pull_request:
+    paths: ['ksdp/**']
+  workflow_dispatch: {}
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install -q pyyaml
+      - run: python3 ksdp/_gen/lint.py ksdp
+      - run: python3 ksdp/_gen/build.py ksdp /tmp/ksdp_site
