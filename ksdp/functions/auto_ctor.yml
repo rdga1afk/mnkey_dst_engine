@@ -377,6 +377,20 @@
   status: auto
   game_version: 1.0.68 Steam
   rule: ctor-shape
+- address: '0x1400dd590'
+  module: kenshi_x64.exe
+  name: ctor_shape_1400dd590
+  summary: 'Constructor- or destructor-shaped function of the class CListBox: it stores the class''s vftable pointer into the object, sets or clears fields and returns; no branches (33 bytes); everything it calls is itself an auto-tier or verified entry.'
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: ctor-shape
+- address: '0x1400dd6e0'
+  module: kenshi_x64.exe
+  name: ctor_shape_1400dd6e0
+  summary: 'Constructor- or destructor-shaped function of the class CCheckListBox: it stores the class''s vftable pointer into the object, sets or clears fields and returns; no branches (46 bytes); everything it calls is itself an auto-tier or verified entry.'
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: ctor-shape
 - address: '0x1400ebb90'
   module: kenshi_x64.exe
   name: ctor_shape_1400ebb90
@@ -538,6 +552,13 @@
   status: auto
   game_version: 1.0.68 Steam
   rule: ctor-shape
+- address: '0x140120610'
+  module: kenshi_x64.exe
+  name: ctor_shape_140120610
+  summary: 'Constructor- or destructor-shaped function of the class GameLauncher::GameLauncherTab: it stores the class''s vftable pointer into the object, sets or clears fields and returns; no branches (36 bytes); everything it calls is itself an auto-tier or verified entry.'
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: ctor-shape
 - address: '0x14012cc50'
   module: kenshi_x64.exe
   name: ctor_shape_14012cc50
@@ -580,6 +601,20 @@
   status: auto
   game_version: 1.0.68 Steam
   rule: ctor-shape
+- address: '0x14012d260'
+  module: kenshi_x64.exe
+  name: ctor_shape_14012d260
+  summary: 'Constructor- or destructor-shaped function of the class CGdiObject: it stores the class''s vftable pointer into the object, sets or clears fields and returns; no branches (74 bytes); everything it calls is itself an auto-tier or verified entry.'
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: ctor-shape
+- address: '0x14012d310'
+  module: kenshi_x64.exe
+  name: ctor_shape_14012d310
+  summary: 'Constructor- or destructor-shaped function of the class CFont: it stores the class''s vftable pointer into the object, sets or clears fields and continues in another function; no branches (15 bytes); everything it calls is itself an auto-tier or verified entry.'
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: ctor-shape
 - address: '0x14012d3d0'
   module: kenshi_x64.exe
   name: ctor_shape_14012d3d0
@@ -619,6 +654,41 @@
   module: kenshi_x64.exe
   name: ctor_shape_14012d810
   summary: 'Constructor- or destructor-shaped function of the class Ogre::STLAllocator<ATL::CStringT<wchar_t,StrTraitMFC_DLL<wchar_t,ATL::ChTraitsCRT<wchar_t>_>_>,Ogre::CategorisedAllocPolicy<0>_>|Ogre::STLAllocator<std::_Tree_nod<std::_Tset_traits<ATL::CStringT<wchar_t,StrTraitMFC_DLL<wchar_t,ATL::ChTraitsCRT<wchar_t>_>_>,std::less<ATL::CStringT<wchar_t,StrTraitMFC_DLL<wchar_t,ATL::ChTraitsCRT<wchar_t>_>_>_>,Ogre::STLAllocator<ATL::CStringT<wchar_t,StrTraitMFC_DLL<wchar_t,ATL::ChTraitsCRT<wchar_t>_>_>,Ogre::CategorisedAllocPolicy<0>_>,0>_>::_Node,Ogre::CategorisedAllocPolicy<0>_>: it stores the class''s vftable pointer into the object, sets or clears fields and returns; no branches (23 bytes); everything it calls is itself an auto-tier or verified entry.'
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: ctor-shape
+- address: '0x14012da70'
+  module: kenshi_x64.exe
+  name: ctor_shape_14012da70
+  summary: 'Constructor- or destructor-shaped function of the class CStatic: it stores the class''s vftable pointer into the object, sets or clears fields and returns; no branches (33 bytes); everything it calls is itself an auto-tier or verified entry.'
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: ctor-shape
+- address: '0x14012db80'
+  module: kenshi_x64.exe
+  name: ctor_shape_14012db80
+  summary: 'Constructor- or destructor-shaped function of the class CButton: it stores the class''s vftable pointer into the object, sets or clears fields and returns; no branches (33 bytes); everything it calls is itself an auto-tier or verified entry.'
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: ctor-shape
+- address: '0x14012dd70'
+  module: kenshi_x64.exe
+  name: ctor_shape_14012dd70
+  summary: 'Constructor- or destructor-shaped function of the class CComboBox: it stores the class''s vftable pointer into the object, sets or clears fields and returns; no branches (33 bytes); everything it calls is itself an auto-tier or verified entry.'
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: ctor-shape
+- address: '0x14012e330'
+  module: kenshi_x64.exe
+  name: ctor_shape_14012e330
+  summary: 'Constructor- or destructor-shaped function of the class CTabCtrl: it stores the class''s vftable pointer into the object, sets or clears fields and returns; no branches (33 bytes); everything it calls is itself an auto-tier or verified entry.'
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: ctor-shape
+- address: '0x14012e4b0'
+  module: kenshi_x64.exe
+  name: ctor_shape_14012e4b0
+  summary: 'Constructor- or destructor-shaped function of the class CRichEditCtrl: it stores the class''s vftable pointer into the object, sets or clears fields and returns; no branches (33 bytes); everything it calls is itself an auto-tier or verified entry.'
   status: auto
   game_version: 1.0.68 Steam
   rule: ctor-shape
@@ -1126,6 +1196,13 @@
   status: auto
   game_version: 1.0.68 Steam
   rule: ctor-shape
+- address: '0x1402cd260'
+  module: kenshi_x64.exe
+  name: ctor_shape_1402cd260
+  summary: 'Constructor- or destructor-shaped function of the class Ogre::STLAllocator<StringPair,Ogre::CategorisedAllocPolicy<0>_>: it stores the class''s vftable pointer into the object, sets or clears fields and returns; no branches (45 bytes); everything it calls is itself an auto-tier or verified entry.'
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: ctor-shape
 - address: '0x1402da970'
   module: kenshi_x64.exe
   name: ctor_shape_1402da970
@@ -1424,6 +1501,13 @@
   module: kenshi_x64.exe
   name: ctor_shape_1403b2e40
   summary: 'Constructor- or destructor-shaped function of the class hkStringObject: it stores the class''s vftable pointer into the object, sets or clears fields and returns; no branches (58 bytes); everything it calls is itself an auto-tier or verified entry.'
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: ctor-shape
+- address: '0x1403b2e90'
+  module: kenshi_x64.exe
+  name: ctor_shape_1403b2e90
+  summary: 'Constructor- or destructor-shaped function of the class hkBaseObject: it stores the class''s vftable pointer into the object, sets or clears fields and returns; no branches (48 bytes); everything it calls is itself an auto-tier or verified entry.'
   status: auto
   game_version: 1.0.68 Steam
   rule: ctor-shape
@@ -3128,6 +3212,13 @@
   status: auto
   game_version: 1.0.68 Steam
   rule: ctor-shape
+- address: '0x1407ea5d0'
+  module: kenshi_x64.exe
+  name: ctor_shape_1407ea5d0
+  summary: 'Constructor- or destructor-shaped function of the class ScytheRagdollPhysicsT: it stores the class''s vftable pointer into the object, sets or clears fields and returns; no branches (33 bytes); everything it calls is itself an auto-tier or verified entry.'
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: ctor-shape
 - address: '0x140806a60'
   module: kenshi_x64.exe
   name: ctor_shape_140806a60
@@ -4186,13 +4277,6 @@
   status: auto
   game_version: 1.0.68 Steam
   rule: ctor-shape
-- address: '0x140a233d0'
-  module: kenshi_x64.exe
-  name: ctor_shape_140a233d0
-  summary: 'Constructor- or destructor-shaped function of the class Ogre::STLAllocator<boost::unordered::detail::ptr_bucket,Ogre::CategorisedAllocPolicy<0>_>|Ogre::STLAllocator<boost::unordered::detail::ptr_node<ZoneMap*___ptr64>,Ogre::CategorisedAllocPolicy<0>_>: it stores the class''s vftable pointer into the object, sets or clears fields and returns; no branches (91 bytes); everything it calls is itself an auto-tier or verified entry.'
-  status: auto
-  game_version: 1.0.68 Steam
-  rule: ctor-shape
 - address: '0x140a44750'
   module: kenshi_x64.exe
   name: ctor_shape_140a44750
@@ -4232,6 +4316,13 @@
   module: kenshi_x64.exe
   name: ctor_shape_140ce93d0
   summary: 'Constructor- or destructor-shaped function of the class hkaiUserEdgeSetupArray: it stores the class''s vftable pointer into the object, sets or clears fields and returns; no branches (8 bytes); everything it calls is itself an auto-tier or verified entry.'
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: ctor-shape
+- address: '0x140d42610'
+  module: kenshi_x64.exe
+  name: ctor_shape_140d42610
+  summary: 'Constructor- or destructor-shaped function of the class hkaiSplitGenerationUtils::ChunkShelver: it stores the class''s vftable pointer into the object, sets or clears fields and returns; no branches (34 bytes); everything it calls is itself an auto-tier or verified entry.'
   status: auto
   game_version: 1.0.68 Steam
   rule: ctor-shape
@@ -4281,6 +4372,20 @@
   module: kenshi_x64.exe
   name: ctor_shape_140e97ea0
   summary: 'Constructor- or destructor-shaped function of the class hkaiSilhouetteRecorder::GraphUnloadedEvent: it stores the class''s vftable pointer into the object, sets or clears fields and returns; no branches (8 bytes); everything it calls is itself an auto-tier or verified entry.'
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: ctor-shape
+- address: '0x140eda6e0'
+  module: kenshi_x64.exe
+  name: ctor_shape_140eda6e0
+  summary: 'Constructor- or destructor-shaped function of the class boost::thread_resource_error: it stores the class''s vftable pointer into the object, sets or clears fields and returns; no branches (33 bytes); everything it calls is itself an auto-tier or verified entry.'
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: ctor-shape
+- address: '0x140f53850'
+  module: kenshi_x64.exe
+  name: ctor_shape_140f53850
+  summary: 'Constructor- or destructor-shaped function of the class boost::exception_detail::clone_base: it stores the class''s vftable pointer into the object, sets or clears fields and returns; no branches (34 bytes); everything it calls is itself an auto-tier or verified entry.'
   status: auto
   game_version: 1.0.68 Steam
   rule: ctor-shape
