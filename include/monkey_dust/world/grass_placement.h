@@ -87,7 +87,7 @@ struct Layer {
 
 // loadPage's count: (uint)(density * densityFactor * width * height) with densityFactor = 1.0 (loader +0x4c).
 inline uint32_t CandidateCount(const Layer& l, const Rect& page) {
-    return uint32_t(l.density * 1.0f * (page.right - page.left) * (page.bottom - page.top));
+    return uint32_t(l.density * 1.0f * ((page.right - page.left) * (page.bottom - page.top)));   // the exe multiplies the area first (emulator vectors, DE-340): (d * f) * (w * h)
 }
 
 // 140a41690: fills out with (x, z, unit, angle) per accepted blade (4 floats each; out holds 4 * count floats).
