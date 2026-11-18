@@ -130,3 +130,10 @@
     cycle_run_speed, medic, rescue, prospect and more (the list continues past 14000 characters of the program reading).'
   status: partial
   game_version: 1.0.68 Steam
+- address: '0x140872e00'
+  module: kenshi_x64.exe
+  name: new_game_start
+  summary: 'New-game start for one NEW_GAME_STARTOFF record (record kind 64). With the record''s force-start-position flag set the start is its start position X / Z (whole numbers, used as world metres). Otherwise it is the position of one town picked at random from the record''s town references; with no usable town the code logs that no town could be found and uses the constant (-43500, -6625) metres. Each squad reference names a CHARACTER record and carries the member count in its first value (0 gives 1); every member is placed at the start position plus a uniform random offset of -50..+50 on x and on z (constants +50.0 and -50.0), the height from the terrain query. A record without a squad reference gets one character from the record 45550-gamedata.base. Our slice (the MD_SLICE=1 switch) uses The Cannibal Hunters'' squad (4 + 1 characters from the base game data) at the Hub instead of the record''s own start; that is a test-only start, not the game start of this record (which is the (-43500,
+    -6625) fallback: no force flag, no town reference).'
+  status: read
+  game_version: 1.0.68 Steam
