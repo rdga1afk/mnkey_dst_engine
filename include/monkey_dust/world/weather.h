@@ -63,6 +63,16 @@ std::vector<int> SplitYear(const std::vector<float>& shares, int days_per_year, 
 // areas: RGB, w * h * 3, top row first (the areasmap as decoded by stb_image); returns false when the install has no weather records.
 bool LoadData(const md::fcs::GameDataContainer& g, const unsigned char* areas, int w, int h, Data& out);
 
+// The heat haze constant of the original (exe 1409e8f70): target = record "heat haze" * state strength * clamp(6 * sunDirection.y, 0, 1); the value moves toward the target
+// by at most dt / 3 per update and jumps to it when closer than that. haze_scaled = record * strength (SkyOutput.haze).
+inline float HeatHazeStep(float current, float haze_scaled, float sun_y, float dt) {
+    const float k = 6.f * sun_y, f = k >= 1.f ? 1.f : (k <= 0.f ? 0.f : k);
+    const float target = haze_scaled * f, step = dt / 3.f, d = target - current;
+    if (target == current) return current;
+    if ((d < 0.f ? -d : d) >= step) return current + (target < current ? -step : step);
+    return target;
+}
+
 struct SkyOutput {
     float clouds_w = 0.25f;              // the controller's coverage value
     KsVec3 sky_mult = { 1.f, 1.f, 1.f };
