@@ -1,0 +1,16 @@
+include/monkey_dust/platform/math_types.h:internalAstError
+src/audio/external/miniaudio.h:arrayIndexOutOfBoundsCond
+src/audio/external/miniaudio.h:dangerousTypeCast
+src/audio/external/miniaudio.h:identicalInnerCondition
+src/audio/external/miniaudio.h:uninitMemberVarNoCtor
+src/audio/external/miniaudio.h:va_list_usedBeforeStarted
+src/io/data_files.cpp:dangerousTypeCast
+src/io/fcs.cpp:uninitMemberVarNoCtor
+src/nav/navtile.cpp:uninitMemberVarNoCtor
+src/nav/nav_world.cpp:dangerousTypeCast
+src/render/cgltf.h:dangerousTypeCast
+src/render/prop_mesh.cpp:nullPointer
+src/render/skin_mesh.cpp:nullPointer
+src/ui_mygui/mygui_sdlgpu.cpp:uninitMemberVarNoCtor
+src/world/feature_scatter.cpp:uninitMemberVarNoCtor
+src/world/ground_bake.cpp:objectIndex

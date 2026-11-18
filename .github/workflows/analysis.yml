@@ -1,0 +1,60 @@
+name: Analysis
+
+# DE-349 item 1 / #214: static analysis of the changed files. The engine has no tests of its own; the sanitizer run of the tools repo builds and runs it.
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch: {}
+
+concurrency:
+  group: analysis-${{ github.ref }}
+  cancel-in-progress: true
+
+
+jobs:
+  static:
+    name: cppcheck + clang-tidy on the changed files
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+          fetch-depth: 0
+      - name: Tools
+        run: sudo apt-get update && sudo apt-get install -y cppcheck clang-tidy
+      - name: Changed C++ files
+        run: |
+          BASE=${{ github.event.pull_request.base.sha || github.event.before }}
+          if [ -z "$BASE" ] || [ "$BASE" = 0000000000000000000000000000000000000000 ]; then BASE=$(git rev-parse HEAD~1); fi
+          git diff --name-only --diff-filter=AM "$BASE" HEAD -- '*.cpp' '*.h' ':!third_party' ':!src/audio/external' > changed.txt || true
+          echo "changed files:"; cat changed.txt
+      - name: "cppcheck - a finding that is not in ci/cppcheck_baseline.txt turns the job red, the baseline may only shrink"
+        run: |
+          : > cppcheck_all.txt
+          if [ -s changed.txt ]; then
+            xargs -a changed.txt cppcheck --enable=warning --inline-suppr --suppress=missingInclude --suppress=unusedFunction --suppress=syntaxError --std=c++17 -q \
+              --template='{file}:{id}' 2> cppcheck_all.txt || true
+          fi
+          sort -u cppcheck_all.txt | grep -v '^\.\./' > cppcheck_now.txt || true
+          grep -vxFf ci/cppcheck_baseline.txt cppcheck_now.txt > cppcheck_new.txt || true
+          echo "findings in changed files: $(wc -l < cppcheck_now.txt), new: $(wc -l < cppcheck_new.txt)"
+          cat cppcheck_new.txt
+          [ ! -s cppcheck_new.txt ]
+      - name: "clang-tidy - report only, a small check set, the warnings go into one artifact"
+        run: |
+          : > tidy.txt
+          for f in $(grep '\.cpp$' changed.txt); do
+            clang-tidy "$f" -quiet -checks='-*,bugprone-use-after-move,bugprone-infinite-loop,bugprone-undefined-memory-manipulation,clang-analyzer-core.*' -- -std=c++17 -Iinclude -I. 2>/dev/null >> tidy.txt || true
+          done
+          wc -l tidy.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: analysis-report
+          path: |
+            cppcheck_now.txt
+            cppcheck_new.txt
+            tidy.txt
+
