@@ -48,58 +48,58 @@
   game_version: 1.0.68 Steam
 - address: '0x1406726c0'
   module: kenshi_x64.exe
-  name: order_class_for_type
+  name: dialogue_class_for_type
   summary: Returns the order-class object for an order type number. The classes live in a map at +0x1a0 of the order component keyed by the type number; when the map has no entry for the type a new 0x18 byte object is allocated (constructor 0x140692740) and stored, so each type gets exactly one class object per component, created on first use. Used by the give-order entry (0x140684990) as its first build step.
   status: read
   game_version: 1.0.68 Steam
 - address: '0x14067a0c0'
   module: kenshi_x64.exe
-  name: order_pick_rule_for_target
+  name: dialogue_pick_rule_for_target
   summary: 'Second build step of the give-order entry: from an order class (entry list at class +0x10, count at +8) it picks one rule for the target. The best priority starts at -999. Each entry in order gets a priority from helper 0x140671bb0 (given the target); an entry with a lower priority than the best so far ends the walk, unless its virtual slot +8 says it is a blocking one. Entries whose flag byte at +0x318 is clear are condition rules: their own order object is looked up by the type field (+0x31c, helper 0x140672bf0) and the entry is kept only when a condition helper (0x140678f30, with the target and data at +0x280) accepts it; a kept entry is appended to a pointer array (capacity 10, doubling) and its priority becomes the best. Entries with the flag set are build rules: for types 3, 4 and 5 a list of the component (+0x1c8, +0x1e8, +0x208) is cleared first, a new order is built by helper 0x140679bc0 and registered (0x140671430). A kept rule that has a sub-class (entry +0x1e8) is
     resolved by calling this function again on it: the sub-result''s priority is added to the parent''s and the sub-result is appended when that sum is not below the best. At the end: no candidate gives 0, one candidate is returned, and with two or more the result is the candidate at a random index in 0..n-1 (helper 0x1409b3b40(0, n-1), clamped), so equal-priority and lower-priority kept rules are all possible results (the array is not trimmed to the best priority).'
   status: read
   game_version: 1.0.68 Steam
 - address: '0x140683f90'
   module: kenshi_x64.exe
-  name: order_install
+  name: dialogue_install
   summary: 'Third build step of the give-order entry: installs a built order on the character (arguments: the order component, the target object, the order, the type number, a flag). No order gives 0. For type 2 the owner''s five-float block (owner +0x58) is compared with a stored one and, when it differs or the stored game-time marker changed, the controller is told the character''s position (helper 0x1407f2ab0); the stored block and marker are refreshed. Then, unless the component is idle (+0x148 clear) and the type is not 1 and the flag is clear (then 0 is returned), the state is reset: two checks of the type (helpers 0x1406713a0 and 0x1406712f0) set the bytes at +0x149 and +0x14a, the type is stored at +0x188, the running-order pointer +0x190 and +0x198 are cleared, the target''s block is copied to +0x160..+0x170, the owner''s own block to +0x2a8..+0x2b8 (and the target''s component +0x2a8..), and a non-self target''s position is passed to the object at +0x180 (slot +0x38). If the component
     has no active order object (+0x1b0 is 0) it calls helper 0x140674830 with 1 and returns 0. Otherwise +0x190 is set to the end of the order''s chain (the order''s link field at +0x230 followed to its last element), +0x198 to the order; when the order''s virtual slot +8 is true the sub-class of the chain''s last element (+0x1e8) is resolved with the pick function 0x14067a0c0 and replaces +0x198; the order is then started by helper 0x1406839a0 and 1 is returned.'
   status: read
   game_version: 1.0.68 Steam
 - address: '0x1406839a0'
   module: kenshi_x64.exe
-  name: order_start
+  name: dialogue_start
   summary: 'Starts an installed order (called by 0x140683f90 with the chosen order). First it clears the component state: the block at +0x2c8 is reset to the default (value 0xb), the idle byte +0x148 is cleared and +0x198 is set to the order. With no order it calls helper 0x140674830 with 1 (the end-of-order routine) and returns 0. For order type 1 (+0x188) whose order has no sub-class (+0x1e8 is 0) it also ends the order through 0x140674830 and, as the code falls through to the end, returns without starting anything. Otherwise, when a last chain element exists (+0x190) and either its flag at +0x1e1 is clear or the type is 1, the order starts: its text is produced by helper 0x140675320, the target is resolved from the stored target id (+0x158 / +0x160): id type 1 is looked up in the character set and, when that gives no live object, in a second set or a record table; id type 0x5b in a third table; then the order is set up (helpers 0x14067e8b0 with the target and a flag read from the component
     at +0x2a0, 0x140680560), the text is stored at +0x278 and, while an order is still set, helpers 0x140674170 and 0x140680130 run; 1 is returned. In every other case the work is handed to 0x140683910.'
   status: read
   game_version: 1.0.68 Steam
 - address: '0x140683910'
   module: kenshi_x64.exe
-  name: order_start_fallback
+  name: dialogue_start_fallback
   summary: 'Fallback of the order start (0x1406839a0): produces the order''s text with helper 0x140675630 (flag 1), passes it with the order to helper 0x14067fd80 on the order component, frees the temporary string and calls helper 0x140680560 with the order. Nothing else.'
   status: read
   game_version: 1.0.68 Steam
 - address: '0x140674830'
   module: kenshi_x64.exe
-  name: order_end
+  name: dialogue_end
   summary: 'End-of-order routine of a character (second argument: a flag, called with 1 by the start and install functions). First it asks a global check (helper 0x14025c6d0 on a global object); when that is true the end is only deferred: the number 1 is appended to the component''s queue of pending numbers (a vector of ints at +0x80..+0x90, growing as needed; the give-order entry 0x140684990 later finds and removes a 1 in this queue, remembering that an end was pending) and the function returns. When the check is false the real end starts: with a running chain (+0x190) and an owner record field (+0x658) set, for order type 1 with a stored target id other than "none" it resolves the target from the id (character set for id type 1, with fallbacks) — the rest of the body (several hundred lines of state reset, notifications) is not read.'
   status: read
   game_version: 1.0.68 Steam
 - address: '0x14067e8b0'
   module: kenshi_x64.exe
-  name: order_text_announce
+  name: dialogue_text_announce
   summary: 'Prepares the text of an order for display (arguments: the order component, the text, the resolved target, a flag). It first calls helper 0x14067e660; when a global option byte (0x142133575) is set the text is passed through a word filter that replaces a fixed list of crude words (several words in lower and capitalised form, each with a milder replacement) wherever they occur in the text. The remainder of the function (what is done with the cleaned text and the target) was not read.'
   status: read
   game_version: 1.0.68 Steam
 - address: '0x140674170'
   module: kenshi_x64.exe
-  name: order_text_post
+  name: dialogue_text_post
   summary: 'Posts the order''s text line (stored at +0x278 of the order component) for display. When the global check (helper 0x14025c6d0 on a global object, the same one that defers the end of an order) is false, the text is posted at once: the owner''s virtual slot +8 gives its name, a global text-bubble manager is created on first use (0x2d8 byte object, constructor 0x14049f5b0), the line is handed to it (helper 0x14049a270 with the owner, the text and 0) and to a second global (0x140722a30). When the check is true the posting is deferred: the number 6 is appended to the component''s queue of pending numbers (the same vector at +0x80 that holds the number 1 of a deferred order end).'
   status: read
   game_version: 1.0.68 Steam
 - address: '0x140680560'
   module: kenshi_x64.exe
-  name: order_apply_rule_effects
+  name: dialogue_apply_rule_effects
   summary: 'Applies the picked rule record (second argument) to the order component (first argument). Marks entries of three id lists of the rule (+0x2a0, +0x2b8, +0x288) in the component''s id tree with flag 0, 0, 1 (the first list also marks the id at +0x190 with 1). Resolves the target object from the stored id (+0x158 / +0x160, same lookups as the order start) and keeps it in a local; when the target is the owner and the owner has an object set, the first member is taken instead. Copies the rule''s id at +0x310 to +0xc8. For every relation entry of the rule (list at +0x2e8) it finds the faction and prints "Relations with {1} improved by {2}" or "decreased by {2}" into the message log, then calls virtual slot +0x20 of the faction''s object (relation change notice). If the rule has a record at +0x2c8, runs the order install 0x140683f90 with order id 0x4a for each free member of the owner''s group. For the rule''s item list (+0xb0, 16 bytes per entry) it creates the items for the target,
     sets a quantity when the entry value is 2..0x31, hands them to the target (virtual slot +0x168) and logs "Received <name>". Then handles the rule''s effect list (+0x210, pairs of type and value); each effect type collects its candidate objects and creates a task: type 0x2f takes objects near the owner (squared distance limit from a constant) and marks them with helper 0x14032e590, type 0x30 collects characters of the owner''s group near the owner and builds task 0x1406a9440 (object 0x88 bytes), type 0x29 collects the target''s group members within a distance and builds task 0x1406a6f50, type 0x2b collects buildings of the owner''s town and builds task 0x1406ab890, type 0x2a walks a list of the owner''s town. Every built task is wrapped in a 0x110 byte object (constructor 0x14072a880) and started through its virtual slot +0x10 with 1 (so these effects start tasks, not a direct move). The rest of the body (74668 characters in total) is unread.'
   status: partial
