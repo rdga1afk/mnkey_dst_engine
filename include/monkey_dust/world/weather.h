@@ -73,6 +73,22 @@ inline float HeatHazeStep(float current, float haze_scaled, float sun_y, float d
     return target;
 }
 
+// The dust block of the original (exe 1409e8f70, 1409e97e3 - 1409e9893), T = record "dust" * state strength: when T > 0 and above the current value it rises by T * dt * 0.017 and stops at T;
+// otherwise, when the current value is above T, it falls by dt * max(0.001, -T) and is not clamped at T. The arithmetic is double between float loads and stores (emulator rows tools/tests/data/exe_weather_dust.tsv).
+inline float DustStep(float cur, float target, float dt) {
+    if (target > 0.f && target > cur) { const float n = float(double(target * dt) * 0.017 + double(cur)); return n > target ? target : n; }
+    if (cur > target) { const double m = -0.001 < double(target) ? -0.001 : double(target); return float(double(dt) * m + double(cur)); }
+    return cur;
+}
+
+// The wetness block of the original (exe 1409ea410, 1409ea5b3 - 1409ea654), target = record "wetness": below the target the stored value rises by 0.01 * dt; at or above it, it falls only while the target is not above 0 and the value is above 0,
+// by 0.005 * dt * (1 - max(2 * target, 0)) (double arithmetic between the float load and store); the stored value is not clamped (it can end below 0; the exe clamps it when it applies it). Emulator rows tools/tests/data/exe_weather_wetness.tsv.
+inline float WetnessStep(float cur, float target, float dt) {
+    if (cur < target) return float(double(cur) + double(dt) * 0.01);
+    if (target <= 0.f && cur > 0.f) return float(double(cur) - double(dt) * 0.005 * (1.0 - (2.0 * double(target) > 0.0 ? 2.0 * double(target) : 0.0)));
+    return cur;
+}
+
 struct SkyOutput {
     float clouds_w = 0.25f;              // the controller's coverage value
     KsVec3 sky_mult = { 1.f, 1.f, 1.f };

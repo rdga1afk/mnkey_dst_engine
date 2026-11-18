@@ -215,12 +215,8 @@ void World::Update(double minutes, float dt, float x, float z) {
     out_.cloud_offset = out_.clouds_w * 1.4f - 0.8f;
     out_.darkness = std::pow(Saturate(out_.clouds_w - 0.5f), 0.3f);
     out_.group = g;
-    if (w) { const float k = Strength(g); out_.rain = w->rain * k; out_.wind = w->wind; out_.wetness = w->wetness; out_.dust = w->dust * k; out_.haze = w->haze * k; }
-    {   // ground wetness follows the weather's wetness: up at 0.01 / s while below it, down at 0.005 / s when the weather's is 0 and the ground is wet (exe apply, private notes)
-        float& gw = out_.ground_wetness;
-        if (out_.wetness > gw) gw += dt * 0.01f;
-        else if (out_.wetness <= 0.f && gw > 0.f) gw -= dt * 0.005f;
-    }
+    if (w) { const float k = Strength(g); out_.rain = w->rain * k; out_.wind = w->wind; out_.wetness = w->wetness; out_.dust = DustStep(out_.dust, w->dust * k, dt); out_.haze = w->haze * k; }
+    out_.ground_wetness = WetnessStep(out_.ground_wetness, out_.wetness, dt);   // exe 1409ea5b3: the ground follows the weather's wetness (the stored value is not clamped; the exe clamps it when it applies it)
     last_x_ = x; last_z_ = z; started_ = true;
 }
 
