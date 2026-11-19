@@ -12,3 +12,9 @@
     objects and stores the entity''s first sub-entity in it (+0x28). Last it creates the plane mesh "zoneWater" of size 4608 (one zone) with 2 segments and stores it through 0x1400f8480 at +0x20.'
   status: read
   game_version: 1.0.68 Steam
+- address: '0x140100200'
+  module: kenshi_x64.exe
+  name: vector_shrink_to_fit
+  summary: 'Instance of the standard-library vector shrink-to-fit for a vector of 8-byte elements (begin, end, capacity pointers at +0, +8, +0x10): when the used size is smaller than the capacity it builds a tight copy through a helper (0x1400fe790), swaps the three pointers with it and releases the old block through the engine allocator; otherwise it does nothing.'
+  status: read
+  game_version: 1.0.68 Steam
