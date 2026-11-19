@@ -126,3 +126,9 @@ Submodules are pinned by the commit shown; "licence text" is the file in the tre
 
 ## Test-oracle only (never in the engine or a public repo)
 | ParticleUniverse (OGRECave/particleuniverse), reference for the CPU particle step | fa7467748e0e2402a7f700125a0af391d733aa9d (master); sparse checkout of `Plugins/ParticleUniverse` in `~/rdga1prj/refs/particleuniverse`, outside every repo; none of its code is copied into ours | MIT, © 2006–2013 Henry van Merode | its `LICENSE`; allowed by the owner 15.11 (coordinator 6899730704) |
+
+## Intel CMAA 2 — Conservative Morphological Anti-Aliasing 2.3 (Apache-2.0)
+
+- Source: <https://github.com/GameTechDev/CMAA2> (archived), commit `071c6b0857559f4e36f614362e6d2aab1b61938a`, file `Projects/CMAA2/CMAA2/CMAA2.hlsl` (SHA-256 `ca88dd447c1055436d2e35e0d9bb4d9bdb29dd2487da6c01d4a913b292294c8c`). No `NOTICE` file in the repository; no foreign binaries are run.
+- Used for: the optional native-resolution anti-aliasing pass (`md.set_aa("cmaa2")`), compiled at run time through glslang to SPIR-V for SDL_GPU compute (`shaders/cmaa2/CMAA2.hlsl` in tools, the original header kept).
+- Licence: `third_party/cmaa2/LICENSE.txt` (Apache-2.0, SHA-256 `be3cb07dcb1bb6b191d4fa72910d9ccfcdd7d035d2be92c97a7e84a476406c54`); the copyright line is in the file header: Copyright (c) 2018, Intel Corporation.
