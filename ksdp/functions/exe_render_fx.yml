@@ -25,3 +25,15 @@
     at +0x84 is reduced by the frame time and, when the byte at +0x38 is set and the timer is not positive, the height of the position (+0x28) is replaced by a terrain height lookup (0x1409b32f0) at its x and z. When the pointer at +0x30 is set, its scene node is moved to the position.'
   status: partial
   game_version: 1.0.68 Steam
+- address: '0x140866b70'
+  module: kenshi_x64.exe
+  name: render_effect_view
+  summary: 'Renders one off-screen view of an effect with a camera. It takes the scene manager of the camera and the first viewport of the render target that the object holds at +0x20 (through a virtual call chain: target buffer, its render target, viewport 0), calls the set-up helper 0x140866510 with the object, the second argument, the first field of the object and the camera, and clears the viewport (all three buffers, black, depth 1.0, stencil 0). It then takes the first pass of the first technique of a global material (global at 0x142133db0, material at +0x170), multiplies two matrices that the object returns from its virtual calls 0x178 and 0x180, sets all four entries of the third row of the product to 0 and writes the result into the vertex-program constant worldViewProjMatrix of that pass. Last it asks the scene manager (virtual call 0x400) to render that material and pass into the viewport, and returns 1.'
+  status: read
+  game_version: 1.0.68 Steam
+- address: '0x1402dd1d0'
+  module: kenshi_x64.exe
+  name: map_float_subscript
+  summary: 'Instance of the standard-library ordered map element access (operator[]) for a map whose key is a float: walks the tree from the root to the first node whose key is not less than the given key (lower bound); when that node exists and its key equals the given key it returns the address of its value (node + 0x20); otherwise it builds a node for the key with a default value, inserts it at that position through the helpers 0x1402dccc0 and 0x1402dcdc0 and returns the address of the new value.'
+  status: read
+  game_version: 1.0.68 Steam
