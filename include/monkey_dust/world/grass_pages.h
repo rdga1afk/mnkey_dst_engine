@@ -15,6 +15,17 @@ inline int64_t GrassPageKey(double x, double z) {
     return px * 4096 + pz;
 }
 
+constexpr int kGrassCellsPerSide = 8;                          // a page is 8 x 8 cells of 288 units (28.8 m); the cell is the unit of the grass pass's visibility test
+
+// Cell key: the page key, then the cell inside the page (x * 8 + z). Cells of one page are contiguous in key order.
+inline int64_t GrassCellKey(double x, double z) {
+    const double ux = x + kGrassWorldOrigin, uz = z + kGrassWorldOrigin, cell = kGrassPageUnits / kGrassCellsPerSide;
+    const int64_t px = (int64_t)std::floor(ux / kGrassPageUnits), pz = (int64_t)std::floor(uz / kGrassPageUnits);
+    int cx = (int)std::floor((ux - px * kGrassPageUnits) / cell), cz = (int)std::floor((uz - pz * kGrassPageUnits) / cell);
+    cx = cx < 0 ? 0 : cx >= kGrassCellsPerSide ? kGrassCellsPerSide - 1 : cx; cz = cz < 0 ? 0 : cz >= kGrassCellsPerSide ? kGrassCellsPerSide - 1 : cz;
+    return (px * 4096 + pz) * (kGrassCellsPerSide * kGrassCellsPerSide) + cx * kGrassCellsPerSide + cz;
+}
+
 struct PageBox { float lo[3], hi[3]; };   // renderer space, metres
 
 // vp: 16 floats, column-major, clip = vp * (x, y, z, 1). Planes left / right / bottom / top / near / far from the rows of the matrix; the near plane is the weaker -w <= z form so both depth conventions are safe (conservative: a box is only rejected when fully outside one plane).
