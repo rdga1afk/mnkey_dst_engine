@@ -150,4 +150,15 @@ struct KenshiSkySettings {
     }
 };
 
+// Rotation of a moon about the up axis (exe moon update 0x140670ed0): ((hour + 24 * day) * 60 + minute) * (speed / 1440) with the integer hour = floor(time) and the integer minute = int((time - hour) * 60) from the per-frame sky update (0x14066ff60), so the angle steps once a minute.
+inline float KenshiMoonAngle(float hours, int day, float speed) {
+    const int hour = (int)std::floor(hours);
+    const int minute = (int)((hours - (float)hour) * 60.f);
+    return (float)((hour + day * 24) * 60 + minute) * (speed / 1440.f);
+}
+
+// Distance of a moon from the camera (exe moon update 0x140670ed0): half of near + far clip, reduced by its own tangent of 0.01 degrees; the node scale is size * distance * that tangent, so the angular size is size * tan(0.01 deg) whatever the distance.
+inline float KenshiMoonTan() { return std::tan(0.01f * 3.14159265f / 180.f); }
+inline float KenshiMoonDistance(float near_clip, float far_clip) { const float d = (near_clip + far_clip) * 0.5f; return d - KenshiMoonTan() * d; }
+
 } // namespace md

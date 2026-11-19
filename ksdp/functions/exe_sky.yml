@@ -40,8 +40,8 @@
 - address: '0x140670ed0'
   module: kenshi_x64.exe
   name: moon_update
-  summary: Per-frame update of one moon object (+0x8 direction, +0x14 size, +0x18 speed / 1440). Positions the moon node at the camera position (minus the root node position) plus the direction times the second argument, sets the node scale to the unit scale times that argument cubed (three multiplications), and sets its orientation to a rotation about the up axis by ((hour + 24 * day) * 60 + minute) * speed / 1440, where hour, minute and day are the integer fields of the sky object (global 0x1421303d0). The first call also caches the tangent of 0.01 degrees. The second argument is not set by the caller I looked at (0x14066ff60 calls it with a register left from the time computation), so what it is, is not known.
-  status: partial
+  summary: 'Per-frame update of one moon object (+0x8 direction, +0x14 size, +0x18 speed / 1440). The distance is d = (near clip + far clip) / 2 of the main camera (camera virtual calls in slots 0x110 and 0x100), reduced by its own tangent of 0.01 degrees: d = d - tan(0.01 degrees) * d (the tangent is cached on the first call from the constant 0.01 at 0x141682ad8). The moon node is put at the camera position (minus the root node position) plus the direction times d, its scale is the unit scale times the size times d times that tangent (so its angular size is size times tan(0.01 degrees) whatever d is), and its orientation is a rotation about the up axis by ((hour + 24 * day) * 60 + minute) * speed / 1440, where hour, minute and day are the integer fields of the sky object (global 0x1421303d0).'
+  status: read
   game_version: 1.0.68 Steam
 - address: '0x14066f190'
   module: kenshi_x64.exe
