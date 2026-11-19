@@ -16960,6 +16960,13 @@
   status: auto
   game_version: 1.0.68 Steam
   rule: library:mygui (similar)
+- address: '0x140a72646'
+  module: kenshi_x64.exe
+  name: library_mygui_140a72646
+  summary: Code of the statically linked MyGUI library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:mygui (graph)
 - address: '0x140a88de0'
   module: kenshi_x64.exe
   name: library_havok_140a88de0
@@ -17191,9 +17198,72 @@
   status: auto
   game_version: 1.0.68 Steam
   rule: library:wwise (graph)
+- address: '0x140b5efb0'
+  module: kenshi_x64.exe
+  name: library_wwise_140b5efb0
+  summary: Code of the statically linked Wwise library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:wwise (graph)
+- address: '0x140b5fff0'
+  module: kenshi_x64.exe
+  name: library_wwise_140b5fff0
+  summary: Code of the statically linked Wwise library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:wwise (graph)
+- address: '0x140b600a0'
+  module: kenshi_x64.exe
+  name: library_wwise_140b600a0
+  summary: Code of the statically linked Wwise library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:wwise (graph)
 - address: '0x140b61180'
   module: kenshi_x64.exe
   name: library_wwise_140b61180
+  summary: Code of the statically linked Wwise library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:wwise (graph)
+- address: '0x140b61240'
+  module: kenshi_x64.exe
+  name: library_wwise_140b61240
+  summary: Code of the statically linked Wwise library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:wwise (graph)
+- address: '0x140b612b0'
+  module: kenshi_x64.exe
+  name: library_wwise_140b612b0
+  summary: Code of the statically linked Wwise library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:wwise (graph)
+- address: '0x140b61fd0'
+  module: kenshi_x64.exe
+  name: library_wwise_140b61fd0
+  summary: Code of the statically linked Wwise library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:wwise (graph)
+- address: '0x140b62f10'
+  module: kenshi_x64.exe
+  name: library_wwise_140b62f10
+  summary: Code of the statically linked Wwise library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:wwise (graph)
+- address: '0x140b63d40'
+  module: kenshi_x64.exe
+  name: library_wwise_140b63d40
+  summary: Code of the statically linked Wwise library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:wwise (graph)
+- address: '0x140b64500'
+  module: kenshi_x64.exe
+  name: library_wwise_140b64500
   summary: Code of the statically linked Wwise library, classified from its callers and callees; not part of the game's own logic.
   status: auto
   game_version: 1.0.68 Steam
@@ -17212,9 +17282,23 @@
   status: auto
   game_version: 1.0.68 Steam
   rule: library:wwise (string)
+- address: '0x140b68ac0'
+  module: kenshi_x64.exe
+  name: library_wwise_140b68ac0
+  summary: Code of the statically linked Wwise library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:wwise (graph)
 - address: '0x140b69170'
   module: kenshi_x64.exe
   name: library_wwise_140b69170
+  summary: Code of the statically linked Wwise library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:wwise (graph)
+- address: '0x140b698d0'
+  module: kenshi_x64.exe
+  name: library_wwise_140b698d0
   summary: Code of the statically linked Wwise library, classified from its callers and callees; not part of the game's own logic.
   status: auto
   game_version: 1.0.68 Steam
@@ -21531,6 +21615,34 @@
   status: auto
   game_version: 1.0.68 Steam
   rule: library:havok (similar)
+- address: '0x140ed8024'
+  module: kenshi_x64.exe
+  name: library_boost_140ed8024
+  summary: Code of the statically linked Boost library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:boost (graph)
+- address: '0x140ed802a'
+  module: kenshi_x64.exe
+  name: library_boost_140ed802a
+  summary: Code of the statically linked Boost library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:boost (graph)
+- address: '0x140ed8030'
+  module: kenshi_x64.exe
+  name: library_boost_140ed8030
+  summary: Code of the statically linked Boost library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:boost (graph)
+- address: '0x140ed8480'
+  module: kenshi_x64.exe
+  name: library_boost_140ed8480
+  summary: Code of the statically linked Boost library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:boost (graph)
 - address: '0x140ed8c90'
   module: kenshi_x64.exe
   name: library_boost_140ed8c90
@@ -22329,6 +22441,76 @@
   status: auto
   game_version: 1.0.68 Steam
   rule: library:boost (similar)
+- address: '0x140f7fdfa'
+  module: kenshi_x64.exe
+  name: library_ogre_140f7fdfa
+  summary: Code of the statically linked Ogre library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:ogre (graph)
+- address: '0x140f7fe00'
+  module: kenshi_x64.exe
+  name: library_ogre_140f7fe00
+  summary: Code of the statically linked Ogre library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:ogre (graph)
+- address: '0x140f7fe06'
+  module: kenshi_x64.exe
+  name: library_ogre_140f7fe06
+  summary: Code of the statically linked Ogre library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:ogre (graph)
+- address: '0x140f7fe0c'
+  module: kenshi_x64.exe
+  name: library_ogre_140f7fe0c
+  summary: Code of the statically linked Ogre library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:ogre (graph)
+- address: '0x140f7fe12'
+  module: kenshi_x64.exe
+  name: library_ogre_140f7fe12
+  summary: Code of the statically linked Ogre library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:ogre (graph)
+- address: '0x140f7fe18'
+  module: kenshi_x64.exe
+  name: library_ogre_140f7fe18
+  summary: Code of the statically linked Ogre library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:ogre (graph)
+- address: '0x140f7fe1e'
+  module: kenshi_x64.exe
+  name: library_ogre_140f7fe1e
+  summary: Code of the statically linked Ogre library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:ogre (graph)
+- address: '0x140f7ff0e'
+  module: kenshi_x64.exe
+  name: library_mygui_140f7ff0e
+  summary: Code of the statically linked MyGUI library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:mygui (graph)
+- address: '0x140f7ff80'
+  module: kenshi_x64.exe
+  name: library_mygui_140f7ff80
+  summary: Code of the statically linked MyGUI library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:mygui (graph)
+- address: '0x140f7ff8c'
+  module: kenshi_x64.exe
+  name: library_mygui_140f7ff8c
+  summary: Code of the statically linked MyGUI library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:mygui (graph)
 - address: '0x140f90e30'
   module: kenshi_x64.exe
   name: library_havok_140f90e30
@@ -23379,6 +23561,258 @@
   status: auto
   game_version: 1.0.68 Steam
   rule: library:havok (graph)
+- address: '0x14107ffc8'
+  module: kenshi_x64.exe
+  name: library_stl_14107ffc8
+  summary: Code of the statically linked the C++ standard library (STL) library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:stl (graph)
+- address: '0x14107ffce'
+  module: kenshi_x64.exe
+  name: library_stl_14107ffce
+  summary: Code of the statically linked the C++ standard library (STL) library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:stl (graph)
+- address: '0x14107ffd4'
+  module: kenshi_x64.exe
+  name: library_stl_14107ffd4
+  summary: Code of the statically linked the C++ standard library (STL) library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:stl (graph)
+- address: '0x14107ffda'
+  module: kenshi_x64.exe
+  name: library_stl_14107ffda
+  summary: Code of the statically linked the C++ standard library (STL) library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:stl (graph)
+- address: '0x14107ffe0'
+  module: kenshi_x64.exe
+  name: library_stl_14107ffe0
+  summary: Code of the statically linked the C++ standard library (STL) library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:stl (graph)
+- address: '0x14107fffe'
+  module: kenshi_x64.exe
+  name: library_stl_14107fffe
+  summary: Code of the statically linked the C++ standard library (STL) library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:stl (graph)
+- address: '0x141080004'
+  module: kenshi_x64.exe
+  name: library_stl_141080004
+  summary: Code of the statically linked the C++ standard library (STL) library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:stl (graph)
+- address: '0x14108000a'
+  module: kenshi_x64.exe
+  name: library_stl_14108000a
+  summary: Code of the statically linked the C++ standard library (STL) library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:stl (graph)
+- address: '0x141080010'
+  module: kenshi_x64.exe
+  name: library_stl_141080010
+  summary: Code of the statically linked the C++ standard library (STL) library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:stl (graph)
+- address: '0x141080016'
+  module: kenshi_x64.exe
+  name: library_stl_141080016
+  summary: Code of the statically linked the C++ standard library (STL) library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:stl (graph)
+- address: '0x14108001c'
+  module: kenshi_x64.exe
+  name: library_stl_14108001c
+  summary: Code of the statically linked the C++ standard library (STL) library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:stl (graph)
+- address: '0x141080022'
+  module: kenshi_x64.exe
+  name: library_stl_141080022
+  summary: Code of the statically linked the C++ standard library (STL) library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:stl (graph)
+- address: '0x141080028'
+  module: kenshi_x64.exe
+  name: library_stl_141080028
+  summary: Code of the statically linked the C++ standard library (STL) library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:stl (graph)
+- address: '0x14108003a'
+  module: kenshi_x64.exe
+  name: library_stl_14108003a
+  summary: Code of the statically linked the C++ standard library (STL) library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:stl (graph)
+- address: '0x141080040'
+  module: kenshi_x64.exe
+  name: library_stl_141080040
+  summary: Code of the statically linked the C++ standard library (STL) library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:stl (graph)
+- address: '0x141080046'
+  module: kenshi_x64.exe
+  name: library_stl_141080046
+  summary: Code of the statically linked the C++ standard library (STL) library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:stl (graph)
+- address: '0x14108004c'
+  module: kenshi_x64.exe
+  name: library_stl_14108004c
+  summary: Code of the statically linked the C++ standard library (STL) library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:stl (graph)
+- address: '0x141080052'
+  module: kenshi_x64.exe
+  name: library_stl_141080052
+  summary: Code of the statically linked the C++ standard library (STL) library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:stl (graph)
+- address: '0x141080058'
+  module: kenshi_x64.exe
+  name: library_stl_141080058
+  summary: Code of the statically linked the C++ standard library (STL) library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:stl (graph)
+- address: '0x14108005e'
+  module: kenshi_x64.exe
+  name: library_stl_14108005e
+  summary: Code of the statically linked the C++ standard library (STL) library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:stl (graph)
+- address: '0x141080064'
+  module: kenshi_x64.exe
+  name: library_stl_141080064
+  summary: Code of the statically linked the C++ standard library (STL) library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:stl (graph)
+- address: '0x14108006a'
+  module: kenshi_x64.exe
+  name: library_stl_14108006a
+  summary: Code of the statically linked the C++ standard library (STL) library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:stl (graph)
+- address: '0x141080070'
+  module: kenshi_x64.exe
+  name: library_stl_141080070
+  summary: Code of the statically linked the C++ standard library (STL) library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:stl (graph)
+- address: '0x141080076'
+  module: kenshi_x64.exe
+  name: library_stl_141080076
+  summary: Code of the statically linked the C++ standard library (STL) library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:stl (graph)
+- address: '0x14108007c'
+  module: kenshi_x64.exe
+  name: library_stl_14108007c
+  summary: Code of the statically linked the C++ standard library (STL) library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:stl (graph)
+- address: '0x1410800fa'
+  module: kenshi_x64.exe
+  name: library_boost_1410800fa
+  summary: Code of the statically linked Boost library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:boost (graph)
+- address: '0x141080100'
+  module: kenshi_x64.exe
+  name: library_boost_141080100
+  summary: Code of the statically linked Boost library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:boost (graph)
+- address: '0x14108010c'
+  module: kenshi_x64.exe
+  name: library_boost_14108010c
+  summary: Code of the statically linked Boost library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:boost (graph)
+- address: '0x141080112'
+  module: kenshi_x64.exe
+  name: library_boost_141080112
+  summary: Code of the statically linked Boost library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:boost (graph)
+- address: '0x14108018a'
+  module: kenshi_x64.exe
+  name: library_stl_14108018a
+  summary: Code of the statically linked the C++ standard library (STL) library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:stl (graph)
+- address: '0x141080196'
+  module: kenshi_x64.exe
+  name: library_stl_141080196
+  summary: Code of the statically linked the C++ standard library (STL) library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:stl (graph)
+- address: '0x1410802da'
+  module: kenshi_x64.exe
+  name: library_stl_1410802da
+  summary: Code of the statically linked the C++ standard library (STL) library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:stl (graph)
+- address: '0x1410802e6'
+  module: kenshi_x64.exe
+  name: library_stl_1410802e6
+  summary: Code of the statically linked the C++ standard library (STL) library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:stl (graph)
+- address: '0x14108033a'
+  module: kenshi_x64.exe
+  name: library_boost_14108033a
+  summary: Code of the statically linked Boost library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:boost (graph)
+- address: '0x141080340'
+  module: kenshi_x64.exe
+  name: library_boost_141080340
+  summary: Code of the statically linked Boost library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:boost (graph)
+- address: '0x141080346'
+  module: kenshi_x64.exe
+  name: library_boost_141080346
+  summary: Code of the statically linked Boost library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:boost (graph)
 - address: '0x1412ebfd0'
   module: kenshi_x64.exe
   name: library_boost_1412ebfd0
@@ -26879,6 +27313,20 @@
   status: auto
   game_version: 1.0.68 Steam
   rule: library:physx (similar)
+- address: '0x14164f980'
+  module: kenshi_x64.exe
+  name: library_physx_14164f980
+  summary: Code of the statically linked PhysX library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:physx (graph)
+- address: '0x14164f9c0'
+  module: kenshi_x64.exe
+  name: library_physx_14164f9c0
+  summary: Code of the statically linked PhysX library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:physx (graph)
 - address: '0x141664760'
   module: kenshi_x64.exe
   name: library_ogre_141664760
@@ -26886,6 +27334,13 @@
   status: auto
   game_version: 1.0.68 Steam
   rule: library:ogre (similar)
+- address: '0x141664d20'
+  module: kenshi_x64.exe
+  name: library_ogre_141664d20
+  summary: Code of the statically linked Ogre library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:ogre (graph)
 - address: '0x141669b40'
   module: kenshi_x64.exe
   name: library_boost_141669b40
@@ -26914,6 +27369,20 @@
   status: auto
   game_version: 1.0.68 Steam
   rule: library:boost (similar)
+- address: '0x14166f910'
+  module: kenshi_x64.exe
+  name: library_mygui_14166f910
+  summary: Code of the statically linked MyGUI library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:mygui (graph)
+- address: '0x14166f930'
+  module: kenshi_x64.exe
+  name: library_mygui_14166f930
+  summary: Code of the statically linked MyGUI library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:mygui (graph)
 - address: '0x14166fe40'
   module: kenshi_x64.exe
   name: library_boost_14166fe40
@@ -26942,6 +27411,13 @@
   status: auto
   game_version: 1.0.68 Steam
   rule: library:boost (similar)
+- address: '0x14166ff60'
+  module: kenshi_x64.exe
+  name: library_boost_14166ff60
+  summary: Code of the statically linked Boost library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:boost (graph)
 - address: '0x14166ffa0'
   module: kenshi_x64.exe
   name: library_ogre_14166ffa0
@@ -26956,6 +27432,34 @@
   status: auto
   game_version: 1.0.68 Steam
   rule: library:boost (similar)
+- address: '0x141670090'
+  module: kenshi_x64.exe
+  name: library_boost_141670090
+  summary: Code of the statically linked Boost library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:boost (graph)
+- address: '0x1416700e0'
+  module: kenshi_x64.exe
+  name: library_boost_1416700e0
+  summary: Code of the statically linked Boost library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:boost (graph)
+- address: '0x141670100'
+  module: kenshi_x64.exe
+  name: library_boost_141670100
+  summary: Code of the statically linked Boost library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:boost (graph)
+- address: '0x141670140'
+  module: kenshi_x64.exe
+  name: library_boost_141670140
+  summary: Code of the statically linked Boost library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:boost (graph)
 - address: '0x141670160'
   module: kenshi_x64.exe
   name: library_boost_141670160
@@ -26963,6 +27467,20 @@
   status: auto
   game_version: 1.0.68 Steam
   rule: library:boost (similar)
+- address: '0x1416701e0'
+  module: kenshi_x64.exe
+  name: library_boost_1416701e0
+  summary: Code of the statically linked Boost library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:boost (graph)
+- address: '0x141670200'
+  module: kenshi_x64.exe
+  name: library_boost_141670200
+  summary: Code of the statically linked Boost library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:boost (graph)
 - address: '0x141670240'
   module: kenshi_x64.exe
   name: library_boost_141670240
@@ -26991,6 +27509,20 @@
   status: auto
   game_version: 1.0.68 Steam
   rule: library:boost (similar)
+- address: '0x141670360'
+  module: kenshi_x64.exe
+  name: library_boost_141670360
+  summary: Code of the statically linked Boost library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:boost (graph)
+- address: '0x1416703d0'
+  module: kenshi_x64.exe
+  name: library_boost_1416703d0
+  summary: Code of the statically linked Boost library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:boost (graph)
 - address: '0x141670440'
   module: kenshi_x64.exe
   name: library_boost_141670440
@@ -26998,3 +27530,10 @@
   status: auto
   game_version: 1.0.68 Steam
   rule: library:boost (similar)
+- address: '0x141670480'
+  module: kenshi_x64.exe
+  name: library_boost_141670480
+  summary: Code of the statically linked Boost library, classified from its callers and callees; not part of the game's own logic.
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: library:boost (graph)
