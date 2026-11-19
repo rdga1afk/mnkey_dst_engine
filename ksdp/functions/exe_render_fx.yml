@@ -43,3 +43,51 @@
   summary: Starts the end of an effect object (the settings record is at +0x10). When the particle-system holder at +0x18 exists, it stops the particle system of that holder (+0xa8) with the fade time at +0x50 of the record when that time is above 0, or with the default fade when it is 0 or below. When the sound or light helper at +0x20 exists, it passes it the value at +0x58 of the record. When the fade block at +0x28 exists, it sets its flag byte to 0xff, clears the float at +0x24, stores the start time (record +0x60) at +0x28 and start time plus duration (record +0x68) at +0x2c, and stores -1 divided by the duration at +0x30 when the duration is above 0, else 0.
   status: read
   game_version: 1.0.68 Steam
+- address: '0x1400f9a10'
+  module: kenshi_x64.exe
+  name: effect_record_init
+  summary: 'Constructor of a record object allocated through the engine allocator: runs the allocator base constructor, sets the int at +0 to 0, the byte at +8 to 1, the 8 bytes at +0xc to 0, the byte at +0x14 to 0, the float at +0x18 to 1.0 (and +0x1c to 0), +0x20 to 0, the byte at +0x24 to 0, +0x28 to 0, copies the white colour (4 floats) to +0x2c, zeroes the eight 8-byte fields from +0x40 to +0x78, and sets up two empty growable arrays: begin pointer at +0x80 (a zero-size allocation) with +0x88 and +0x90 zero, and begin pointer at +0x98 with +0xa0 and +0xa8 zero; the fields from +0xb0 to +0xc0 are zero.'
+  status: read
+  game_version: 1.0.68 Steam
+- address: '0x140103940'
+  module: kenshi_x64.exe
+  name: effect_handler_point_create
+  summary: 'Constructor of the point handler of an effect (class EffectHandlerPoint): runs the base handler constructor (0x1401034f0), clears the 16-bit field at +0x68 and the float at +0x6c, sets its own vtable, and then looks at the int that the pointer at +0x10 refers to: when it equals 7 it sets the float at +0x6c to 0.1 and the byte at +0x68 to 1, otherwise the byte at +0x68 stays 0.'
+  status: read
+  game_version: 1.0.68 Steam
+- address: '0x140101600'
+  module: kenshi_x64.exe
+  name: effect_start_delay_tick
+  summary: Per-frame countdown that starts an effect. While the byte at +0x38 is 0 it subtracts the frame time (global 0x142133798) from the timer at +0x60; when the timer is not positive it sets the 16-bit field at +0x38 to 0x0101 (started and flagged) if the float at +0x68 is not greater than the float at +0x6c, and refills the timer with 0.2.
+  status: read
+  game_version: 1.0.68 Steam
+- address: '0x140102310'
+  module: kenshi_x64.exe
+  name: effect_end_delay_tick
+  summary: Per-frame step that ends an effect that has started (byte at +0x38 set). When the byte at +0x68 is 0 it calls the stop helper 0x1401020e0 at once; otherwise, while the byte at +0x69 is 0, it subtracts the frame time from the countdown at +0x6c and, when that is not positive, calls the stop helper and sets the byte at +0x69 to 1 so it runs once.
+  status: read
+  game_version: 1.0.68 Steam
+- address: '0x140100ba0'
+  module: kenshi_x64.exe
+  name: effect_visibility_refresh
+  summary: Per-frame refresh of an effect's visible flag with a countdown. It subtracts the frame time from the timer at +0x60 and only acts when the timer is not positive. It then looks up an entry in a global table by the key stored at +0x24 and compares the owner pointer of that entry (+0x28) with the object's owner at +0x18; when they differ it calls the object's own virtual function in slot 0x20 instead. Otherwise, if the entry's byte at +0xb0 is 0 it asks the world helpers (0x140a0d230, 0x140a08ae0, 0x140a090d0) and returns without changes when the world is not ready or the entry is busy; then it stores the entry's flag at +0x20, sets the byte at +0x39 to 1 when the entry's flag is set, or when it is 0 and a float of the owner at +0x78 is above 0 to the result of the helper 0x1408f57a0 for the key. The timer is set to 1.0, or to 2.0 when the byte at +0x39 is set, and the byte at +0x38 gets the value of +0x39.
+  status: partial
+  game_version: 1.0.68 Steam
+- address: '0x140102370'
+  module: kenshi_x64.exe
+  name: effect_spawner_update
+  summary: Per-frame update of an effect spawner that keeps a list of effects (begin pointer at +0x20, end at +0x28, 8-byte pointers). It subtracts the frame time from the spawn timer at +0x40; while the timer is not positive and the list has fewer entries than the limit at +0x44 (a limit of 0 means no limit), it calls its own virtual function in slot 0x20 to create an effect and, if one was made, adds a random value between the two floats at +0x48 and +0x4c to the timer. Then it calls virtual function slot 0x10 of every effect in the list and removes (and destroys through slot 0) every effect whose virtual function in slot 0x18 returns true and whose pointer at +0x30 is 0.
+  status: read
+  game_version: 1.0.68 Steam
+- address: '0x14040a100'
+  module: kenshi_x64.exe
+  name: effect_wrapper_for_object
+  summary: Looks up an object in two hash tables of a manager and wraps it. Returns 0 when the object pointer is 0. The first lookup uses the string-like key stored at +0x58 of the object (hashed by 0x14006a6f0, searched by 0x14040f840) in the table at +0x8 of the manager; when it is found, the second lookup is in the pointer-keyed table at +0x48 (the pointer is mixed with shifts, a multiply-add and three xor-shift-multiply steps, the bucket is the hash and the bucket count minus 1 at +0x60); when the same pointer is found in its bucket chain it allocates a 0x60-byte record through the engine allocator, builds it with 0x1400f9300 from the object and the entry found by 0x140410d00 and returns it; in all other cases it returns 0.
+  status: partial
+  game_version: 1.0.68 Steam
+- address: '0x14052c830'
+  module: kenshi_x64.exe
+  name: attached_effect_create
+  summary: 'Creates an effect that is attached to an entity (the entity at +0xd8 of the object) and registers it. It takes the entity''s skeleton and calls its virtual function in slot 0x1a8 with the third argument, makes the effect manager on the first call (0x128-byte object, global at 0x1421281a0), asks it to create the effect named by the second argument (flag 1), and sets it up: 0x1400fbd70, 0x1400f8e90 with the last argument and 0x1400f8e10 with the entity and the third to fifth arguments. When the sixth argument (a flag byte) is 0 it sets the fixed timeout of the effect''s particle system to the float at +0x44 of the effect record, or to 2.0 (data 0x141682ad0) when that is not positive. It then creates the 0x98-byte attached-effect object (class AttachedEffect) holding the effect at +0x80, the last argument at +0x88, the flag at +0x90 and the second argument at +0x78, appends it to the object''s list (begin pointer +0x70, count +0x78) and returns it.'
+  status: read
+  game_version: 1.0.68 Steam
