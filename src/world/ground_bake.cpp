@@ -1,3 +1,6 @@
+#include <sys/resource.h>
+#include <sys/syscall.h>
+#include <unistd.h>
 #include <monkey_dust/world/ground_bake.h>
 #include <monkey_dust/world/overlay_mask_build.h>
 #include <monkey_dust/world/terrain_colour_dds.h>
@@ -135,8 +138,10 @@ bool BuildGroundBaked(const std::string& root, int side, std::vector<uint8_t>& r
     const double step_m = H((float)(HF_EXTENT / (HF_SIZE - 1) * 2.0));   // the python division by a float16 scalar
     std::atomic<int> next_row{0};
     auto work = [&]() {
+        setpriority(PRIO_PROCESS, (id_t)syscall(SYS_gettid), 10);   // a cold bake must not starve the UI / the rest of the machine
         for (;;) {
             const int pair = next_row++; if (pair * 2 >= side) return;
+            if (pair % (side / 20) == 0) fprintf(stderr, "[GroundBake] bake loop %d %%\n", pair * 200 / side);
             struct Memo { int hx = -1, hz = -1, zone = -1; float slope_w = 0; } memo[64];   // the smoothed slope weight depends on (height sample, zone) only: shared by the 2x2 texels of one sample
             for (int tx = 0; tx < side; ++tx) for (int tz = pair * 2; tz < std::min(side, pair * 2 + 2); ++tz) {
                 const double wz = (tz + 0.5) / side * HF_EXTENT;
@@ -202,7 +207,7 @@ bool BuildGroundBaked(const std::string& root, int side, std::vector<uint8_t>& r
             }
         }
     };
-    std::vector<std::thread> th; const int n = (int)std::max(1u, std::min(4u, std::thread::hardware_concurrency()));
+    std::vector<std::thread> th; const int n = (int)std::max(1u, std::min(4u, std::thread::hardware_concurrency() > 1 ? std::thread::hardware_concurrency() - 1 : 1u));
     for (int i = 0; i < n; ++i) th.emplace_back(work);
     for (auto& t : th) t.join();
     fprintf(stderr, "[GroundBake] %dx%d baked in %.1f s\n", side, side, secs());
@@ -221,6 +226,7 @@ std::string EnsureGroundBakedDds(const std::string& root) {
     fprintf(stderr, "[GroundBake] input hash took %.1f s\n", std::chrono::duration<double>(std::chrono::steady_clock::now() - th0).count());
     if (path.empty()) return {};
     if (FILE* f = fopen(path.c_str(), "rb")) { fclose(f); fprintf(stderr, "[Cache] hit  %016llx/ground_baked.dds\n", (unsigned long long)key); return path; }
+    fprintf(stderr, "[Cache] miss %016llx/ground_baked.dds (%zu input files, %d ground textures)\n", (unsigned long long)key, files.size(), reg.GroundTexCount());
     std::vector<uint8_t> rgb, dds;
     const auto t0 = std::chrono::steady_clock::now();
     auto since = [&] { return std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count(); };

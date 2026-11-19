@@ -27,7 +27,9 @@ uint64_t HashFiles(const std::vector<std::string>& files) {
     auto mix = [&](uint64_t v) { for (int i = 0; i < 8; ++i) { h ^= (v >> (8 * i)) & 0xff; h *= 1099511628211ull; } };
     std::error_code ec;
     for (const std::string& f : files) {
-        mix((uint64_t)fs::file_size(f, ec));
+        const uint64_t sz = (uint64_t)fs::file_size(f, ec);
+        if (ec) fprintf(stderr, "[Cache] input missing, the key is not stable: %s\n", f.c_str());
+        mix(sz);
         mix((uint64_t)fs::last_write_time(f, ec).time_since_epoch().count());
     }
     return h;
