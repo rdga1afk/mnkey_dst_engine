@@ -248,18 +248,20 @@ void TerrainShadingProjected::EnsureSize(md::GpuDeviceHandle dev, int w, int h) 
     xs_tex_ = nullptr; xs_samp_ = nullptr;
     if (!ready_ || (w == w_ && h == h_) || w <= 0 || h <= 0) return;
     if (hist_on_ && gd_prev_->SDLTexture()) { xs_tex_ = gd_prev_->SDLTexture(); xs_samp_ = gd_prev_->SDLSampler(); }
-    if (!Cached(w, h)) {   // a size not seen before: the oldest set goes (the caller drained the GPU), the current one becomes the alt set
-        alt_hist_.Shutdown(); alt_depth_.Shutdown(); alt_color_.Shutdown();
-        std::swap(gbuf_color_, alt_color_); std::swap(gbuf_depth_, alt_depth_); std::swap(gd_alt_, alt_hist_);
-        alt_w_ = w_; alt_h_ = h_;
-        CreateTextures(w, h);
-    } else {
-        std::swap(gbuf_color_, alt_color_); std::swap(gbuf_depth_, alt_depth_); std::swap(gd_alt_, alt_hist_);
-        std::swap(w_, alt_w_); std::swap(h_, alt_h_);
+    {
+        Slot cur; std::swap(cur.color, gbuf_color_); std::swap(cur.depth, gbuf_depth_); std::swap(cur.hist, gd_alt_); cur.w = w_; cur.h = h_;
+        if (md::SlotSwapIn(cur, alt_, [&](const Slot& s) { return s.w == w && s.h == h; })) {   // a stored size: the sets are swapped
+            std::swap(cur.color, gbuf_color_); std::swap(cur.depth, gbuf_depth_); std::swap(cur.hist, gd_alt_); w_ = cur.w; h_ = cur.h;
+        } else {   // a size not seen before: the active set is stored (the oldest goes when all slots are used; the caller drained the GPU)
+            md::SlotPushCur(cur, alt_, alt_rr_, [&](Slot& s) { s.hist.Shutdown(); s.depth.Shutdown(); s.color.Shutdown(); s.w = s.h = 0; });
+            std::swap(cur.color, gbuf_color_); std::swap(cur.depth, gbuf_depth_); std::swap(cur.hist, gd_alt_); w_ = h_ = 0;
+            CreateTextures(w, h);
+        }
     }
     gd_cur_ = &gbuf_depth_; gd_prev_ = &gd_alt_;
     if (hist_on_ && !gd_alt_.SDLTexture()) gd_alt_.Init(w, h, /*shadow_border=*/false);
     if (!hist_on_ && gd_alt_.SDLTexture()) gd_alt_.Shutdown();
+    EnsureSlotTex();
 }
 
 void TerrainShadingProjected::EnsureHistory(bool on, int w, int h) {
@@ -293,8 +295,20 @@ void TerrainShadingProjected::Shutdown() {
     gbuf_depth_.Shutdown();
     gbuf_color_.Shutdown();
     if (slot_tex_) { SDL_ReleaseGPUTexture(md::GpuDevice::Get().SDLDevice(), slot_tex_); slot_tex_ = nullptr; }
-    alt_hist_.Shutdown(); alt_depth_.Shutdown(); alt_color_.Shutdown(); alt_w_ = alt_h_ = 0;
+    for (Slot& s : alt_) { s.hist.Shutdown(); s.depth.Shutdown(); s.color.Shutdown(); s.w = s.h = 0; }
+    for (SlotTex& s : slot_alt_) { if (s.t) SDL_ReleaseGPUTexture(md::GpuDevice::Get().SDLDevice(), s.t); s = SlotTex{}; }
     ready_ = false;
+}
+
+void TerrainShadingProjected::EnsureSlotTex() {   // the R8_UINT biome-list target of the active size; the other sizes' targets are kept (DE-362)
+    if (!md::GroundSlotTargetOn() || w_ <= 0 || h_ <= 0 || (slot_tex_ && slot_w_ == w_ && slot_h_ == h_)) return;
+    SlotTex cur{ slot_tex_, slot_w_, slot_h_ };
+    if (md::SlotSwapIn(cur, slot_alt_, [&](const SlotTex& s) { return s.w == w_ && s.h == h_; })) { slot_tex_ = cur.t; slot_w_ = cur.w; slot_h_ = cur.h; return; }
+    SDL_GPUDevice* sdev = md::GpuDevice::Get().SDLDevice();
+    md::SlotPushCur(cur, slot_alt_, slot_rr_, [&](SlotTex& s) { if (s.t) SDL_ReleaseGPUTexture(sdev, s.t); s = SlotTex{}; });
+    SDL_GPUTextureCreateInfo ti = {}; ti.type = SDL_GPU_TEXTURETYPE_2D; ti.format = SDL_GPU_TEXTUREFORMAT_R8_UINT; ti.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
+    ti.width = (Uint32)w_; ti.height = (Uint32)h_; ti.layer_count_or_depth = 1; ti.num_levels = 1;
+    slot_tex_ = SDL_CreateGPUTexture(sdev, &ti); slot_w_ = w_; slot_h_ = h_;
 }
 
 SDL_GPURenderPass* TerrainShadingProjected::BeginGBufferPass(md::GpuCommandBufferHandle cmd) {
@@ -309,13 +323,7 @@ SDL_GPURenderPass* TerrainShadingProjected::BeginGBufferPass(md::GpuCommandBuffe
     cpd.cmd            = cmd;
     cpd.color_tex[0]      = gbuf_color_.SDLTexture();
     if (md::GroundSlotTargetOn()) {   // second target: the patch's biome-list slot (R8_UINT), cleared to 0 = no list
-        if (!slot_tex_ || slot_w_ != w_ || slot_h_ != h_) {
-            SDL_GPUDevice* sdev = md::GpuDevice::Get().SDLDevice();
-            if (slot_tex_) SDL_ReleaseGPUTexture(sdev, slot_tex_);
-            SDL_GPUTextureCreateInfo ti = {}; ti.type = SDL_GPU_TEXTURETYPE_2D; ti.format = SDL_GPU_TEXTUREFORMAT_R8_UINT; ti.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
-            ti.width = (Uint32)w_; ti.height = (Uint32)h_; ti.layer_count_or_depth = 1; ti.num_levels = 1;
-            slot_tex_ = SDL_CreateGPUTexture(sdev, &ti); slot_w_ = w_; slot_h_ = h_;
-        }
+        EnsureSlotTex();   // normally already made by EnsureSize
         if (slot_tex_) { cpd.color_tex[1] = slot_tex_; cpd.num_color_targets = 2; }
     }
     cpd.depth_tex      = gd_cur_->SDLTexture();

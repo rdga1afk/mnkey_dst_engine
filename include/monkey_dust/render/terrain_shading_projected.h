@@ -5,6 +5,7 @@
 #include <monkey_dust/render/gpu_pass_view.h>
 #include <monkey_dust/render/terrain_renderer.h>
 #include <monkey_dust/render/terrain_pvt.h>
+#include <monkey_dust/render/size_slots.h>
 #include <SDL3/SDL_gpu.h>
 #include <string>
 
@@ -69,7 +70,7 @@ public:
     // #194: the textures of the previous size are kept (alt set); a return to that size swaps the sets without creating or destroying anything. Cached(w, h): EnsureSize(w, h) needs no GPU drain.
     // #194: the frame the size changed: the previous frame's depth is still the one of the old size (the reuse resolve reads it at its own size); null otherwise
     bool CrossSize() const { return xs_tex_ != nullptr; }
-    bool Cached(int w, int h) const { return w == w_ && h == h_ ? true : (alt_color_.SDLTexture() && alt_depth_.SDLTexture() && alt_w_ == w && alt_h_ == h); }
+    bool Cached(int w, int h) const { if (w == w_ && h == h_) return true; for (const Slot& s : alt_) if (!s.Empty() && s.w == w && s.h == h) return true; return false; }   // DE-362: up to 4 more sizes are kept
 
     GpuTexture&      GBufferColor() { return gbuf_color_; }
     SDL_GPUTexture*  GBufferSlot() const { return slot_tex_; }   // ground live pass (MD_GROUND_LIVE=1): R8_UINT second target of the G-buffer pass, the biome-list slot of each patch
@@ -172,11 +173,13 @@ private:
 
     GpuTexture       gbuf_color_;
     SDL_GPUTexture*  slot_tex_ = nullptr; int slot_w_ = 0, slot_h_ = 0;
+    struct SlotTex { SDL_GPUTexture* t = nullptr; int w = 0, h = 0; bool Empty() const { return !t; } };
+    SlotTex slot_alt_[4]; int slot_rr_ = 0;   // DE-362: the biome-list slot targets of the other sizes
+    void EnsureSlotTex();
     GpuDepthTexture   gbuf_depth_;
     GpuDepthTexture   gd_alt_;                    // the other depth texture of the history ping-pong (made by EnsureHistory)
-    GpuTexture        alt_color_;
-    GpuDepthTexture   alt_depth_, alt_hist_;
-    int alt_w_ = 0, alt_h_ = 0;
+    struct Slot { GpuTexture color; GpuDepthTexture depth, hist; int w = 0, h = 0; bool Empty() const { return !color.SDLTexture() || !depth.SDLTexture(); } };
+    Slot alt_[4]; int alt_rr_ = 0;   // DE-362: the G-buffer sets of the other dynres levels (stored, swapped in on a change; nothing is created or destroyed)
     SDL_GPUTexture* xs_tex_ = nullptr; SDL_GPUSampler* xs_samp_ = nullptr;
     GpuDepthTexture*  gd_cur_ = &gbuf_depth_;
     GpuDepthTexture*  gd_prev_ = &gd_alt_;
