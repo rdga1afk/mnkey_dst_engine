@@ -305,6 +305,12 @@
   status: auto
   game_version: 1.0.68 Steam
   rule: 'library-template: msvc-std-tree-erase'
+- address: '0x1404fc410'
+  module: kenshi_x64.exe
+  name: tree_erase_1404fc410
+  summary: 'Instance of the MSVC standard-library red-black tree erase (removal of one element of a std::map / std::set by iterator): throws the standard ''invalid map/set<T> iterator'' error for the end iterator, finds the successor, unlinks the node, rebalances the tree, destroys the string member of this node type and the member after it, frees the node and decrements the element count; it returns the iterator after the removed element. Only the node layout differs between the instances.'
+  status: read
+  game_version: 1.0.68 Steam
 - address: '0x140502320'
   module: kenshi_x64.exe
   name: tree_erase_140502320
@@ -648,6 +654,13 @@
   status: auto
   game_version: 1.0.68 Steam
   rule: 'library-template: msvc-std-tree-erase'
+- address: '0x140880850'
+  module: kenshi_x64.exe
+  name: tree_erase_140880850
+  summary: 'Library code, an instance of a standard-library template (family of 0x1404fc410, score 1.00 to it, the marker string ''invalid map/set<T> iterator'' is in this function). Instance of the MSVC standard-library red-black tree erase (removal of one element of a std::map / std::set by iterator): throws the standard ''invalid map/set<T> iterator'' error for the end iterator, finds the successor, unlinks the node, rebalances the tree, destroys the string member of this node type and the member after it, frees the node and decrements the element count; it returns the iterator after the removed element. Only the node layout differs between the instances.'
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: 'library-template: msvc-std-tree-erase'
 - address: '0x1408a2f30'
   module: kenshi_x64.exe
   name: tree_erase_1408a2f30
@@ -787,3 +800,16 @@
   status: auto
   game_version: 1.0.68 Steam
   rule: 'library-template: msvc-std-tree-erase'
+- address: '0x140a32c10'
+  module: kenshi_x64.exe
+  name: tree_insert_140a32c10
+  summary: 'Instance of the MSVC standard-library red-black tree node insertion (the step of std::map / std::set insert that links a new node under a given parent): throws the standard ''map/set<T> too long'' error when the element count is at its limit (and frees the new node), increments the count, links the node to the left or right of the parent and updates the leftmost / rightmost pointers, rebalances with the recoloring and rotation loop and colours the root black; it returns an iterator to the new node.'
+  status: read
+  game_version: 1.0.68 Steam
+- address: '0x140a4b0e0'
+  module: kenshi_x64.exe
+  name: tree_insert_140a4b0e0
+  summary: 'Library code, an instance of a standard-library template (family of 0x140a32c10, score 1.00 to it, the marker string ''map/set<T> too long'' is in this function). Instance of the MSVC standard-library red-black tree node insertion (the step of std::map / std::set insert that links a new node under a given parent): throws the standard ''map/set<T> too long'' error when the element count is at its limit (and frees the new node), increments the count, links the node to the left or right of the parent and updates the leftmost / rightmost pointers, rebalances with the recoloring and rotation loop and colours the root black; it returns an iterator to the new node.'
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: 'library-template: msvc-std-tree-insert-node'
