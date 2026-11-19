@@ -98,3 +98,9 @@
     (0x1404c0d30, 0x1404ca200) that upload the image.
   status: read
   game_version: 1.0.68 Steam
+- address: '0x1409f9960'
+  module: kenshi_x64.exe
+  name: image_channel_gaussian_blur
+  summary: 'Separable Gaussian blur of one byte channel of an image over a rectangle (arguments: image object, rectangle origin, rectangle size, channel index, width). It is a blur, not a gamma or power curve: the water colour map fill calls it with 2.2 as the width. Kernel: size = ceil(width) taps (3 for 2.2), variance = (width / 3) * width / 3 (0.5378 for 2.2), tap i = 1 / sqrt(2 pi variance) * e^(-i*i / (2 variance)) with e = 2.7182817 (data 0x141747f3c); taps 0..2 are about 0.544, 0.215, 0.013, a symmetric kernel that sums to about 1. Pass 1 blurs along the first axis from the image bytes into a temporary array, pass 2 along the other axis from the temporary array back into the image; the coordinates are clamped to the rectangle, the result is floor(sum + 0.5) stored as a byte.'
+  status: read
+  game_version: 1.0.68 Steam
