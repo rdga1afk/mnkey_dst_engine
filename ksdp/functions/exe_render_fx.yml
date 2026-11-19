@@ -37,3 +37,9 @@
   summary: 'Instance of the standard-library ordered map element access (operator[]) for a map whose key is a float: walks the tree from the root to the first node whose key is not less than the given key (lower bound); when that node exists and its key equals the given key it returns the address of its value (node + 0x20); otherwise it builds a node for the key with a default value, inserts it at that position through the helpers 0x1402dccc0 and 0x1402dcdc0 and returns the address of the new value.'
   status: read
   game_version: 1.0.68 Steam
+- address: '0x1400f94d0'
+  module: kenshi_x64.exe
+  name: effect_stop_fade
+  summary: Starts the end of an effect object (the settings record is at +0x10). When the particle-system holder at +0x18 exists, it stops the particle system of that holder (+0xa8) with the fade time at +0x50 of the record when that time is above 0, or with the default fade when it is 0 or below. When the sound or light helper at +0x20 exists, it passes it the value at +0x58 of the record. When the fade block at +0x28 exists, it sets its flag byte to 0xff, clears the float at +0x24, stores the start time (record +0x60) at +0x28 and start time plus duration (record +0x68) at +0x2c, and stores -1 divided by the duration at +0x30 when the duration is above 0, else 0.
+  status: read
+  game_version: 1.0.68 Steam
