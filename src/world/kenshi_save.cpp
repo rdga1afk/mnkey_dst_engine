@@ -52,7 +52,9 @@ bool ReadKenshiSave(const std::string& dir, KenshiSave& out, std::string& err) {
         if (const std::string* v = FindStr(p, "faction stringID")) sq.faction = *v;
         if (const auto* v = FindVec3(p, "position")) for (int i = 0; i < 3; ++i) sq.position[i] = (*v)[i];
         md::fcs::File pf;
-        if (!Load(fs::path(dir) / "platoon" / (sq.id + ".platoon"), pf, err)) return false;
+        std::string content = "platoon/" + sq.id + ".platoon";   // the record names its file in "content file" (exe 0x140372ef0)
+        for (const auto& kv : p.files) if (kv.first == "content file" && !kv.second.empty()) content = kv.second;
+        if (!Load(fs::path(dir) / content, pf, err)) return false;
         std::map<std::string, const md::fcs::Record*> by_id;
         for (const md::fcs::Record& r : pf.records) by_id[r.string_id] = &r;
         for (const md::fcs::Record& coll : pf.records) {
@@ -100,6 +102,9 @@ bool WriteKenshiSave(const std::string& dir, const KenshiSave& s, std::string& e
         md::fcs::Record p = Rec(K_PLATOON, next, sq.id, std::to_string(next) + "-quick-INGAME"); ++next;
         p.strings = { {"platoon stringID", sq.id}, {"faction name", s.faction_name}, {"faction stringID", sq.faction} };
         p.vec3s = { {"position", {sq.position[0], sq.position[1], sq.position[2]}} };
+        p.bools = { {"never been activated", false}, {"intact", true} };   // exe 0x140372ef0: a loaded squad is written with these and its file name
+        p.ints = { {"char count", (int)sq.characters.size()}, {"squad index", 0} };
+        p.files = { {"content file", "platoon/" + sq.id + ".platoon"} };
         quick.records.push_back(p);
         md::fcs::File pf; pf.header.filetype = md::fcs::FILETYPE_V15;
         md::fcs::Record coll = Rec(K_INSTANCES, 1, "characters", "1-" + sq.id + "-INGAME");
