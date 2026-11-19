@@ -69,7 +69,9 @@ bool ReadKenshiSave(const std::string& dir, KenshiSave& out, std::string& err) {
                     if (s.kind == K_CHARACTER_STATE) { if (const std::string* n = FindStr(s, "name")) c.name = *n; }
                     else if (s.kind == K_STATS) c.stats = s.floats;
                     else if (s.kind == K_MEDICAL) {
-                        c.dead = FindBool(s, "dead"); c.unconscious = FindBool(s, "unconcious");
+                        c.dead = FindBool(s, "dead"); c.unconscious = FindBool(s, "unconcious"); c.incapacitated = FindBool(s, "incapacitated"); c.coma = FindBool(s, "coma");
+                        if (const float* v = FindFloat(s, "KO")) c.ko = *v;
+                        if (const float* v = FindFloat(s, "bleeding")) c.bleeding = *v;
                         if (const float* v = FindFloat(s, "blood")) c.blood = *v;
                         if (const float* v = FindFloat(s, "hung")) c.hunger = *v;
                         if (const float* v = FindFloat(s, "fed")) c.fed = *v;
@@ -118,8 +120,8 @@ bool WriteKenshiSave(const std::string& dir, const KenshiSave& s, std::string& e
             md::fcs::Record g = mk(K_CHARACTER_STATE); g.strings = { {"name", c.name} }; add(g);
             md::fcs::Record st = mk(K_STATS); st.floats = c.stats; add(st);
             md::fcs::Record m = mk(K_MEDICAL);
-            m.bools = { {"dead", c.dead}, {"unconcious", c.unconscious} };
-            m.floats = { {"blood", c.blood}, {"hung", c.hunger}, {"fed", c.fed} }; add(m);
+            m.bools = { {"incapacitated", c.incapacitated}, {"unconcious", c.unconscious}, {"dead", c.dead}, {"coma", c.coma} };   // exe 0x14064ea50
+            m.floats = { {"blood", c.blood}, {"KO", c.ko}, {"hung", c.hunger}, {"fed", c.fed}, {"bleeding", c.bleeding} }; add(m);
             coll.instances.push_back(std::move(in));
         }
         pf.records.insert(pf.records.begin(), coll);

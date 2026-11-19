@@ -13,8 +13,8 @@ struct KChar {
     float position[3] = {0, 0, 0};
     float rotation[4] = {0, 0, 0, 0};               // as stored: w, x, y, z
     std::vector<std::pair<std::string, float>> stats;   // STATS floats in file order
-    bool dead = false, unconscious = false;         // MEDICAL_STATE "dead" / "unconcious" (sic)
-    float blood = 100.f, hunger = 2.f, fed = 0.f;   // MEDICAL_STATE "blood" / "hung" / "fed"
+    bool dead = false, unconscious = false, incapacitated = false, coma = false;   // MEDICAL_STATE bools (exe 0x14064ea50; "unconcious" is the exe's spelling)
+    float blood = 100.f, hunger = 2.f, fed = 0.f, ko = 0.f, bleeding = 0.f;       // MEDICAL_STATE floats "blood" / "hung" / "fed" / "KO" / "bleeding"
 };
 
 struct KSquad {
