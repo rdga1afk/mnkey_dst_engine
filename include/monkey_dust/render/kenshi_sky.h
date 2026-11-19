@@ -158,6 +158,8 @@ inline float KenshiMoonAngle(float hours, int day, float speed) {
 }
 
 // Distance of a moon from the camera (exe moon update 0x140670ed0): half of near + far clip, reduced by its own tangent of 0.01 degrees; the node scale is size * distance * that tangent, so the angular size is size * tan(0.01 deg) whatever the distance.
+// exe 0x14066f3ea: SkyX time multiplier = game speed x 11/1200 (0x1416fd928); SkyX::update advances the controller's hour (0x14066d400) by multiplier x frame seconds, so the unit is game hours per real second
+inline float KenshiSkyHoursPerSecond(float game_speed) { return game_speed * 0.0091666669f; }
 inline float KenshiMoonTan() { return std::tan(0.01f * 3.14159265f / 180.f); }
 inline float KenshiMoonDistance(float near_clip, float far_clip) { const float d = (near_clip + far_clip) * 0.5f; return d - KenshiMoonTan() * d; }
 
