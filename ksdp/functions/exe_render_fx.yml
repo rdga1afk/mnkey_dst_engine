@@ -18,3 +18,10 @@
   summary: 'Instance of the standard-library vector shrink-to-fit for a vector of 8-byte elements (begin, end, capacity pointers at +0, +8, +0x10): when the used size is smaller than the capacity it builds a tight copy through a helper (0x1400fe790), swaps the three pointers with it and releases the old block through the engine allocator; otherwise it does nothing.'
   status: read
   game_version: 1.0.68 Steam
+- address: '0x140102b50'
+  module: kenshi_x64.exe
+  name: drifting_effect_update
+  summary: 'Per-frame update of a drifting effect object (a moving point with a velocity, for example a wind-blown particle emitter). It first calls a helper (0x140102870), then runs only when the byte at +0x5c is set or the float at +0x58 is positive. A direction timer at +0x80 is reduced by the frame time (global at 0x142133798); when it is not positive a new direction is made: a random number in the range -0.5 to 0.5 (through the helper 0x1409b1c80) times pi is used as a rotation angle about the up axis, applied to a base vector, normalised and stored at +0x74, and the timer is refilled with a random value between the two floats at +0x40 and +0x44 of the owner object times 0.1. The velocity at +0x68 gets the direction times the frame time added; the position at +0x24 gets velocity times the frame time squared added, and, when the owner has the byte at +0x14 set, also the wind vector of a scene object (from the helper 0x1409dc0d0, at +0x1c) times the frame time squared. A second timer
+    at +0x84 is reduced by the frame time and, when the byte at +0x38 is set and the timer is not positive, the height of the position (+0x28) is replaced by a terrain height lookup (0x1409b32f0) at its x and z. When the pointer at +0x30 is set, its scene node is moved to the position.'
+  status: partial
+  game_version: 1.0.68 Steam
