@@ -31,3 +31,15 @@
   summary: 'Builds one moon object of the sky. Arguments: the object to fill, the mesh name, a material name, a direction 3-vector and two floats. It keeps the direction normalised at +0x8, the first float at +0x14 (the moon size) and the second float divided by 1440 at +0x18 (the rotation speed per minute, 1440 minutes in a day). It creates the mesh entity through a lazily made global factory (the first call allocates it), sets the material to the given name, turns shadow casting off, and puts the entity in render queue group 6 with a priority that is a global counter incremented on every call (low 16 bits). The two callers in the sky constructor pass the mesh planet01.mesh, the material names "Moon" and "Moon2", directions (1.0, 0.3, -1.0) and (1.0, 0.14, -0.7), sizes 35.0 and 10.0 (the second is the same register the light power uses, loaded from 10.0), and speed values 1.0 and 4.7233 (read from the data at 0x1416fd70c).'
   status: read
   game_version: 1.0.68 Steam
+- address: '0x14066d400'
+  module: kenshi_x64.exe
+  name: skyx_controller_update
+  summary: 'Per-frame update of the sky controller (the object created in the sky constructor; vtable slot +8). Adds the frame time (the float the caller points to) to the time of day at +0x1c and subtracts 24 when it reaches 24. With sunrise at +0x20 and sunset at +0x24 it makes the day fraction f: inside the day f = (t - sunrise) / (sunset - sunrise); outside it (t below sunrise gets 24 added first) f = (t - sunset) / (24 - (sunset - sunrise)) + 1. It stores the sun direction at +0x10 as (cos(f pi), cos(tilt) sin(f pi), sin(tilt) sin(f pi)) with the tilt at +0x28. The getter in vtable slot +0x10 (0x14066ce20) copies those three floats out unchanged.'
+  status: read
+  game_version: 1.0.68 Steam
+- address: '0x140670ed0'
+  module: kenshi_x64.exe
+  name: moon_update
+  summary: Per-frame update of one moon object (+0x8 direction, +0x14 size, +0x18 speed / 1440). Positions the moon node at the camera position (minus the root node position) plus the direction times the second argument, sets the node scale to the unit scale times that argument cubed (three multiplications), and sets its orientation to a rotation about the up axis by ((hour + 24 * day) * 60 + minute) * speed / 1440, where hour, minute and day are the integer fields of the sky object (global 0x1421303d0). The first call also caches the tangent of 0.01 degrees. The second argument is not set by the caller I looked at (0x14066ff60 calls it with a register left from the time computation), so what it is, is not known.
+  status: partial
+  game_version: 1.0.68 Steam
