@@ -89,6 +89,12 @@ inline float WetnessStep(float cur, float target, float dt) {
     return cur;
 }
 
+// The rain and wind values of the original (exe 1409e8f70, 1409e95a3 - 1409e970a). Rain = float32(record "rain intensity" * state strength). Wind = float32(double(float32(record "wind intensity" * wind value)) * 0.01), where the wind value
+// is the state field +0x18 of the original (its source is not read: UNKNOWN, so World::Update keeps the raw record value in SkyOutput.wind). The start / stop / value events the original raises on changes are not ported.
+// Emulator rows tools/tests/data/exe_weather_rainwind.tsv.
+inline float RainStep(float rec_rain, float strength) { return rec_rain * strength; }
+inline float WindStep(float rec_wind, float wind_value) { return float(double(rec_wind * wind_value) * 0.01); }
+
 struct SkyOutput {
     float clouds_w = 0.25f;              // the controller's coverage value
     KsVec3 sky_mult = { 1.f, 1.f, 1.f };
