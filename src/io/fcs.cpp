@@ -235,15 +235,22 @@ bool Serialize(const File& f, std::vector<uint8_t>& out, Error& err) {
     err = Error{};
     out.clear();
     const Header& h = f.header;
-    if (h.filetype != FILETYPE_V16 && h.filetype != FILETYPE_V17) { err.kind = ErrorKind::UnsupportedFiletype; err.what = "only v16 / v17 files are written"; return false; }
+    if (h.filetype != FILETYPE_V15 && h.filetype != FILETYPE_V16 && h.filetype != FILETYPE_V17) { err.kind = ErrorKind::UnsupportedFiletype; err.what = "only v15 / v16 / v17 files are written"; return false; }
     Out o{out};
     o.I32(h.filetype);
-    std::vector<uint8_t> body;
-    { Out b{body}; b.I32(h.version); b.Str(h.author); b.Str(h.description); b.Str(h.dependencies); b.Str(h.references); body.insert(body.end(), h.tail.begin(), h.tail.end()); }
-    if (h.filetype == FILETYPE_V17) o.I32((int32_t)body.size());
-    out.insert(out.end(), body.begin(), body.end());
+    if (h.filetype != FILETYPE_V15) {   // v15 (save and zone files): no version / author / description, straight to the counts
+        std::vector<uint8_t> body;
+        { Out b{body}; b.I32(h.version); b.Str(h.author); b.Str(h.description); b.Str(h.dependencies); b.Str(h.references); body.insert(body.end(), h.tail.begin(), h.tail.end()); }
+        if (h.filetype == FILETYPE_V17) o.I32((int32_t)body.size());
+        out.insert(out.end(), body.begin(), body.end());
+    }
     o.I32(h.id_counter); o.I32((int32_t)f.records.size());
     for (const Record& r : f.records) WriteRecord(o, h.filetype, r);
+    if (h.filetype == FILETYPE_V15 && f.has_trailer) {
+        auto list = [&](const std::vector<int32_t>& v) { o.I32((int32_t)v.size()); for (int32_t x : v) o.I32(x); };
+        list(f.trailer);
+        for (const auto& t : f.trailers) list(t);
+    }
     return true;
 }
 

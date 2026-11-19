@@ -105,7 +105,7 @@ struct Error {
 // format is right.
 bool Parse(const uint8_t* data, size_t size, File& out, Error& err);
 bool ReadFile(const std::string& path, File& out, Error& err);
-// The inverse of Parse for v16 / v17 files (v15 zone files are not written): every list keeps its order, strings their bytes, so a file read and written again is byte-identical.
+// The inverse of Parse for v15 / v16 / v17 files (v15: save and zone files, header without strings, trailer lists after the records): every list keeps its order, strings their bytes, so a file read and written again is byte-identical.
 // v17: a record's lead is its byte length when `lead != 0` (set it to 1 on a new record to have it computed), 0 stays 0; the header size is computed.
 bool Serialize(const File& file, std::vector<uint8_t>& out, Error& err);
 bool WriteFile(const std::string& path, const File& file, Error& err);
