@@ -76,6 +76,18 @@
   status: auto
   game_version: 1.0.68 Steam
   rule: 'library-template: msvc-std-tree-erase'
+- address: '0x1402d31d0'
+  module: kenshi_x64.exe
+  name: itembox_dtor_1402d31d0
+  summary: 'Destructor of an instance of the item-box wrapper template of the GUI library (wraps::BaseItemBox for a list item type of its own): sets the item-box vtable, deletes the three delegates stored at +0x5c0, +0x5c8 and +0x5d0 of the widget and replaces the other six callbacks with null delegates, deletes every object of the wrapper''s pointer list and the list itself, deletes six pointer fields and runs the base wrapper destructor.'
+  status: read
+  game_version: 1.0.68 Steam
+- address: '0x1402d4540'
+  module: kenshi_x64.exe
+  name: itembox_ctor_1402d4540
+  summary: 'Constructor of an instance of the item-box wrapper template of the GUI library (wraps::BaseItemBox for a list item type of its own): runs the base wrapper constructor with the layout, sets the item-box vtable, zeroes nine fields (+0xa0 to +0xe0), creates the item-box widget, stores a back pointer to the wrapper in the widget''s user data and connects nine method delegates of the wrapper to the widget''s callbacks.'
+  status: read
+  game_version: 1.0.68 Steam
 - address: '0x1402dc5d0'
   module: kenshi_x64.exe
   name: tree_erase_1402dc5d0
@@ -181,6 +193,20 @@
   status: auto
   game_version: 1.0.68 Steam
   rule: 'library-template: msvc-std-tree-erase'
+- address: '0x140426520'
+  module: kenshi_x64.exe
+  name: itembox_dtor_140426520
+  summary: 'Library code, an instance of a standard-library template (family of 0x1402d31d0, score 1.00 to it, the marker string ''wraps::BaseItemBox'' is in this function). Destructor of an instance of the item-box wrapper template of the GUI library (wraps::BaseItemBox for a list item type of its own): sets the item-box vtable, deletes the three delegates stored at +0x5c0, +0x5c8 and +0x5d0 of the widget and replaces the other six callbacks with null delegates, deletes every object of the wrapper''s pointer list and the list itself, deletes six pointer fields and runs the base wrapper destructor.'
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: 'library-template: mygui-wraps-baseitembox-dtor'
+- address: '0x140426ca0'
+  module: kenshi_x64.exe
+  name: itembox_ctor_140426ca0
+  summary: 'Library code, an instance of a standard-library template (family of 0x1402d4540, score 1.00 to it, the marker string ''wraps::BaseItemBox'' is in this function). Constructor of an instance of the item-box wrapper template of the GUI library (wraps::BaseItemBox for a list item type of its own): runs the base wrapper constructor with the layout, sets the item-box vtable, zeroes nine fields (+0xa0 to +0xe0), creates the item-box widget, stores a back pointer to the wrapper in the widget''s user data and connects nine method delegates of the wrapper to the widget''s callbacks.'
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: 'library-template: mygui-wraps-baseitembox-ctor'
 - address: '0x140467b70'
   module: kenshi_x64.exe
   name: tree_erase_140467b70
@@ -223,6 +249,48 @@
   status: auto
   game_version: 1.0.68 Steam
   rule: 'library-template: msvc-std-tree-erase'
+- address: '0x1404c6190'
+  module: kenshi_x64.exe
+  name: itembox_dtor_1404c6190
+  summary: 'Library code, an instance of a standard-library template (family of 0x1402d31d0, score 1.00 to it, the marker string ''wraps::BaseItemBox'' is in this function). Destructor of an instance of the item-box wrapper template of the GUI library (wraps::BaseItemBox for a list item type of its own): sets the item-box vtable, deletes the three delegates stored at +0x5c0, +0x5c8 and +0x5d0 of the widget and replaces the other six callbacks with null delegates, deletes every object of the wrapper''s pointer list and the list itself, deletes six pointer fields and runs the base wrapper destructor.'
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: 'library-template: mygui-wraps-baseitembox-dtor'
+- address: '0x1404c6630'
+  module: kenshi_x64.exe
+  name: itembox_dtor_1404c6630
+  summary: 'Library code, an instance of a standard-library template (family of 0x1402d31d0, score 1.00 to it, the marker string ''wraps::BaseItemBox'' is in this function). Destructor of an instance of the item-box wrapper template of the GUI library (wraps::BaseItemBox for a list item type of its own): sets the item-box vtable, deletes the three delegates stored at +0x5c0, +0x5c8 and +0x5d0 of the widget and replaces the other six callbacks with null delegates, deletes every object of the wrapper''s pointer list and the list itself, deletes six pointer fields and runs the base wrapper destructor.'
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: 'library-template: mygui-wraps-baseitembox-dtor'
+- address: '0x1404c6ad0'
+  module: kenshi_x64.exe
+  name: itembox_dtor_1404c6ad0
+  summary: 'Library code, an instance of a standard-library template (family of 0x1402d31d0, score 1.00 to it, the marker string ''wraps::BaseItemBox'' is in this function). Destructor of an instance of the item-box wrapper template of the GUI library (wraps::BaseItemBox for a list item type of its own): sets the item-box vtable, deletes the three delegates stored at +0x5c0, +0x5c8 and +0x5d0 of the widget and replaces the other six callbacks with null delegates, deletes every object of the wrapper''s pointer list and the list itself, deletes six pointer fields and runs the base wrapper destructor.'
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: 'library-template: mygui-wraps-baseitembox-dtor'
+- address: '0x1404c77e0'
+  module: kenshi_x64.exe
+  name: itembox_ctor_1404c77e0
+  summary: 'Library code, an instance of a standard-library template (family of 0x1402d4540, score 1.00 to it, the marker string ''wraps::BaseItemBox'' is in this function). Constructor of an instance of the item-box wrapper template of the GUI library (wraps::BaseItemBox for a list item type of its own): runs the base wrapper constructor with the layout, sets the item-box vtable, zeroes nine fields (+0xa0 to +0xe0), creates the item-box widget, stores a back pointer to the wrapper in the widget''s user data and connects nine method delegates of the wrapper to the widget''s callbacks.'
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: 'library-template: mygui-wraps-baseitembox-ctor'
+- address: '0x1404c9000'
+  module: kenshi_x64.exe
+  name: itembox_ctor_1404c9000
+  summary: 'Library code, an instance of a standard-library template (family of 0x1402d4540, score 1.00 to it, the marker string ''wraps::BaseItemBox'' is in this function). Constructor of an instance of the item-box wrapper template of the GUI library (wraps::BaseItemBox for a list item type of its own): runs the base wrapper constructor with the layout, sets the item-box vtable, zeroes nine fields (+0xa0 to +0xe0), creates the item-box widget, stores a back pointer to the wrapper in the widget''s user data and connects nine method delegates of the wrapper to the widget''s callbacks.'
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: 'library-template: mygui-wraps-baseitembox-ctor'
+- address: '0x1404ca720'
+  module: kenshi_x64.exe
+  name: itembox_ctor_1404ca720
+  summary: 'Library code, an instance of a standard-library template (family of 0x1402d4540, score 1.00 to it, the marker string ''wraps::BaseItemBox'' is in this function). Constructor of an instance of the item-box wrapper template of the GUI library (wraps::BaseItemBox for a list item type of its own): runs the base wrapper constructor with the layout, sets the item-box vtable, zeroes nine fields (+0xa0 to +0xe0), creates the item-box widget, stores a back pointer to the wrapper in the widget''s user data and connects nine method delegates of the wrapper to the widget''s callbacks.'
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: 'library-template: mygui-wraps-baseitembox-ctor'
 - address: '0x1404f08d0'
   module: kenshi_x64.exe
   name: tree_erase_1404f08d0
@@ -475,6 +543,20 @@
   status: auto
   game_version: 1.0.68 Steam
   rule: 'library-template: msvc-std-tree-erase'
+- address: '0x14073ddf0'
+  module: kenshi_x64.exe
+  name: itembox_dtor_14073ddf0
+  summary: 'Library code, an instance of a standard-library template (family of 0x1402d31d0, score 1.00 to it, the marker string ''wraps::BaseItemBox'' is in this function). Destructor of an instance of the item-box wrapper template of the GUI library (wraps::BaseItemBox for a list item type of its own): sets the item-box vtable, deletes the three delegates stored at +0x5c0, +0x5c8 and +0x5d0 of the widget and replaces the other six callbacks with null delegates, deletes every object of the wrapper''s pointer list and the list itself, deletes six pointer fields and runs the base wrapper destructor.'
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: 'library-template: mygui-wraps-baseitembox-dtor'
+- address: '0x14073eae0'
+  module: kenshi_x64.exe
+  name: itembox_ctor_14073eae0
+  summary: 'Library code, an instance of a standard-library template (family of 0x1402d4540, score 1.00 to it, the marker string ''wraps::BaseItemBox'' is in this function). Constructor of an instance of the item-box wrapper template of the GUI library (wraps::BaseItemBox for a list item type of its own): runs the base wrapper constructor with the layout, sets the item-box vtable, zeroes nine fields (+0xa0 to +0xe0), creates the item-box widget, stores a back pointer to the wrapper in the widget''s user data and connects nine method delegates of the wrapper to the widget''s callbacks.'
+  status: auto
+  game_version: 1.0.68 Steam
+  rule: 'library-template: mygui-wraps-baseitembox-ctor'
 - address: '0x140755d30'
   module: kenshi_x64.exe
   name: tree_erase_140755d30
