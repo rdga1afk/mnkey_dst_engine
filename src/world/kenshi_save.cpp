@@ -26,6 +26,23 @@ bool Load(const fs::path& p, md::fcs::File& f, std::string& err) {
 md::fcs::Record Rec(int kind, int id, const std::string& name, const std::string& sid) { md::fcs::Record r; r.kind = kind; r.id = id; r.name = name; r.string_id = sid; return r; }
 }  // namespace
 
+const std::vector<std::string>& StatKeys() {
+    static const std::vector<std::string> k = {
+        "strength", "endurance", "dexterity", "perception", "toughness2", "warrior spirit", "attack", "defence", "dodge", "ff", "athletics", "medic", "mass combat",
+        "arrow defence", "stealth", "swimming", "thievery", "lockpicking", "bluff", "assassin", "survival", "climbing", "tracking", "doctor", "engineer", "weapon smith",
+        "armour smith", "robotics", "bow smith", "science", "labouring", "farming", "cooking", "katana", "poles", "sabres", "hackers", "heavy weapons", "blunt", "turrets",
+        "bow", "unarmed", "xp", "free attribute points" };
+    return k;
+}
+
+float StatValue(const KChar& c, const std::string& key) {
+    auto raw = [&](const char* k, bool& found) { for (const auto& kv : c.stats) if (kv.first == k) { found = true; return kv.second; } found = false; return 0.f; };
+    bool f;
+    if (key == "toughness2") { float v = raw("toughness2", f); return f ? v : raw("defence", f); }
+    if (key == "lockpicking") { float v = raw("lockpicking", f); return f ? v : raw("thievery", f) * 0.5f; }
+    return raw(key.c_str(), f);
+}
+
 bool ReadKenshiSave(const std::string& dir, KenshiSave& out, std::string& err) {
     out = KenshiSave{};
     md::fcs::File quick;
@@ -33,10 +50,9 @@ bool ReadKenshiSave(const std::string& dir, KenshiSave& out, std::string& err) {
     const md::fcs::Record* cam = nullptr;
     for (const md::fcs::Record& r : quick.records) if (r.kind == K_CAMERA) { cam = &r; break; }
     if (!cam) { err = dir + "/quick.save: no camera record (not a save, or damaged)"; return false; }
-    if (const int32_t* v = FindInt(*cam, "time day")) out.day = *v;
-    if (const int32_t* v = FindInt(*cam, "time hour")) out.hour = *v;
-    if (const int32_t* v = FindInt(*cam, "time minute")) out.minute = *v;
-    if (const int32_t* v = FindInt(*cam, "player money")) out.money = *v;
+    // a missing int reads 0 in the exe (its map lookup inserts a zero, 0x14047e390), so the defaults of the struct do not apply to a loaded save
+    auto int_or0 = [&](const char* k) { const int32_t* v = FindInt(*cam, k); return v ? (int)*v : 0; };
+    out.day = int_or0("time day"); out.hour = int_or0("time hour"); out.minute = int_or0("time minute"); out.money = int_or0("player money");
     if (const auto* v = FindVec3(*cam, "pos")) for (int i = 0; i < 3; ++i) out.camera[i] = (*v)[i];
     if (const std::string* v = FindStr(*cam, "pfaction name")) out.faction_name = *v;
     if (const std::string* v = FindStr(*cam, "version")) out.version = *v;

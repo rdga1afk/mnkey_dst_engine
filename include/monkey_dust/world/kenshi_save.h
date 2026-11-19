@@ -17,6 +17,11 @@ struct KChar {
     float blood = 100.f, hunger = 2.f, fed = 0.f, ko = 0.f, bleeding = 0.f;       // MEDICAL_STATE floats "blood" / "hung" / "fed" / "KO" / "bleeding"
 };
 
+// The stat names of a STATS record in the order the exe writes them (0x14064a8f0; 44 keys: the last is "free attribute points").
+const std::vector<std::string>& StatKeys();
+// A stat as the exe's loader (0x14064b6a0) reads it from the record's float map: a missing key reads 0, an unknown key is ignored, "toughness2" absent = the "defence" value, "lockpicking" absent = "thievery" * 0.5.
+float StatValue(const KChar& c, const std::string& key);
+
 struct KSquad {
     std::string id, faction;
     float position[3] = {0, 0, 0};
