@@ -1,6 +1,7 @@
 #include <monkey_dust/world/kenshi_save.h>
 #include <monkey_dust/io/fcs.h>
 #include <filesystem>
+#include <algorithm>
 #include <cstring>
 #include <map>
 
@@ -59,7 +60,8 @@ bool ReadKenshiSave(const std::string& dir, KenshiSave& out, std::string& err) {
     if (!cam) { err = dir + "/quick.save: no camera record (not a save, or damaged)"; return false; }
     // a missing int reads 0 in the exe (its map lookup inserts a zero, 0x14047e390), so the defaults of the struct do not apply to a loaded save
     auto int_or0 = [&](const char* k) { const int32_t* v = FindInt(*cam, k); return v ? (int)*v : 0; };
-    out.day = int_or0("time day"); out.hour = int_or0("time hour"); out.minute = int_or0("time minute"); out.money = int_or0("player money");
+    // 0x14066db50 clamps day / hour / minute at 0 from below
+    out.day = std::max(0, int_or0("time day")); out.hour = std::max(0, int_or0("time hour")); out.minute = std::max(0, int_or0("time minute")); out.money = int_or0("player money");
     if (const auto* v = FindVec3(*cam, "pos")) for (int i = 0; i < 3; ++i) out.camera[i] = (*v)[i];
     if (const std::string* v = FindStr(*cam, "pfaction name")) out.faction_name = *v;
     if (const std::string* v = FindStr(*cam, "version")) out.version = *v;
@@ -68,6 +70,17 @@ bool ReadKenshiSave(const std::string& dir, KenshiSave& out, std::string& err) {
         out.orders.present = true;
         for (const OrderBool& b : ORDER_BOOLS) out.orders.*b.field = FindBool(*cam, b.key);
         out.orders.formation = int_or0("formation");
+    }
+    // 0x14066db50: with no float `sky update current time` the defaults of KSky stay; otherwise all sky keys are read (missing ones read 0) and a saved
+    // `sky updating` = false is replaced by updating = true with both speeds and both times 0
+    if (FindFloat(*cam, "sky update current time")) {
+        KSky& k = out.sky; k.present = true;
+        auto f0 = [&](const char* key) { const float* v = FindFloat(*cam, key); return v ? *v : 0.f; };
+        auto v0 = [&](const char* key, float* dst) { const auto* v = FindVec3(*cam, key); for (int i = 0; i < 3; ++i) dst[i] = v ? (*v)[i] : 0.f; };
+        k.current_time = f0("sky update current time"); k.total_time = f0("sky update total time"); k.updating = FindBool(*cam, "sky updating");
+        v0("sky ambient color mult", k.ambient); v0("sky ambient color mult speed", k.ambient_speed);
+        k.clouds_density = f0("sky clouds density"); k.clouds_speed = f0("sky clouds density speed");
+        if (!k.updating) { k.updating = true; k.clouds_speed = 0.f; for (float& a : k.ambient_speed) a = 0.f; k.current_time = k.total_time = 0.f; }
     }
     for (const auto& cat : cam->references) if (cat.first == "zones") for (const md::fcs::Reference& z : cat.second) out.zones.emplace_back(z.values[0], z.values[1]);
 
@@ -128,9 +141,18 @@ bool WriteKenshiSave(const std::string& dir, const KenshiSave& s, std::string& e
         for (const char* k : ORDER) for (const OrderBool& b : ORDER_BOOLS) if (!strcmp(b.key, k)) cam.bools.push_back({k, s.orders.*b.field});
         cam.ints.push_back({"formation", s.orders.formation});
     }
+    if (s.sky.present) {   // 0x14066d7d0: floats current time, total time, cloud density, cloud speed; bool updating; vec3 ambient mult, its speed
+        const KSky& k = s.sky;
+        cam.floats = { {"sky update current time", k.current_time}, {"sky update total time", k.total_time}, {"sky clouds density", k.clouds_density}, {"sky clouds density speed", k.clouds_speed} };
+        cam.bools.push_back({"sky updating", k.updating});
+    }
     cam.vec3s = { {"pos", {s.camera[0], s.camera[1], s.camera[2]}} };
     cam.strings = { {"pfaction name", s.faction_name}, {"version", s.version} };
     std::vector<md::fcs::Reference> zr; for (const auto& z : s.zones) { md::fcs::Reference r; r.values[0] = z.first; r.values[1] = z.second; r.values[2] = 1; zr.push_back(r); }   // exe 0x140375360: (x, z, 1) per active zone
+    if (s.sky.present) {
+        cam.vec3s.push_back({"sky ambient color mult", {s.sky.ambient[0], s.sky.ambient[1], s.sky.ambient[2]}});
+        cam.vec3s.push_back({"sky ambient color mult speed", {s.sky.ambient_speed[0], s.sky.ambient_speed[1], s.sky.ambient_speed[2]}});
+    }
     cam.references = { {"zones", zr} };
     quick.records.push_back(cam);
     int next = 2;

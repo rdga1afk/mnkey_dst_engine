@@ -36,6 +36,17 @@ struct KOrders {
     int formation = 0;
 };
 
+// Sky state of the world clock (exe writer 0x14066d7d0, loader 0x14066db50). Defaults are what the exe loader sets when the float `sky update current time` is missing
+// (`present` false): updating on, speeds 0, ambient multiplier (1,1,1), cloud density 0.25. A saved `sky updating` = false is turned back on by the loader and
+// current / total time and both speeds are reset to 0 (so a loaded KSky is never `updating == false`).
+struct KSky {
+    bool present = false;
+    bool updating = true;
+    float current_time = 0.f, total_time = 0.f;
+    float ambient[3] = {1.f, 1.f, 1.f}, ambient_speed[3] = {0.f, 0.f, 0.f};
+    float clouds_density = 0.25f, clouds_speed = 0.f;
+};
+
 struct KenshiSave {
     int day = 1, hour = 12, minute = 0;
     int money = 0;
@@ -43,6 +54,7 @@ struct KenshiSave {
     std::string faction_name, version;
     std::vector<std::pair<int, int>> zones;
     KOrders orders;
+    KSky sky;
     std::vector<KSquad> squads;                     // the player's faction only
 };
 
