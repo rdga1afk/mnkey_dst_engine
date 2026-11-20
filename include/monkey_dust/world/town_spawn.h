@@ -9,6 +9,7 @@
 // UNKNOWN (not read): the exe's day / night rule (all residents are listed at once), `slaves` / `prisoners` recursion, the squad's home building and the spawn point offsets.
 #include <monkey_dust/io/fcs_gamedata.h>
 #include <cstdint>
+#include <type_traits>
 #include <string>
 #include <vector>
 
@@ -83,12 +84,12 @@ inline TownSpawnList MakeTownSpawnList(const md::fcs::GameDataContainer& data, c
 // The NPC budget cap and the placement seam. `placer(entry, index, x, z)` gives a member's position and returns false when it has none; the position RULE of the exe (home building, spawn point) is not read,
 // so the game supplies no placer yet and only the tests do. Members are taken in list order (anonymous first, then named) until `budget` are placed. No allocation beyond the returned vector.
 constexpr size_t kTownNpcBudget = 64;
-struct PlacedMember { const TownSpawnEntry* entry = nullptr; float x = 0.f, z = 0.f; };
+struct PlacedMember { const TownSpawnEntry* entry = nullptr; float x = 0.f, z = 0.f, y = 0.f; bool has_y = false; };   // y only when the placer supplies it (a node's own height)
 template <class Placer>
 std::vector<PlacedMember> PlanTownSpawn(const TownSpawnList& list, size_t budget, Placer&& placer) {
     std::vector<PlacedMember> out; out.reserve(budget);
     size_t i = 0;
-    auto take = [&](const std::vector<TownSpawnEntry>& v) { for (const auto& e : v) { if (out.size() >= budget) return; PlacedMember m; m.entry = &e; if (placer(e, i++, m.x, m.z)) out.push_back(m); } };
+    auto take = [&](const std::vector<TownSpawnEntry>& v) { for (const auto& e : v) { if (out.size() >= budget) return; PlacedMember m; m.entry = &e; bool ok; if constexpr (std::is_invocable_v<Placer&, const TownSpawnEntry&, size_t, float&, float&, float&>) { ok = placer(e, i++, m.x, m.z, m.y); m.has_y = ok; } else ok = placer(e, i++, m.x, m.z); if (ok) out.push_back(m); } };
     take(list.anonymous); take(list.named);
     return out;
 }

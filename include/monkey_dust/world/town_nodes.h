@@ -35,9 +35,9 @@ inline const TownNode* ChooseSpawnNode(const std::vector<TownNode>& nodes, uint3
 struct NodePlacer {
     const std::vector<TownNode>& nodes; uint64_t state;
     NodePlacer(const std::vector<TownNode>& n, uint32_t seed) : nodes(n), state(0x5851f42d4c957f2dull ^ seed) {}
-    bool operator()(const TownSpawnEntry&, size_t, float& x, float& z) {
+    bool operator()(const TownSpawnEntry&, size_t, float& x, float& z, float& y) {   // y = the node's own world height (building transform applied to the local node)
         const TownNode* n = ChooseSpawnNode(nodes, (uint32_t)(detail::Mix(state) >> 32)); if (!n) return false;
-        x = n->x; z = n->z; return true;
+        x = n->x; z = n->z; y = n->y; return true;
     }
 };
 
