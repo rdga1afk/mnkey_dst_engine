@@ -1,6 +1,7 @@
 #include <monkey_dust/world/kenshi_save.h>
 #include <monkey_dust/io/fcs.h>
 #include <filesystem>
+#include <cstring>
 #include <map>
 
 namespace md::save {
@@ -12,6 +13,7 @@ const int32_t* FindInt(const md::fcs::Record& r, const char* k) { for (const aut
 const float* FindFloat(const md::fcs::Record& r, const char* k) { for (const auto& kv : r.floats) if (kv.first == k) return &kv.second; return nullptr; }
 const std::string* FindStr(const md::fcs::Record& r, const char* k) { for (const auto& kv : r.strings) if (kv.first == k) return &kv.second; return nullptr; }
 bool FindBool(const md::fcs::Record& r, const char* k) { for (const auto& kv : r.bools) if (kv.first == k && kv.second) return true; return false; }
+bool HasBool(const md::fcs::Record& r, const char* k) { for (const auto& kv : r.bools) if (kv.first == k) return true; return false; }
 const std::array<float, 3>* FindVec3(const md::fcs::Record& r, const char* k) { for (const auto& kv : r.vec3s) if (kv.first == k) return &kv.second; return nullptr; }
 
 bool Load(const fs::path& p, md::fcs::File& f, std::string& err) {
@@ -22,6 +24,11 @@ bool Load(const fs::path& p, md::fcs::File& f, std::string& err) {
     if (f.header.filetype != md::fcs::FILETYPE_V15) { err = p.string() + ": not a Kenshi save file (filetype " + std::to_string(f.header.filetype) + ", expected 15)"; return false; }
     return true;
 }
+
+// the eleven order bools in the exe's source byte order 0..10 (0x1403eb710 / 0x1403ebf50); the writer visits them in a different order, see WriteKenshiSave
+struct OrderBool { const char* key; bool KOrders::* field; };
+const OrderBool ORDER_BOOLS[] = { {"heal", &KOrders::heal}, {"help", &KOrders::help}, {"rescue", &KOrders::rescue}, {"stay", &KOrders::stay}, {"feed", &KOrders::feed}, {"share", &KOrders::share},
+                                  {"sleep", &KOrders::sleep}, {"ditch", &KOrders::ditch}, {"sit", &KOrders::sit}, {"eject", &KOrders::eject}, {"shootfirst", &KOrders::shootfirst} };
 
 md::fcs::Record Rec(int kind, int id, const std::string& name, const std::string& sid) { md::fcs::Record r; r.kind = kind; r.id = id; r.name = name; r.string_id = sid; return r; }
 }  // namespace
@@ -56,6 +63,12 @@ bool ReadKenshiSave(const std::string& dir, KenshiSave& out, std::string& err) {
     if (const auto* v = FindVec3(*cam, "pos")) for (int i = 0; i < 3; ++i) out.camera[i] = (*v)[i];
     if (const std::string* v = FindStr(*cam, "pfaction name")) out.faction_name = *v;
     if (const std::string* v = FindStr(*cam, "version")) out.version = *v;
+    // 0x1403ebf50: the toggles are read only when the bool table has "ditch"; then every key is read (a missing one reads false, the exe's map inserts a zero)
+    if (HasBool(*cam, "ditch")) {
+        out.orders.present = true;
+        for (const OrderBool& b : ORDER_BOOLS) out.orders.*b.field = FindBool(*cam, b.key);
+        out.orders.formation = int_or0("formation");
+    }
     for (const auto& cat : cam->references) if (cat.first == "zones") for (const md::fcs::Reference& z : cat.second) out.zones.emplace_back(z.values[0], z.values[1]);
 
     for (const md::fcs::Record& p : quick.records) {
@@ -110,6 +123,11 @@ bool WriteKenshiSave(const std::string& dir, const KenshiSave& s, std::string& e
     md::fcs::Record cam = Rec(K_CAMERA, 1, "camera", "1-quick-INGAME");
     int members = 0; for (const KSquad& sq : s.squads) members += (int)sq.characters.size();
     cam.ints = { {"time day", s.day}, {"time hour", s.hour}, {"time minute", s.minute}, {"player money", s.money}, {"squads", (int)s.squads.size()}, {"members", members} };   // "squads" / "members": counts the exe writes (0x140375360)
+    if (s.orders.present) {   // 0x1403eb710 visits the keys in this order: ditch sleep feed heal help rescue share stay sit eject shootfirst, then the int formation
+        static const char* const ORDER[] = {"ditch", "sleep", "feed", "heal", "help", "rescue", "share", "stay", "sit", "eject", "shootfirst"};
+        for (const char* k : ORDER) for (const OrderBool& b : ORDER_BOOLS) if (!strcmp(b.key, k)) cam.bools.push_back({k, s.orders.*b.field});
+        cam.ints.push_back({"formation", s.orders.formation});
+    }
     cam.vec3s = { {"pos", {s.camera[0], s.camera[1], s.camera[2]}} };
     cam.strings = { {"pfaction name", s.faction_name}, {"version", s.version} };
     std::vector<md::fcs::Reference> zr; for (const auto& z : s.zones) { md::fcs::Reference r; r.values[0] = z.first; r.values[1] = z.second; r.values[2] = 1; zr.push_back(r); }   // exe 0x140375360: (x, z, 1) per active zone

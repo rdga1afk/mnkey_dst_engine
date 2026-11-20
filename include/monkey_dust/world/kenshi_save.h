@@ -28,12 +28,21 @@ struct KSquad {
     std::vector<KChar> characters;
 };
 
+// Player squad order toggles and formation (exe writer 0x1403eb710, loader 0x1403ebf50). `present` is false when the record has no "ditch" key:
+// the exe loader then leaves its own defaults alone, so a save without the keys keeps these defaults too.
+struct KOrders {
+    bool present = false;
+    bool heal = false, help = false, rescue = false, stay = false, feed = false, share = false, sleep = false, ditch = false, sit = false, eject = false, shootfirst = false;
+    int formation = 0;
+};
+
 struct KenshiSave {
     int day = 1, hour = 12, minute = 0;
     int money = 0;
     float camera[3] = {0, 0, 0};
     std::string faction_name, version;
     std::vector<std::pair<int, int>> zones;
+    KOrders orders;
     std::vector<KSquad> squads;                     // the player's faction only
 };
 
