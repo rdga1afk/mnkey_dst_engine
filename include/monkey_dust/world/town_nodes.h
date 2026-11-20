@@ -13,11 +13,11 @@
 
 namespace md::world {
 
-// The exe's town radius in metres (read ok; the branch of a town without an owner object): by the town's `type` 2 -> 2500, 3 -> 937.5, 4 -> 875, 9 -> 437.5, 8 and 10 -> 0, others 1250,
+// The exe's town radius (read ok; the branch of a town without an owner object), the exe value in runtime units of 0.1 m, here in metres: by the town's `type` 2 -> 2500, 3 -> 937.5, 4 -> 875, 9 -> 437.5, 8 and 10 -> 0, others 1250 (all / 10 = 250, 93.75, 87.5, 43.75, 0, 125 m; the zone cell of the exe is 4608 of those units = 460.8 m),
 // times `town radius mult`, which the town init clamps to 0.1..5 (a value below 0.1 becomes 1; docs/research/TOWN_RESIDENTS_TRACE_2026-11-19.md).
 inline float TownRadiusM(int type, float mult) {
     const float m = mult < 0.1f ? 1.f : (mult > 5.f ? 5.f : mult);
-    switch (type) { case 2: return m * 2500.f; case 3: return m * 937.5f; case 4: return m * 875.f; case 9: return m * 437.5f; case 8: case 10: return 0.f; default: return m * 1250.f; }
+    switch (type) { case 2: return m * 250.f; case 3: return m * 93.75f; case 4: return m * 87.5f; case 9: return m * 43.75f; case 8: case 10: return 0.f; default: return m * 125.f; }
 }
 
 // A town of the townlist, in world metres, with what the exe radius reads (`type`, `town radius mult`).
@@ -44,7 +44,7 @@ struct TownNode {
 };
 
 // Nodes of type 0, 1 and 2 of every building the town holds: a placed building belongs to the town TownOfPoint gives for its position (DE-364, replaces the circle of `size radius`). Load time only.
-bool LoadTownNodes(const std::string& kenshi_dir, const md::fcs::GameDataContainer& data, const std::vector<TownSite>& towns, int town, std::vector<TownNode>& out, std::string& err);
+bool LoadTownNodes(const std::string& kenshi_dir, const md::fcs::GameDataContainer& data, const std::vector<TownSite>& towns, int town, std::vector<TownNode>& out, std::string& err, size_t* total_buildings = nullptr);   // total_buildings: every placed building the town holds, with or without nodes
 // Number of placed buildings of the town that carry a node (the building count of the membership).
 inline size_t TownBuildingCount(const std::vector<TownNode>& nodes) { int hi = -1; for (const auto& n : nodes) if (n.placed > hi) hi = n.placed; return (size_t)(hi + 1); }
 

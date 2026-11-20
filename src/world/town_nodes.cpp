@@ -37,7 +37,8 @@ bool LoadTownSites(const std::string& kenshi_dir, const md::fcs::GameDataContain
     return true;
 }
 
-bool LoadTownNodes(const std::string& kenshi_dir, const md::fcs::GameDataContainer& data, const std::vector<TownSite>& towns, int town, std::vector<TownNode>& out, std::string& err) {
+bool LoadTownNodes(const std::string& kenshi_dir, const md::fcs::GameDataContainer& data, const std::vector<TownSite>& towns, int town, std::vector<TownNode>& out, std::string& err, size_t* total_buildings) {
+    if (total_buildings) *total_buildings = 0;
     if (town < 0 || (size_t)town >= towns.size()) return true;
     const float cx_m = towns[town].x, cz_m = towns[town].z, radius_m = TownRadiusM(towns[town].type, towns[town].mult);
     md::fcs::File interiors; md::fcs::Error e;
@@ -65,6 +66,7 @@ bool LoadTownNodes(const std::string& kenshi_dir, const md::fcs::GameDataContain
             if (std::fabs(in.position[0]) + std::fabs(in.position[2]) < 1.0f || in.target.empty() || in.states.empty()) continue;
             const float bx = (float)(((double)in.position[0] + WORLD_ORIGIN_UNITS) / 10.0), bz = (float)(((double)in.position[2] + WORLD_ORIGIN_UNITS) / 10.0);
             if (TownOfPoint(towns, bx, bz) != town) continue;
+            if (total_buildings) ++*total_buildings;
             auto nodes = by_building.find(in.target); if (nodes == by_building.end()) continue;
             auto zr = by_id.find(in.states[0]); if (zr == by_id.end()) continue;
             float wy = 0; bool have = false;
