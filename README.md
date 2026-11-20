@@ -3,7 +3,7 @@ id: kb-engine-readme
 type: reference
 status: active
 date: 2026-05-14
-updated: 2026-11-11
+updated: 2026-11-20
 repo: engine
 tags: [engine, readme, kenshi, sdl-gpu, terrain, public-repo]
 summary: "Public engine README (EN + UA): native Linux engine that renders Kenshi's world from the player's own install; status, goals 2026–2028, build, KENSHI_DIR, mods, architecture, module map, legal"
@@ -30,15 +30,16 @@ Not related to the Dust rendering mod for Kenshi on Windows.
 - Content is edited with Kenshi's own editor, the **Forgotten Construction Set (FCS)**. Mods load in Kenshi's own order.
 
 ### What this is not (yet)
-- **Not a playable game yet.** No NPCs, combat, trade or UI from Kenshi. An earlier prototype game layer (AI, combat, saves, building, Flare) was removed on 2026-10-17; the new game logic will be written from scratch, following facts about Kenshi's own systems.
+- **Not a playable game yet.** The first game systems are being written from facts read in Kenshi's own code: a squad that can be selected and moved, saving and loading in Kenshi's own save format, town residents appearing from the game's data, and the melee hit rule. They are off by default and there is no game UI, trade or dialogue yet. An earlier prototype game layer was removed on 2026-10-17.
 - **Not a Kenshi replacement or a remake.** Kenshi is © Lo-Fi Games. This is an independent, unofficial engine.
 - **There is nothing to download and play yet.** Since 11.11.2026 the game's source code is public in [`mnkey_dst_tools`](https://github.com/rdga1afk/mnkey_dst_tools) (GPL-3.0-or-later); building it on its own from the public repositories is not set up yet. This repository is the engine library.
 
-### Status (2026-11-11)
+### Status (2026-11-20)
 
 | Area | State |
 |---|---|
-| **Latest (11.11)** | **The game's source code moved to the public tools repo**, new commits only; all 17 pixel gates pass after the move, 339 / 339 fast unit tests, compiled shaders byte-identical. **Kenshi's own shader programs** (ground `terrainfp4`, main light `deferred.hlsl`, sky, moons, clouds) are compiled at run time from the player's install; nothing of Kenshi is in the repositories. **World layout from the install by default:** biomes from the FCS records, zones and their real origin from the install; a float-precision fix of the terrain camera. **Measured in motion at 1080p:** 27.5 / 27.8 / 31.3 ms at native on three views, 17.7 / 17.1 / 19.7 ms at 0.75 render scale; the frame is 70–81 % pixel-bound |
+| **Latest (20.11)** | **Dynamic resolution 0.9:** the controller now judges the frame budget on the mean of the last 8 frames, so the resolution no longer drifts up and down in heavy scenes (the visible judder in the Hub is gone); CMAA 2 (Intel) is the anti-aliasing at native resolution. **First game systems, off by default:** saving and loading in Kenshi's own format for five record kinds (squad orders, clock and sky, squad list, wounds per body part, selection), each written and read back byte for byte; **town residents** chosen by the game's own rule (the town's owner faction and its resident templates, positions on the interior nodes of the town's buildings): the Hub gets its 16 residents (no clothes or behaviour yet); **the melee hit rule** (block chance, hit roll, body part, armour, toughness, bleeding, knockout) with the constants from the game's data, checked against Kenshi's own functions run in an emulator. **Study of the original:** 37 277 functions in the target; 8 340 read and checked against the code, 25 309 machine drafts that passed an automatic check, 3 551 library or trivial code, 77 still without a status |
+| **11.11** | **The game's source code moved to the public tools repo**, new commits only; all 17 pixel gates pass after the move, 339 / 339 fast unit tests, compiled shaders byte-identical. **Kenshi's own shader programs** (ground `terrainfp4`, main light `deferred.hlsl`, sky, moons, clouds) are compiled at run time from the player's install; nothing of Kenshi is in the repositories. **World layout from the install by default:** biomes from the FCS records, zones and their real origin from the install; a float-precision fix of the terrain camera. **Measured in motion at 1080p:** 27.5 / 27.8 / 31.3 ms at native on three views, 17.7 / 17.1 / 19.7 ms at 0.75 render scale; the frame is 70–81 % pixel-bound |
 | FCS reader and writer (`.base`/`.mod` v15–v17, `mods.cfg` load order, record merge) | **Done.** Writer (v16 / v17) re-creates every installed file byte for byte (22.10). Checked on a real install: 20 481 records, 394 766 values, 0 mismatches against an independent dump. Biomes come from the merged data (mod overrides applied) |
 | Heightmap from `fullmap.tif` (16385², uint16) | **Done.** 68 161 536 heights, 0 differences. Near the camera a 1.8 m window (Kenshi's own grid), streamed on a background thread; further away every 2nd sample (3.6 m) |
 | `biomemap`, `blendmap`, `ambientmap`, ground textures | **Done.** Read from the install; textures are found by file name the way Ogre does it |
@@ -60,10 +61,12 @@ Not related to the Dust rendering mod for Kenshi on Windows.
 | **Code clean-up** (Oct 2026) | **Done (19.10):** ≈ 85 000 lines of own code removed across the three repositories (old prototype game layer, OpenGL leftovers, effects for stronger GPUs that never ran on the HD 520, an unused 200 MB ground cache), plus 2 × 131 000 lines of font arrays and the 8 700-line GL loader. Audit: clang-tidy, cppcheck, ASan / UBSan, code coverage; every change checked against pixel-exact reference frames. The engine and tools libraries are now built on GitHub (laptop build 19 → 7 min) |
 
 ### Goals
-**Formal acceptance on 2026-11-19 (owner 14.11): 60 FPS on an HD 520 at 1920×1080; the render scale is chosen by the owner on the measured numbers at 1.0 / 0.75 / 0.67** — pass = median frame time ≤ 16.7 ms on every motion route; the still view stays native. Earlier target, kept for history: **a stable 60 FPS, the fixed route measured p99 14.8 ms**, native 1920×1080: terrain, sky, water, towns and foliage read from the Kenshi folder, looking like Kenshi (most of it is in place, see Status; what remains is getting towns and foliage within budget).
+**Acceptance of the rendered world: moved to 2026-12-31 (owner 18.11).** Earlier: formal acceptance on 2026-11-19 (owner 14.11): 60 FPS on an HD 520 at 1920×1080; the render scale is chosen by the owner on the measured numbers at 1.0 / 0.75 / 0.67** — pass = median frame time ≤ 16.7 ms on every motion route; the still view stays native. Earlier target, kept for history: **a stable 60 FPS, the fixed route measured p99 14.8 ms**, native 1920×1080: terrain, sky, water, towns and foliage read from the Kenshi folder, looking like Kenshi (most of it is in place, see Status; what remains is getting towns and foliage within budget).
 - **"Stable"** = frame-interval p99 ≤ 16.7 ms on a fixed flight route over the world (town, canyon, desert, horizon; loading hitches count), plus a mean ≤ 16.7 ms at three fixed points and near the Hub.
 
 **By 2026-12-31: the study of the original game is complete.** Every function of Kenshi's executable gets a written description checked against the code, and the structure of the whole game is written down (objects and data, update order, mechanics). Notes are in our own words; no Kenshi code or data goes into the repositories. The first prototype pieces are built from these notes: the character editor, squad selection, orders, movement and animation.
+
+**By 2027-03-31: a playable core** — the world, a squad you control, simple combat, living town residents, saving and loading; trade, building, dialogue, farming, full physics and sound come later.
 
 **2027 (goal): a full replacement for vanilla Kenshi.** All systems behave as in the original, the game can be played from a new start to the late game, with own saves. **2028:** mods with their own scripts, importing saves from the original game.
 
@@ -180,15 +183,16 @@ index.html             documentation site (GitHub Pages)
 - Контент редагується власним редактором Kenshi, **Forgotten Construction Set (FCS)**. Моди вантажаться в порядку Kenshi.
 
 ### Чим це (поки) не є
-- **Це ще не гра, в яку можна грати.** NPC, бою, торгівлі й інтерфейсу з Kenshi немає. Ранній прототип ігрового шару (ШІ, бій, збереження, будівництво, Flare) видалено 17.10.2026; нову ігрову логіку пишемо з нуля за фактами про системи самої Kenshi.
+- **Це ще не гра, в яку можна грати.** Перші ігрові системи пишемо за фактами, прочитаними в коді самої Kenshi: загін, який можна виділити й вести, збереження й завантаження у власному форматі Kenshi, поява жителів міст із даних гри, правило удару в ближньому бою. Вони за замовчуванням вимкнені; ігрового інтерфейсу, торгівлі й діалогів поки немає. Ранній прототип ігрового шару видалено 17.10.2026.
 - **Це не заміна і не ремейк Kenshi.** Kenshi © Lo-Fi Games. Це незалежний неофіційний рушій.
 - **Завантажити й зіграти поки нічого.** З 11.11.2026 код гри публічний у [`mnkey_dst_tools`](https://github.com/rdga1afk/mnkey_dst_tools) (GPL-3.0-or-later); самостійна збірка з публічних репозиторіїв ще не налаштована. Тут — бібліотека рушія.
 
-### Стан (11.11.2026)
+### Стан (20.11.2026)
 
 | Напрям | Стан |
 |---|---|
-| **Найновіше (11.11)** | **Код гри перенесено в публічне репо tools**, лише новими комітами; після переносу всі 17 піксельних воріт проходять, 339 / 339 швидких тестів, скомпільовані шейдери побайтово ті самі. **Власні шейдерні програми Kenshi** (ґрунт `terrainfp4`, головне світло `deferred.hlsl`, небо, місяці, хмари) компілюються під час запуску з інсталяції гравця; нічого з Kenshi в репозиторіях немає. **Розкладка світу з інсталяції за замовчуванням:** біоми з записів FCS, зони і їхній справжній початок координат з інсталяції; виправлено точність камери ландшафту. **Виміряно в русі при 1080p:** 27,5 / 27,8 / 31,3 мс нативно на трьох видах, 17,7 / 17,1 / 19,7 мс при масштабі 0,75; кадр на 70–81 % залежить від кількості пікселів |
+| **Найновіше (20.11)** | **Динамічна роздільність 0.9:** регулятор тепер оцінює бюджет кадру за середнім останніх 8 кадрів, тож роздільність у важких сценах більше не «пливе» (видиме посмикування в Хабі зникло); згладжування на рідній роздільності — CMAA 2 (Intel). **Перші ігрові системи, за замовчуванням вимкнені:** збереження й завантаження у власному форматі Kenshi для п'яти типів записів (накази загону, годинник і небо, список загонів, рани по частинах тіла, виділення), кожен записується й читається назад байт у байт; **жителі міст** за правилом самої гри (фракція-власник міста та її шаблони мешканців, позиції — внутрішні точки будівель міста): у Хабі з'являються його 16 жителів (поки без одягу й поведінки); **правило удару в ближньому бою** (шанс блоку, кидок атаки, частина тіла, броня, міцність, кровотеча, нокаут) з константами з даних гри, звірене з власними функціями Kenshi, запущеними в емуляторі. **Вивчення оригіналу:** у цілі 37 277 функцій; 8 340 прочитано й звірено з кодом, 25 309 машинних чернеток пройшли автоматичну перевірку, 3 551 — бібліотечний або тривіальний код, 77 ще без статусу |
+| **11.11** | **Код гри перенесено в публічне репо tools**, лише новими комітами; після переносу всі 17 піксельних воріт проходять, 339 / 339 швидких тестів, скомпільовані шейдери побайтово ті самі. **Власні шейдерні програми Kenshi** (ґрунт `terrainfp4`, головне світло `deferred.hlsl`, небо, місяці, хмари) компілюються під час запуску з інсталяції гравця; нічого з Kenshi в репозиторіях немає. **Розкладка світу з інсталяції за замовчуванням:** біоми з записів FCS, зони і їхній справжній початок координат з інсталяції; виправлено точність камери ландшафту. **Виміряно в русі при 1080p:** 27,5 / 27,8 / 31,3 мс нативно на трьох видах, 17,7 / 17,1 / 19,7 мс при масштабі 0,75; кадр на 70–81 % залежить від кількості пікселів |
 | Читач і запис FCS (`.base`/`.mod` v15–v17, порядок `mods.cfg`, злиття записів) | **Готово.** Запис (v16 / v17) відтворює кожен встановлений файл байт у байт (22.10). Перевірено на справжній інсталяції: 20 481 запис, 394 766 значень, 0 розбіжностей з незалежним дампом. Біоми — зі злитих даних (з модами) |
 | Карта висот з `fullmap.tif` (16385², uint16) | **Готово.** 68 161 536 висот, 0 відмінностей. Біля камери — вікно 1,8 м (сітка самої Kenshi), підвантажується у фоновому потоці; далі — кожен 2-й відлік (3,6 м) |
 | `biomemap`, `blendmap`, `ambientmap`, текстури ґрунту | **Готово.** Читаються з інсталяції; текстури шукаються за іменем файлу, як в Ogre |
@@ -210,10 +214,12 @@ index.html             documentation site (GitHub Pages)
 | **Чистка коду** (жовтень 2026) | **Завершено (19.10):** ≈ 85 000 рядків власного коду прибрано в трьох репозиторіях (старий ігровий прототип, залишки OpenGL, ефекти для сильніших GPU, що на HD 520 не вмикались, невикористаний кеш ґрунту на 200 МБ), плюс 2 × 131 000 рядків масивів шрифтів і завантажувач GL на 8 700. Аудит: clang-tidy, cppcheck, ASan / UBSan, покриття коду; кожна зміна звірена з еталонними кадрами до пікселя. Рушій і бібліотеки tools тепер збираються на GitHub (збірка на ноутбуці 19 → 7 хв) |
 
 ### Мета
-**Прийом світу до 19.11.2026 (власник 11.11): 60 FPS у русі при 1920×1080 на HD 520, масштаб рендеру не нижче 0,75** — умова: медіана часу кадру ≤ 16,7 мс на кожному маршруті руху; кадр стоячи лишається нативним. Попередня ціль, для історії: **стабільні 60 FPS, маршрут давав p99 14,8 мс**, нативні 1920×1080: земля, небо, вода, міста й рослини з теки Kenshi, на вигляд як у Kenshi (більшість уже є, див. «Стан»; лишилося вкласти міста й рослини в бюджет).
+**Прийом намальованого світу перенесено на 31.12.2026 (власник 18.11).** Раніше: прийом світу до 19.11.2026 (власник 11.11): 60 FPS у русі при 1920×1080 на HD 520, масштаб рендеру не нижче 0,75** — умова: медіана часу кадру ≤ 16,7 мс на кожному маршруті руху; кадр стоячи лишається нативним. Попередня ціль, для історії: **стабільні 60 FPS, маршрут давав p99 14,8 мс**, нативні 1920×1080: земля, небо, вода, міста й рослини з теки Kenshi, на вигляд як у Kenshi (більшість уже є, див. «Стан»; лишилося вкласти міста й рослини в бюджет).
 - **«Стабільні»** — p99 інтервалу кадру ≤ 16,7 мс на фіксованому маршруті польоту над світом (місто, каньйон, пустеля, обрій; ривки підвантаження теж рахуються), плюс середнє ≤ 16,7 мс у трьох фіксованих точках і біля Хабу.
 
 **До 31.12.2026: вивчення оригінальної гри завершено.** Кожна функція виконуваного файлу Kenshi отримує опис, звірений з кодом, а структура всієї гри записана: об'єкти й дані, порядок оновлення, механіки. Записи — нашими словами; коду й даних Kenshi в репозиторіях немає. Перші частини прототипу будуються за цими записами: редактор персонажа, виділення загону, накази, рух і анімація.
+
+**До 31.03.2027: ігрове ядро, у яке можна грати** — світ, керований загін, простий бій, живі жителі міст, збереження й завантаження; торгівля, будівництво, діалоги, фермерство, повна фізика й звук — пізніше.
 
 **2027 (мета): повна заміна ванільної Kenshi.** Усі системи поводяться як в оригіналі, гру можна пройти від нового старту до пізньої гри, з власними збереженнями. **2028:** моди з власними скриптами, імпорт збережень оригінальної гри.
 
