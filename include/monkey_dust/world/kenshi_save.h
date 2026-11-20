@@ -8,6 +8,10 @@
 
 namespace md::save {
 
+// One body part of the medical record (exe writer 0x14064d390, loader 0x14064d600): `sid<n>` string, then seven floats keyed by name + part index n.
+// The exe reads one part per part of the character's body; this reader takes parts n = 0.. while `sid<n>` or one of the seven float keys exists.
+struct KPart { std::string sid; float hit = 0.f, hitmult = 0.f, flesh = 0.f, stun = 0.f, bandage = 0.f, rig = 0.f, wear = 0.f; };
+
 struct KChar {
     std::string template_id, name;                  // the CHARACTER record placed, GAMESTATE_CHARACTER "name"
     float position[3] = {0, 0, 0};
@@ -15,6 +19,7 @@ struct KChar {
     std::vector<std::pair<std::string, float>> stats;   // STATS floats in file order
     bool dead = false, unconscious = false, incapacitated = false, coma = false;   // MEDICAL_STATE bools (exe 0x14064ea50; "unconcious" is the exe's spelling)
     float blood = 100.f, hunger = 2.f, fed = 0.f, ko = 0.f, bleeding = 0.f;       // MEDICAL_STATE floats "blood" / "hung" / "fed" / "KO" / "bleeding"
+    std::vector<KPart> parts;
 };
 
 // The stat names of a STATS record in the order the exe writes them (0x14064a8f0; 44 keys: the last is "free attribute points").

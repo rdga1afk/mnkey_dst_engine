@@ -132,6 +132,16 @@ bool ReadKenshiSave(const std::string& dir, KenshiSave& out, std::string& err) {
                         if (const float* v = FindFloat(s, "blood")) c.blood = *v;
                         if (const float* v = FindFloat(s, "hung")) c.hunger = *v;
                         if (const float* v = FindFloat(s, "fed")) c.fed = *v;
+                        for (int n = 0;; ++n) {   // 0x14064d600
+                            const std::string k = std::to_string(n);
+                            const char* const names[7] = {"hit", "hitmult", "flesh", "stun", "bandage", "rig", "wear"};
+                            KPart pt; bool any = false;
+                            if (const std::string* sid = FindStr(s, ("sid" + k).c_str())) { pt.sid = *sid; any = true; }
+                            float* fld[7] = {&pt.hit, &pt.hitmult, &pt.flesh, &pt.stun, &pt.bandage, &pt.rig, &pt.wear};
+                            for (int q = 0; q < 7; ++q) if (const float* v = FindFloat(s, (std::string(names[q]) + k).c_str())) { *fld[q] = *v; any = true; }
+                            if (!any) break;
+                            c.parts.push_back(pt);
+                        }
                     }
                 }
                 sq.characters.push_back(std::move(c));
@@ -201,7 +211,14 @@ bool WriteKenshiSave(const std::string& dir, const KenshiSave& s, std::string& e
             md::fcs::Record st = mk(K_STATS); st.floats = c.stats; add(st);
             md::fcs::Record m = mk(K_MEDICAL);
             m.bools = { {"incapacitated", c.incapacitated}, {"unconcious", c.unconscious}, {"dead", c.dead}, {"coma", c.coma} };   // exe 0x14064ea50
-            m.floats = { {"blood", c.blood}, {"KO", c.ko}, {"hung", c.hunger}, {"fed", c.fed}, {"bleeding", c.bleeding} }; add(m);
+            m.floats = { {"blood", c.blood}, {"KO", c.ko}, {"hung", c.hunger}, {"fed", c.fed}, {"bleeding", c.bleeding} };
+            for (size_t n = 0; n < c.parts.size(); ++n) {   // 0x14064d390: sid<n>, then hit hitmult flesh stun bandage rig wear
+                const KPart& pt = c.parts[n]; const std::string k = std::to_string(n);
+                m.strings.push_back({"sid" + k, pt.sid});
+                m.floats.push_back({"hit" + k, pt.hit}); m.floats.push_back({"hitmult" + k, pt.hitmult}); m.floats.push_back({"flesh" + k, pt.flesh}); m.floats.push_back({"stun" + k, pt.stun});
+                m.floats.push_back({"bandage" + k, pt.bandage}); m.floats.push_back({"rig" + k, pt.rig}); m.floats.push_back({"wear" + k, pt.wear});
+            }
+            add(m);
             coll.instances.push_back(std::move(in));
         }
         pf.records.insert(pf.records.begin(), coll);
