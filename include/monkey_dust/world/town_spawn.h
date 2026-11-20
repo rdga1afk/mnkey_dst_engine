@@ -80,4 +80,17 @@ inline TownSpawnList MakeTownSpawnList(const md::fcs::GameDataContainer& data, c
     return out;
 }
 
+// The NPC budget cap and the placement seam. `placer(entry, index, x, z)` gives a member's position and returns false when it has none; the position RULE of the exe (home building, spawn point) is not read,
+// so the game supplies no placer yet and only the tests do. Members are taken in list order (anonymous first, then named) until `budget` are placed. No allocation beyond the returned vector.
+constexpr size_t kTownNpcBudget = 64;
+struct PlacedMember { const TownSpawnEntry* entry = nullptr; float x = 0.f, z = 0.f; };
+template <class Placer>
+std::vector<PlacedMember> PlanTownSpawn(const TownSpawnList& list, size_t budget, Placer&& placer) {
+    std::vector<PlacedMember> out; out.reserve(budget);
+    size_t i = 0;
+    auto take = [&](const std::vector<TownSpawnEntry>& v) { for (const auto& e : v) { if (out.size() >= budget) return; PlacedMember m; m.entry = &e; if (placer(e, i++, m.x, m.z)) out.push_back(m); } };
+    take(list.anonymous); take(list.named);
+    return out;
+}
+
 }  // namespace md::world
