@@ -2,8 +2,10 @@
 // The squad spawn nodes of the buildings around a point, in world metres (DE-364). The exe places a town's squad at a random LocationNode of node type 1 («general node»), else type 0 («shopkeeper node»);
 // nodes are the `is node` records (`node type`) placed inside a building's interior, which `data/newland/leveldata/interiors.level` stores per building type in building-local coordinates
 // (FCS units, 0.1 m). World position = the placed building's transform (the zone's `0-buildinglist`, as zone_buildings.h) applied to the local position.
-// UNKNOWN: which buildings the exe counts as a town's (here: every building placed within the circle), the offset the exe adds to the node position, bar squads.
+// DEVIATION: town membership by radius — every building placed within the circle counts as the town's, until the exe rule (which buildings the town handle owns) is read (docs/DEVIATIONS.md).
+// UNKNOWN: the offset the exe adds to the node position, bar squads.
 #include <monkey_dust/io/fcs_gamedata.h>
+#include <monkey_dust/world/town_spawn.h>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -28,5 +30,15 @@ inline const TownNode* ChooseSpawnNode(const std::vector<TownNode>& nodes, uint3
     for (const auto& n : nodes) if (n.node_type == want) { if (k == 0) return &n; --k; }
     return nullptr;
 }
+
+// The placer for PlanTownSpawn: every member goes to ChooseSpawnNode with a draw from a splitmix64 stream of `seed`, so the same seed gives the same positions. A member with no node is not placed.
+struct NodePlacer {
+    const std::vector<TownNode>& nodes; uint64_t state;
+    NodePlacer(const std::vector<TownNode>& n, uint32_t seed) : nodes(n), state(0x5851f42d4c957f2dull ^ seed) {}
+    bool operator()(const TownSpawnEntry&, size_t, float& x, float& z) {
+        const TownNode* n = ChooseSpawnNode(nodes, (uint32_t)(detail::Mix(state) >> 32)); if (!n) return false;
+        x = n->x; z = n->z; return true;
+    }
+};
 
 }  // namespace md::world
