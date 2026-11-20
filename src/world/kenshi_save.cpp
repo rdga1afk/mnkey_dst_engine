@@ -82,6 +82,21 @@ bool ReadKenshiSave(const std::string& dir, KenshiSave& out, std::string& err) {
         k.clouds_density = f0("sky clouds density"); k.clouds_speed = f0("sky clouds density speed");
         if (!k.updating) { k.updating = true; k.clouds_speed = 0.f; for (float& a : k.ambient_speed) a = 0.f; k.current_time = k.total_time = 0.f; }
     }
+    // 0x1402df0c0: prosperity when its float is there; then entries i = 0.. while the string `sq<i>` exists; the references of an entry j = 0.. while `<i>:sq list<j>I` exists
+    if (const float* v = FindFloat(*cam, "prosperity")) { out.squad_list.has_prosperity = true; out.squad_list.prosperity = *v; }
+    for (int i = 0;; ++i) {
+        const std::string n = std::to_string(i);
+        const std::string* nm = FindStr(*cam, ("sq" + n).c_str());
+        if (!nm) break;
+        KSquadListEntry e; e.name = *nm;
+        if (const float* t = FindFloat(*cam, ("sqtime" + n).c_str())) e.time = *t;
+        for (int j = 0; FindInt(*cam, (n + ":sq list" + std::to_string(j) + "I").c_str()); ++j) {
+            const std::string pre = n + ":sq list" + std::to_string(j);
+            KSquadRef r; r.type = int_or0((pre + "TYPE").c_str()); r.c = int_or0((pre + "C").c_str()); r.i = int_or0((pre + "I").c_str()); r.s = int_or0((pre + "S").c_str()); r.cs = int_or0((pre + "CS").c_str());
+            e.refs.push_back(r);
+        }
+        out.squad_list.entries.push_back(std::move(e));
+    }
     for (const auto& cat : cam->references) if (cat.first == "zones") for (const md::fcs::Reference& z : cat.second) out.zones.emplace_back(z.values[0], z.values[1]);
 
     for (const md::fcs::Record& p : quick.records) {
@@ -143,11 +158,20 @@ bool WriteKenshiSave(const std::string& dir, const KenshiSave& s, std::string& e
     }
     if (s.sky.present) {   // 0x14066d7d0: floats current time, total time, cloud density, cloud speed; bool updating; vec3 ambient mult, its speed
         const KSky& k = s.sky;
-        cam.floats = { {"sky update current time", k.current_time}, {"sky update total time", k.total_time}, {"sky clouds density", k.clouds_density}, {"sky clouds density speed", k.clouds_speed} };
+        cam.floats.insert(cam.floats.end(), { {"sky update current time", k.current_time}, {"sky update total time", k.total_time}, {"sky clouds density", k.clouds_density}, {"sky clouds density speed", k.clouds_speed} });
         cam.bools.push_back({"sky updating", k.updating});
     }
+    for (size_t i = 0; i < s.squad_list.entries.size(); ++i) {   // 0x1402deea0: per entry the string, the float, then the references (TYPE C I S CS, 0x1406bca80)
+        const KSquadListEntry& e = s.squad_list.entries[i]; const std::string n = std::to_string(i);
+        cam.strings.push_back({"sq" + n, e.name}); cam.floats.push_back({"sqtime" + n, e.time});
+        for (size_t j = 0; j < e.refs.size(); ++j) {
+            const std::string pre = n + ":sq list" + std::to_string(j); const KSquadRef& r = e.refs[j];
+            cam.ints.push_back({pre + "TYPE", r.type}); cam.ints.push_back({pre + "C", r.c}); cam.ints.push_back({pre + "I", r.i}); cam.ints.push_back({pre + "S", r.s}); cam.ints.push_back({pre + "CS", r.cs});
+        }
+    }
+    if (s.squad_list.has_prosperity) cam.floats.push_back({"prosperity", s.squad_list.prosperity});
     cam.vec3s = { {"pos", {s.camera[0], s.camera[1], s.camera[2]}} };
-    cam.strings = { {"pfaction name", s.faction_name}, {"version", s.version} };
+    cam.strings.insert(cam.strings.begin(), { {"pfaction name", s.faction_name}, {"version", s.version} });
     std::vector<md::fcs::Reference> zr; for (const auto& z : s.zones) { md::fcs::Reference r; r.values[0] = z.first; r.values[1] = z.second; r.values[2] = 1; zr.push_back(r); }   // exe 0x140375360: (x, z, 1) per active zone
     if (s.sky.present) {
         cam.vec3s.push_back({"sky ambient color mult", {s.sky.ambient[0], s.sky.ambient[1], s.sky.ambient[2]}});

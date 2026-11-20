@@ -47,6 +47,13 @@ struct KSky {
     float clouds_density = 0.25f, clouds_speed = 0.f;
 };
 
+// Squad list of the state record (exe writer 0x1402deea0, loader 0x1402df0c0): entry i is the string `sq<i>` (a data record name), the float `sqtime<i>` and a list of
+// references stored as ints under `<i>:sq list<j>` + TYPE / C / I / S / CS (0x1406bca80 writes, 0x1406bd210 + 0x1406bd000 read). `prosperity` (0x1402e0b90 / 0x1402e08d0) is a float
+// the exe keeps as a double. DEVIATION: the exe loader skips an entry whose name is not found in the game data and applies the rest onto its existing objects; this reader keeps every entry.
+struct KSquadRef { int type = 0, c = 0, i = 0, s = 0, cs = 0; };
+struct KSquadListEntry { std::string name; float time = 0.f; std::vector<KSquadRef> refs; };
+struct KSquadList { bool has_prosperity = false; float prosperity = 0.f; std::vector<KSquadListEntry> entries; };
+
 struct KenshiSave {
     int day = 1, hour = 12, minute = 0;
     int money = 0;
@@ -55,6 +62,7 @@ struct KenshiSave {
     std::vector<std::pair<int, int>> zones;
     KOrders orders;
     KSky sky;
+    KSquadList squad_list;
     std::vector<KSquad> squads;                     // the player's faction only
 };
 
