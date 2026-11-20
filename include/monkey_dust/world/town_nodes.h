@@ -2,7 +2,8 @@
 // The squad spawn nodes of the buildings around a point, in world metres (DE-364). The exe places a town's squad at a random LocationNode of node type 1 («general node»), else type 0 («shopkeeper node»);
 // nodes are the `is node` records (`node type`) placed inside a building's interior, which `data/newland/leveldata/interiors.level` stores per building type in building-local coordinates
 // (FCS units, 0.1 m). World position = the placed building's transform (the zone's `0-buildinglist`, as zone_buildings.h) applied to the local position.
-// DEVIATION: town membership by radius — every building placed within the circle counts as the town's, until the exe rule (which buildings the town handle owns) is read (docs/DEVIATIONS.md).
+// Exe read 20.11: the town OF A POINT (an NPC, a spawn) is the nearest town whose radius holds it (a 3x3 zone-cell search), the radius being TownRadiusM below (the exe radius virtual; the Hub: type 2, mult 1 -> 2500 m).
+// That is not the building list: the town handle's own building list is not read. DEVIATION: the buildings of a town are taken by position, every building placed within `size radius` (350 m for the Hub), (docs/DEVIATIONS.md).
 // UNKNOWN: the offset the exe adds to the node position, bar squads.
 #include <monkey_dust/io/fcs_gamedata.h>
 #include <monkey_dust/world/town_spawn.h>
@@ -11,6 +12,13 @@
 #include <vector>
 
 namespace md::world {
+
+// The exe's town radius in metres (read ok; the branch of a town without an owner object): by the town's `type` 2 -> 2500, 3 -> 937.5, 4 -> 875, 9 -> 437.5, 8 and 10 -> 0, others 1250,
+// times `town radius mult`, which the town init clamps to 0.1..5 (a value below 0.1 becomes 1; docs/research/TOWN_RESIDENTS_TRACE_2026-11-19.md).
+inline float TownRadiusM(int type, float mult) {
+    const float m = mult < 0.1f ? 1.f : (mult > 5.f ? 5.f : mult);
+    switch (type) { case 2: return m * 2500.f; case 3: return m * 937.5f; case 4: return m * 875.f; case 9: return m * 437.5f; case 8: case 10: return 0.f; default: return m * 1250.f; }
+}
 
 struct TownNode {
     std::string building;   // BUILDING record id of the placed building
