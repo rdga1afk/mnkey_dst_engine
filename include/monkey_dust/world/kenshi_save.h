@@ -59,6 +59,15 @@ struct KSquadRef { int type = 0, c = 0, i = 0, s = 0, cs = 0; };
 struct KSquadListEntry { std::string name; float time = 0.f; std::vector<KSquadRef> refs; };
 struct KSquadList { bool has_prosperity = false; float prosperity = 0.f; std::vector<KSquadListEntry> entries; };
 
+// Selection (exe writer 0x1407f3e60, loader 0x1407f3fb0) and the last shown biome text (0x140728af0 / 0x140728c10) of the state record. A reference that is not stored reads
+// as the exe's null reference (type 11, rest 0, DAT_141e3a600). `selected_characters` keys are the name + j + suffix, the two single ones the name + suffix.
+struct KSelection {
+    bool present = false;
+    std::vector<KSquadRef> characters;
+    KSquadRef character{11, 0, 0, 0, 0}, gui_object{11, 0, 0, 0, 0};
+};
+struct KBiomeText { bool present = false; float timer = 0.f; std::string name; };
+
 struct KenshiSave {
     int day = 1, hour = 12, minute = 0;
     int money = 0;
@@ -68,6 +77,8 @@ struct KenshiSave {
     KOrders orders;
     KSky sky;
     KSquadList squad_list;
+    KSelection selection;
+    KBiomeText biome_text;
     std::vector<KSquad> squads;                     // the player's faction only
 };
 

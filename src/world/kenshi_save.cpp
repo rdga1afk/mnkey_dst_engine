@@ -32,6 +32,16 @@ const OrderBool ORDER_BOOLS[] = { {"heal", &KOrders::heal}, {"help", &KOrders::h
                                   {"sleep", &KOrders::sleep}, {"ditch", &KOrders::ditch}, {"sit", &KOrders::sit}, {"eject", &KOrders::eject}, {"shootfirst", &KOrders::shootfirst} };
 
 md::fcs::Record Rec(int kind, int id, const std::string& name, const std::string& sid) { md::fcs::Record r; r.kind = kind; r.id = id; r.name = name; r.string_id = sid; return r; }
+// the five-int reference of 0x1406bca80 (write) / 0x1406bd000 (read): keys prefix + TYPE C I S CS; absent `I` reads the null reference
+void PushRef(md::fcs::Record& r, const std::string& pre, const KSquadRef& v) {
+    r.ints.push_back({pre + "TYPE", v.type}); r.ints.push_back({pre + "C", v.c}); r.ints.push_back({pre + "I", v.i}); r.ints.push_back({pre + "S", v.s}); r.ints.push_back({pre + "CS", v.cs});
+}
+bool ReadRef(const md::fcs::Record& r, const std::string& pre, KSquadRef& v) {
+    if (!FindInt(r, (pre + "I").c_str())) { v = KSquadRef{11, 0, 0, 0, 0}; return false; }
+    auto g = [&](const char* sfx) { const int32_t* x = FindInt(r, (pre + sfx).c_str()); return x ? (int)*x : 0; };
+    v.type = g("TYPE"); v.c = g("C"); v.i = g("I"); v.s = g("S"); v.cs = g("CS");
+    return true;
+}
 }  // namespace
 
 const std::vector<std::string>& StatKeys() {
@@ -90,12 +100,16 @@ bool ReadKenshiSave(const std::string& dir, KenshiSave& out, std::string& err) {
         if (!nm) break;
         KSquadListEntry e; e.name = *nm;
         if (const float* t = FindFloat(*cam, ("sqtime" + n).c_str())) e.time = *t;
-        for (int j = 0; FindInt(*cam, (n + ":sq list" + std::to_string(j) + "I").c_str()); ++j) {
-            const std::string pre = n + ":sq list" + std::to_string(j);
-            KSquadRef r; r.type = int_or0((pre + "TYPE").c_str()); r.c = int_or0((pre + "C").c_str()); r.i = int_or0((pre + "I").c_str()); r.s = int_or0((pre + "S").c_str()); r.cs = int_or0((pre + "CS").c_str());
-            e.refs.push_back(r);
-        }
+        for (int j = 0;; ++j) { KSquadRef r; if (!ReadRef(*cam, n + ":sq list" + std::to_string(j), r)) break; e.refs.push_back(r); }
         out.squad_list.entries.push_back(std::move(e));
+    }
+    // 0x1407f3fb0: the list while `selected_characters<j>I` exists, then the two single references; 0x140728c10: biome text timer (missing 0) and name
+    for (int j = 0;; ++j) { KSquadRef r; if (!ReadRef(*cam, "selected_characters" + std::to_string(j), r)) break; out.selection.characters.push_back(r); }
+    const bool has_sc = ReadRef(*cam, "selected_character", out.selection.character), has_go = ReadRef(*cam, "selected_gui_object", out.selection.gui_object);
+    out.selection.present = has_sc || has_go || !out.selection.characters.empty();
+    if (FindFloat(*cam, "biome_text_timer") || FindStr(*cam, "biome_text_groud")) {
+        out.biome_text.present = true; out.biome_text.timer = FindFloat(*cam, "biome_text_timer") ? *FindFloat(*cam, "biome_text_timer") : 0.f;
+        if (const std::string* v = FindStr(*cam, "biome_text_groud")) out.biome_text.name = *v;
     }
     for (const auto& cat : cam->references) if (cat.first == "zones") for (const md::fcs::Reference& z : cat.second) out.zones.emplace_back(z.values[0], z.values[1]);
 
@@ -175,10 +189,14 @@ bool WriteKenshiSave(const std::string& dir, const KenshiSave& s, std::string& e
         const KSquadListEntry& e = s.squad_list.entries[i]; const std::string n = std::to_string(i);
         cam.strings.push_back({"sq" + n, e.name}); cam.floats.push_back({"sqtime" + n, e.time});
         for (size_t j = 0; j < e.refs.size(); ++j) {
-            const std::string pre = n + ":sq list" + std::to_string(j); const KSquadRef& r = e.refs[j];
-            cam.ints.push_back({pre + "TYPE", r.type}); cam.ints.push_back({pre + "C", r.c}); cam.ints.push_back({pre + "I", r.i}); cam.ints.push_back({pre + "S", r.s}); cam.ints.push_back({pre + "CS", r.cs});
+            PushRef(cam, n + ":sq list" + std::to_string(j), e.refs[j]);
         }
     }
+    if (s.selection.present) {   // 0x1407f3e60
+        for (size_t j = 0; j < s.selection.characters.size(); ++j) PushRef(cam, "selected_characters" + std::to_string(j), s.selection.characters[j]);
+        PushRef(cam, "selected_character", s.selection.character); PushRef(cam, "selected_gui_object", s.selection.gui_object);
+    }
+    if (s.biome_text.present) { cam.floats.push_back({"biome_text_timer", s.biome_text.timer}); cam.strings.push_back({"biome_text_groud", s.biome_text.name}); }   // 0x140728af0
     if (s.squad_list.has_prosperity) cam.floats.push_back({"prosperity", s.squad_list.prosperity});
     cam.vec3s = { {"pos", {s.camera[0], s.camera[1], s.camera[2]}} };
     cam.strings.insert(cam.strings.begin(), { {"pfaction name", s.faction_name}, {"version", s.version} });
