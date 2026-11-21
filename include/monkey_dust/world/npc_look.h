@@ -9,9 +9,12 @@
 // DEVIATION: the exe's random helper is not read; draws come from a splitmix64 stream seeded by `seed`. Hair-colour pick read from the exe (weight = first int, 0 counts as 100, non-positive skipped); the random helper and the entries' `world state` filter are not ported.
 // UNKNOWN: skin tone and the other slider ranges (not read), the faction of a squad that has no `faction` reference.
 #include <monkey_dust/io/fcs_gamedata.h>
+#include <monkey_dust/io/kenshi_resources.h>
+#include <filesystem>
 #include <monkey_dust/world/town_spawn.h>
 #include <array>
 #include <cstdint>
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -81,6 +84,25 @@ inline NpcLook ResolveNpcLook(const md::fcs::GameDataContainer& data, const std:
         if (ci >= 0) { out.hair_colour = (*cols)[(size_t)ci].first; if (const auto* c = data.Get(out.hair_colour)) out.hair_argb = (uint32_t)detail::IntOf(c, "color 1"); }
     }
     out.resolved = true;
+    return out;
+}
+
+// The three head textures (diffuse, normal, mask) of a HEAD record as install paths; "" for a file the install lacks (normal may be empty). The normal and mask are named after the diffuse as the editor does:
+// head_diffuse_HI -> head_normal_HI / head_mask (the head variants share the mask: `<race>_head_mask.dds`).
+struct HeadFiles { std::string diffuse, normal, mask; bool ok() const { return !diffuse.empty() && !mask.empty(); } };   // no normal file (most head variants have none): the flat normal, as the editor does
+
+inline HeadFiles ResolveHeadFiles(const md::fcs::GameDataContainer& data, const md::KenshiResources& res, const std::string& head_id) {
+    HeadFiles out;
+    const auto* h = data.Get(head_id); if (!h) return out;
+    auto it = h->files.find("texture map"); if (it == h->files.end() || it->second.empty()) return out;
+    const std::string d = res.Path(it->second); if (d.empty()) return out;
+    out.diffuse = d;
+    auto sibling = [](const std::string& path, const char* from, const char* to) { const size_t i = path.find(from); return i == std::string::npos ? std::string() : path.substr(0, i) + to + path.substr(i + strlen(from)); };
+    auto exists = [](const std::string& p) { return !p.empty() && std::filesystem::exists(p); };
+    const std::string n = sibling(d, "_diffuse_HI", "_normal_HI"); if (exists(n)) out.normal = n;
+    std::string m = sibling(d, "_diffuse_HI", "_mask");
+    if (!exists(m)) { const size_t k = d.find("_head_"); m = k == std::string::npos ? std::string() : d.substr(0, k) + "_head_mask.dds"; }
+    if (exists(m)) out.mask = m;
     return out;
 }
 
