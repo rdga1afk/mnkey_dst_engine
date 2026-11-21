@@ -40,10 +40,11 @@ void Inverse(const double m[16], double o[16]) {   // cofactor expansion, as md_
 
 }  // namespace
 
-bool BuildHumanBody(const std::string& root, HumanBodyData& o) {
+bool BuildHumanBody(const std::string& root, HumanBodyData& o) { return BuildHumanBody(root, "human_male.mesh", o); }
+bool BuildHumanBody(const std::string& root, const std::string& mesh_file, HumanBodyData& o) {
     o = HumanBodyData{};
     md::KenshiResources res; res.Index(root);
-    const std::string mesh_path = res.Path("human_male.mesh");
+    const std::string mesh_path = res.Path(mesh_file);
     if (mesh_path.empty()) return false;
     md::ogre::Mesh m; md::ogre::Error err;
     if (!md::ogre::ReadMesh(mesh_path, m, err) || m.submeshes.empty()) return false;

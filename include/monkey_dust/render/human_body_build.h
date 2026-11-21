@@ -26,3 +26,5 @@ struct HumanBodyData {
 
 // The 14 clips md_human.glb holds, in the skeleton file's order.
 bool BuildHumanBody(const std::string& kenshi_root, HumanBodyData& out);
+// Any body mesh of the install by file name (e.g. "human_female.mesh"); the skeleton and clips are the ones the mesh names.
+bool BuildHumanBody(const std::string& kenshi_root, const std::string& mesh_file, HumanBodyData& out);
