@@ -6,7 +6,7 @@
 //  head : one of the race's `heads male` / `heads female` HEAD records that have a `texture map` file, weighted by the entry's first int.
 //  hair : one of the race's `hairs` ATTACHMENT records with `attach slot` 2; beard (males only): slot 13. Weight = entry's first int clamped to 1..100.
 //  hair colour: one entry of the race's `hair colors` (COLOR_DATA), weighted by the entry's first int; its `color 1` int is the ARGB colour.
-// DEVIATION: the exe's random helper is not read; draws come from a splitmix64 stream seeded by `seed`. The weights of `hair colors` are taken as the entry's first int (the exe lookup is not read).
+// DEVIATION: the exe's random helper is not read; draws come from a splitmix64 stream seeded by `seed`. Hair-colour pick read from the exe (weight = first int, 0 counts as 100, non-positive skipped); the random helper and the entries' `world state` filter are not ported.
 // UNKNOWN: skin tone and the other slider ranges (not read), the faction of a squad that has no `faction` reference.
 #include <monkey_dust/io/fcs_gamedata.h>
 #include <monkey_dust/world/town_spawn.h>
@@ -76,7 +76,8 @@ inline NpcLook ResolveNpcLook(const md::fcs::GameDataContainer& data, const std:
         if (!out.female) { const int bi = detail::PickWeighted(*hairs, rng, [&](const std::string& id) { return slotOf(id) == 13; }, clamp); if (bi >= 0) out.beard = (*hairs)[(size_t)bi].first; }
     }
     if (const auto* cols = race->Refs("hair colors")) {
-        const int ci = detail::PickWeighted(*cols, rng, any, raceWeight);
+        auto colW = [](const std::pair<std::string, std::array<int32_t, 3>>& e) { return (float)(e.second[0] == 0 ? 100 : e.second[0]); };   // a zero first int counts as 100
+        const int ci = detail::PickWeighted(*cols, rng, any, colW);
         if (ci >= 0) { out.hair_colour = (*cols)[(size_t)ci].first; if (const auto* c = data.Get(out.hair_colour)) out.hair_argb = (uint32_t)detail::IntOf(c, "color 1"); }
     }
     out.resolved = true;
