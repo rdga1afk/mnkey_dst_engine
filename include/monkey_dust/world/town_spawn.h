@@ -31,6 +31,7 @@ struct TownSpawnList {
     bool found = false;
     std::string owner;                       // string id of the owner faction record ("nofac" when the town has no `faction`)
     std::vector<std::string> templates;      // resident templates in order (town first, then owner)
+    std::vector<int> priorities;             // per template: the residents entry's second integer, stored 100 -> 0 (count = first integer, role UNKNOWN)
     std::vector<TownSpawnEntry> anonymous, named;
 };
 
@@ -51,7 +52,7 @@ inline TownSpawnList MakeTownSpawnList(const md::fcs::GameDataContainer& data, c
     TownSpawnList out; const md::fcs::GameData* town = data.Get(town_id);
     if (!town || town->kind != kTownKind) return out;
     out.found = true; out.owner = TownOwner(*town);
-    auto add = [&](const md::fcs::GameData* g) { if (!g) return; if (const auto* r = g->Refs("residents")) for (const auto& e : *r) out.templates.push_back(e.first); };
+    auto add = [&](const md::fcs::GameData* g) { if (!g) return; if (const auto* r = g->Refs("residents")) for (const auto& e : *r) { out.templates.push_back(e.first); out.priorities.push_back(e.second[1] == 100 ? 0 : e.second[1]); } };
     add(town);
     if (!detail::Flag(town, "residents override")) add(data.Get(out.owner));
     static const struct { const char* cat; int state; } kCats[] = { {"leader", 2}, {"squad", 0}, {"squad2", 1}, {"animals", 0}, {"animals2", 1} };

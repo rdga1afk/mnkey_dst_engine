@@ -70,7 +70,7 @@ inline const TownNode* SquadSpawnNode(const std::vector<TownNode>& nodes, int pl
 }
 
 // Housing: the wanted-building table is walked in six passes, priority 5 down to 0; an entry with count left takes the next squad without a house and its count drops by one (DE-364).
-// UNKNOWN: where the exe gets each entry's priority and count (the registration is not read), and the pick weights of the exe (interior 1.0, exterior 0.4, preferred x10, avoided x0.05) are not applied:
+// Priority and count of an entry come from the town's `residents` entry (see AssignTemplateHomes); the pick weights of the exe (interior 1.0, exterior 0.4, preferred x10, avoided x0.05) are not applied:
 // the table is the caller's input and an entry names its building by `placed`. Returns for each squad the `placed` index it got, -1 for a squad left without.
 struct WantedBuilding { int placed = -1; int priority = 0; int count = 0; };
 inline std::vector<int> AssignHousing(std::vector<WantedBuilding> table, size_t squads) {
@@ -83,12 +83,38 @@ inline std::vector<int> AssignHousing(std::vector<WantedBuilding> table, size_t 
     return home;
 }
 
+// Housing of resident templates (DE-364): templates are served in priority order 5 down to 0 (list order inside a priority); each takes, through AssignHousing, the first
+// placed building of its `building` set that no earlier template took. -1 = no free wanted building (the member then uses ChooseSpawnNode). DEVIATION: one house per template, the pick weights
+// of the exe (interior 1.0, exterior 0.4, preferred x10, avoided x0.05) and the meaning of the entry count are not applied.
+inline std::vector<int> AssignTemplateHomes(const md::fcs::GameDataContainer& data, const TownSpawnList& list, const std::vector<TownNode>& nodes) {
+    std::vector<int> home(list.templates.size(), -1), taken;
+    std::vector<int> order; for (int p = 5; p >= 0; --p) for (size_t i = 0; i < list.templates.size(); ++i) if (i < list.priorities.size() && list.priorities[i] == p) order.push_back((int)i);
+    for (int i : order) {
+        const md::fcs::GameData* t = data.Get(list.templates[(size_t)i]); const auto* wanted = t ? t->Refs("building") : nullptr; if (!wanted) continue;
+        std::vector<WantedBuilding> table; std::vector<int> seen;
+        for (const auto& n : nodes) {
+            bool want = false; for (const auto& w : *wanted) if (w.first == n.building) { want = true; break; }
+            bool dup = false; for (int q : seen) if (q == n.placed) dup = true; for (int q : taken) if (q == n.placed) dup = true;
+            if (!want || dup || n.placed < 0) continue;
+            seen.push_back(n.placed); table.push_back({ n.placed, list.priorities[(size_t)i], 1 });
+        }
+        if (table.empty()) continue;
+        home[(size_t)i] = AssignHousing(table, 1)[0]; taken.push_back(home[(size_t)i]);
+    }
+    return home;
+}
+
 // The placer for PlanTownSpawn: every member goes to ChooseSpawnNode with a draw from a splitmix64 stream of `seed`, so the same seed gives the same positions. A member with no node is not placed.
 struct NodePlacer {
     const std::vector<TownNode>& nodes; uint64_t state;
+    const TownSpawnList* list = nullptr; const std::vector<int>* homes = nullptr;   // optional housing: homes[i] = AssignTemplateHomes for list->templates[i]
     NodePlacer(const std::vector<TownNode>& n, uint32_t seed) : nodes(n), state(0x5851f42d4c957f2dull ^ seed) {}
-    bool operator()(const TownSpawnEntry&, size_t, float& x, float& z, float& y) {   // y = the node's own world height (building transform applied to the local node)
-        const TownNode* n = ChooseSpawnNode(nodes, (uint32_t)(detail::Mix(state) >> 32)); if (!n) return false;
+    bool operator()(const TownSpawnEntry& e, size_t, float& x, float& z, float& y) {   // y = the node's own world height (building transform applied to the local node)
+        const uint32_t r = (uint32_t)(detail::Mix(state) >> 32);
+        const TownNode* n = nullptr;
+        if (list && homes) for (size_t i = 0; i < list->templates.size() && i < homes->size(); ++i) if (list->templates[i] == e.template_id && (*homes)[i] >= 0) { n = SquadSpawnNode(nodes, (*homes)[i], r); break; }
+        if (!n) n = ChooseSpawnNode(nodes, r);
+        if (!n) return false;
         x = n->x; z = n->z; y = n->y; return true;
     }
 };
